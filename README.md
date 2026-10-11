@@ -24,6 +24,7 @@ npm run dev        # then open http://localhost:5173
 | `R` | Toggle run (2 tiles per tick) / walk (1 tile) |
 | Hover an item | Stats tooltip: speed, range, bonuses, requirements, comparison with what you wear, value |
 | `Shift` + click item | Drop it (left-click option becomes Drop while Shift is held) |
+| `A` / `L` | Achievements / Collection log (also buttons at the bottom of the side panel) |
 | `M` | Mute sound |
 | `H` | Show controls in chat |
 | `Esc` | Close windows |
@@ -46,6 +47,10 @@ npm run dev        # then open http://localhost:5173
   while trading) and treasure chests. Careful: about 1 in 10 chests from floor 3 down is a Mimic.
 - **Forfeit** any time with the [Forfeit run] button (bottom of the side panel); it asks first and banks tokens the
   same as dying.
+- **Achievements**: 34 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
+  challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
+- **Collection log**: every notable drop from bosses, monsters and chests, with kill counts. Bosses have a 1/50
+  pet drop; choose which pet follows you from the log.
 - **Death** ends the run and banks tokens: 15 per floor, 1 per kill, 25 per boss, plus carried coins.
 
 ## Development

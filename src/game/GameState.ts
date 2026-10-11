@@ -17,6 +17,8 @@ import { WEAKNESS_PENALTY } from '../data/npcs';
 import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
 import { MIMIC_CHANCE, mimicFor } from '../data/npcs';
 import { chestLoot } from '../data/loot';
+import { PET_CHANCE } from '../data/collectionLog';
+import type { Counter } from '../data/achievements';
 import { sellPriceOf } from '../data/prices';
 
 const ELEMENTAL_RUNES = ['air_rune', 'water_rune', 'earth_rune', 'fire_rune'];
@@ -39,6 +41,11 @@ export type GameEvent =
   | { type: 'death' }
   | { type: 'enterDungeon' }
   | { type: 'relicChoice'; options: string[] }
+  // Progress tracking (achievements, collection log); see ProgressTracker.
+  | { type: 'kill'; npcId: string; boss: boolean; style: AttackType; weakness: boolean; flawless: boolean }
+  | { type: 'obtain'; item: string; qty: number; source: string }
+  | { type: 'stat'; key: Counter; amount: number }
+  | { type: 'pet'; bossId: string }
   | { type: 'sound'; name: SoundName }
   | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
@@ -108,6 +115,10 @@ export class GameState {
   mods: RunMods;
   /** Undying perk: whether the one cheat-death has been used this run. */
   undyingUsed = false;
+  /** Per-run facts some achievements need. */
+  runStats = { foodEaten: 0, killStyles: new Set<AttackType>() };
+  /** Damage each boss has dealt this run (for "Untouchable"). */
+  private bossDamage = new Map<Npc, number>();
   /** The run ended by choice rather than death. */
   forfeited = false;
   /** Relics picked this run. */
@@ -207,6 +218,11 @@ export class GameState {
     this.emit({ type: 'floor', depth });
   }
 
+  /** Counts toward a lifetime statistic (achievements). */
+  stat(key: Counter, amount = 1): void {
+    this.emit({ type: 'stat', key, amount });
+  }
+
   /** Asks the renderer to play a sound effect (the rules stay audio-free). */
   sound(name: SoundName): void {
     this.emit({ type: 'sound', name });
@@ -292,6 +308,7 @@ export class GameState {
     }
     inv.remove('coins', cost);
     inv.add(entry.id, bundle);
+    this.stat('purchases');
     entry.qty -= bundle;
     this.sound('buy');
     return true;
@@ -335,7 +352,9 @@ export class GameState {
       return;
     }
     const got: string[] = [];
+    this.stat('chests');
     for (const { id, qty } of chestLoot(this.depth)) {
+      this.emit({ type: 'obtain', item: id, qty, source: 'chest' });
       if (!this.player.inventory.add(id, qty)) this.dropOnTile(id, qty, this.player.pos);
       got.push(`${qty > 1 ? `${qty} x ` : ''}${item(id).name}`);
     }
@@ -368,6 +387,7 @@ export class GameState {
   chooseRelic(id: string): void {
     if (!this.pendingRelics?.includes(id)) return;
     this.relics.push(id);
+    this.stat('relics');
     this.pendingRelics = null;
     this.message(`You gain the ${RELIC_BY_ID[id].name}: ${RELIC_BY_ID[id].desc}`);
     this.sound('levelup');
@@ -438,11 +458,13 @@ export class GameState {
       p.eatCooldown = EAT_DELAY;
       p.attackCooldown += EAT_DELAY;
       this.message(`You eat the ${def.name.toLowerCase()}. It heals some health.`);
+      this.runStats.foodEaten++;
       this.sound('eat');
     } else if (def.buryXp) {
       p.inventory.take(slot, 1);
       this.message('You bury the bones.');
       this.sound('bury');
+      this.stat('bones');
       this.giveXp('prayer', def.buryXp);
     } else if (def.equip) {
       const req = def.equip.req;
@@ -974,6 +996,16 @@ export class GameState {
   private killNpc(npc: Npc): void {
     this.npcs.splice(this.npcs.indexOf(npc), 1);
     this.kills++;
+    const style = this.player.weaponType;
+    this.runStats.killStyles.add(style);
+    this.emit({
+      type: 'kill', npcId: npc.def.id, boss: npc.isBoss, style, weakness: npc.def.weakness === style,
+      flawless: npc.isBoss && (this.bossDamage.get(npc) ?? 0) === 0,
+    });
+    if (npc.isBoss && rand() < PET_CHANCE) {
+      this.message('You have a funny feeling like you\'re being followed.');
+      this.emit({ type: 'pet', bossId: npc.def.id });
+    }
     if (npc.isBoss) {
       this.bossKills++;
       this.message(`Congratulations, you have defeated ${npc.name}! The way down is open.`);
@@ -996,8 +1028,10 @@ export class GameState {
       }
       if (item(d.item).stackable) {
         this.groundItems.push(new GroundItem(d.item, qty, { ...npc.pos }));
+        this.emit({ type: 'obtain', item: d.item, qty, source: npc.def.id });
       } else {
         for (let i = 0; i < qty; i++) this.groundItems.push(new GroundItem(d.item, 1, { ...npc.pos }));
+        this.emit({ type: 'obtain', item: d.item, qty, source: npc.def.id });
       }
     }
   }
@@ -1073,7 +1107,9 @@ export class GameState {
   /** Applies an NPC hit to the player, blocked entirely by the matching protection prayer. */
   private landHit(npc: Npc, style: AttackType, damage: number): void {
     const p = this.player;
-    let dmg = p.isProtectedFrom(style) ? 0 : damage;
+    const blocked = p.isProtectedFrom(style) && damage > 0;
+    if (blocked) this.stat('blocks');
+    let dmg = blocked ? 0 : damage;
     if (dmg > 0 && this.hasRelic('dragon_defender')) dmg -= 1;
     dmg = Math.min(p.hp, dmg);
     if (dmg > 0 && this.hasRelic('ring_of_recoil') && !npc.dead && this.npcs.includes(npc)) {
@@ -1086,6 +1122,7 @@ export class GameState {
       dmg = p.hp - 1;
       this.message('You narrowly cheat death! (Undying)');
     }
+    if (npc.isBoss && dmg > 0) this.bossDamage.set(npc, (this.bossDamage.get(npc) ?? 0) + dmg);
     this.applyHit(p, dmg);
     // Auto-retaliate when idle or skilling.
     const busy = p.intent?.kind;

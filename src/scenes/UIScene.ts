@@ -11,12 +11,16 @@ import { SPELLS, SPELL_BY_ID } from '../data/spells';
 import { RELIC_BY_ID } from '../data/relics';
 import { sellPriceOf } from '../data/prices';
 import { itemInfo, speedText } from '../ui/itemInfo';
-import { ensureItemTexture } from '../render/sprites';
+import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, tierOf } from '../data/achievements';
+import { ALL_LOG_SLOTS, LOG_CATEGORIES, PET_BY_ID } from '../data/collectionLog';
+import type { Notice } from '../meta/tracker';
+import { ensureItemTexture, npcSprite } from '../render/sprites';
 import { sfx } from '../audio/sfx';
 
 const CONTROLS = [
   'Controls: left-click to walk, attack, take or use. Right-click for all options.',
   '1 / 2 / 3: Protect from Magic / Missiles / Melee.  R: run/walk.  M: mute.  Esc: close windows.',
+  'A: achievements.  L: collection log (pick your pet there).',
   'Click the minimap to walk there. Hover skills for XP details, items for stats. Shift-click items to drop.',
 ];
 import { BRANCHES, PERKS, nextRankCost, perkBlocker } from '../data/skillTree';
@@ -38,7 +42,7 @@ const PANEL_BG = 0x3e3529;
 const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
-type ModalKind = 'mentor' | 'toolsmith' | 'merchant';
+type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log';
 const TABS: Array<[Tab, string]> = [['inventory', 'Items'], ['prayer', 'Prayer'], ['magic', 'Magic'], ['gear', 'Gear']];
 const TAB_W = 50;
 
@@ -104,6 +108,9 @@ export class UIScene extends Phaser.Scene {
   private relicPanel!: Phaser.GameObjects.Container;
   private relicText!: Phaser.GameObjects.Text;
   private modalKind: ModalKind | null = null;
+  private logCategory = LOG_CATEGORIES[0].id;
+  /** Toasts currently on screen (stacked downwards). */
+  private toasts = 0;
   private minimap!: Phaser.GameObjects.Graphics;
   private minimapRect = new Phaser.Geom.Rectangle();
   private tooltip!: Phaser.GameObjects.Container;
@@ -139,11 +146,14 @@ export class UIScene extends Phaser.Scene {
     bus.on('death', () => this.deathOverlay.setVisible(true));
     bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
     bus.on('relicChoice', () => this.showRelicChoice());
+    bus.on('notice', (n: Notice) => this.toast(n));
     this.input.keyboard?.on('keydown-ESC', () => {
       if (this.forfeitConfirm) this.closeForfeitConfirm();
       else this.closeModal();
     });
     this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
+    this.input.keyboard?.on('keydown-A', () => this.toggleModal('achievements'));
+    this.input.keyboard?.on('keydown-L', () => this.toggleModal('log'));
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
     this.input.keyboard?.on('keydown-R', () => this.dungeon.setRunning(!this.dungeon.running));
@@ -318,6 +328,15 @@ export class UIScene extends Phaser.Scene {
     root.add(this.bossBar);
 
     this.soundText = this.add.text(W - 8, H - 4, '', { ...FONT, fontSize: '10px', color: '#a08a5a' }).setOrigin(1, 1);
+    const footerButton = (x: number, label: string, kind: 'achievements' | 'log') => {
+      const b = this.add.text(x, H - 17, label, { ...FONT, fontSize: '10px', color: '#ffd040' }).setOrigin(0, 1)
+        .setInteractive({ useHandCursor: true });
+      b.on('pointerdown', () => this.toggleModal(kind));
+      this.hoverable(b, () => `Open ${label.slice(1, -1)} (${kind === 'log' ? 'L' : 'A'})`);
+      root.add(b);
+    };
+    footerButton(px + 8, '[Achievements]', 'achievements');
+    footerButton(px + 110, '[Collection log]', 'log');
     this.forfeitButton = this.add.text(px + 8, H - 4, '[Forfeit run]', { ...FONT, fontSize: '10px', color: '#d06060' })
       .setOrigin(0, 1).setInteractive({ useHandCursor: true });
     this.forfeitButton.on('pointerdown', () => this.showForfeitConfirm());
@@ -462,19 +481,148 @@ export class UIScene extends Phaser.Scene {
     const W = this.panelX;
     const H = this.scale.height;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.modal.add(o), o);
-    add(this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setInteractive());
-    const title = { mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant' }[kind];
+    add(this.add.rectangle(0, 0, W, H, 0x0c0a08, 0.94).setOrigin(0).setInteractive());
+    const title = {
+      mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
+      achievements: 'Achievements', log: 'Collection Log',
+    }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
-    const currency = kind === 'merchant'
-      ? `Coins: ${this.state.player.inventory.count('coins').toLocaleString()}   (the game is paused)`
-      : `Dungeoneering tokens: ${this.dungeon.meta.tokens}`;
+    const meta = this.dungeon.meta;
+    const currency = {
+      merchant: `Coins: ${this.state.player.inventory.count('coins').toLocaleString()}   (the game is paused)`,
+      achievements: `Completed ${meta.achievements.length} / ${ACHIEVEMENTS.length}   Tokens earned: ${meta.achievements
+        .reduce((n, id) => n + tierOf(ACHIEVEMENT_BY_ID[id]).reward, 0)}`,
+      log: `Unique items: ${ALL_LOG_SLOTS.filter((id) => meta.collection[id]).length} / ${ALL_LOG_SLOTS.length}`,
+      mentor: `Dungeoneering tokens: ${meta.tokens}`,
+      toolsmith: `Dungeoneering tokens: ${meta.tokens}`,
+    }[kind];
     add(this.add.text(W / 2, 54, currency, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
     const close = add(this.add.text(W - 16, 16, '[ X ]', { ...FONT, fontSize: '16px', color: '#ff6060' }).setOrigin(1, 0)
       .setInteractive({ useHandCursor: true }));
     close.on('pointerdown', () => this.closeModal());
     if (kind === 'mentor') this.buildSkillTree(add);
     else if (kind === 'merchant') this.buildMerchant(add);
+    else if (kind === 'achievements') this.buildAchievements(add);
+    else if (kind === 'log') this.buildCollectionLog(add);
     else this.buildToolsmith(add);
+  }
+
+  /** Hotkeys toggle these windows; they never replace a shop or relic choice in progress. */
+  private toggleModal(kind: 'achievements' | 'log'): void {
+    if (this.modalKind === kind) this.closeModal();
+    else if (!this.modalKind || this.modalKind === 'achievements' || this.modalKind === 'log') this.openModal(kind);
+  }
+
+  /** Two columns of achievements grouped by tier, with progress for counter goals. */
+  private buildAchievements(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const meta = this.dungeon.meta;
+    const W = this.panelX;
+    const colW = Math.min(480, (W - 50) / 2);
+    const rowH = 26;
+    const columns: Array<typeof TIERS> = [TIERS.slice(0, 2), TIERS.slice(2)];
+    columns.forEach((tiers, col) => {
+      const x = W / 2 + (col === 0 ? -colW - 8 : 8);
+      let y = 86;
+      for (const tier of tiers) {
+        const list = ACHIEVEMENTS.filter((a) => a.tier === tier.id);
+        const done = list.filter((a) => meta.achievements.includes(a.id)).length;
+        add(this.add.text(x, y, `${tier.name}  (${done}/${list.length}, ${tier.reward} tokens each)`, {
+          ...FONT, fontSize: '13px', color: Phaser.Display.Color.IntegerToColor(tier.color).rgba,
+        }));
+        y += 20;
+        for (const a of list) {
+          const complete = meta.achievements.includes(a.id);
+          add(this.add.rectangle(x, y, colW, rowH - 2, complete ? 0x2a3a22 : 0x2a241c).setOrigin(0));
+          add(this.add.text(x + 6, y + 1, `${complete ? '[x]' : '[ ]'} ${a.name}`, {
+            ...FONT, fontSize: '12px', color: complete ? '#80ff80' : '#ffffff',
+          }));
+          add(this.add.text(x + 6, y + 13, a.desc, { ...FONT, fontSize: '10px', color: '#b8b0a0' }));
+          const prog = this.dungeon.achievementProgress(a);
+          if (prog && !complete) {
+            const [cur, target] = prog;
+            add(this.add.rectangle(x + colW - 86, y + 9, 80, 6, 0x1c1812).setOrigin(0));
+            add(this.add.rectangle(x + colW - 86, y + 9, 80 * (cur / target), 6, tier.color).setOrigin(0));
+            add(this.add.text(x + colW - 90, y + 6, `${cur}/${target}`, { ...FONT, fontSize: '10px', color: '#c8c8c8' }).setOrigin(1, 0));
+          }
+          y += rowH;
+        }
+        y += 8;
+      }
+    });
+  }
+
+  /** Category list on the left, that page's slots on the right (dim = not yet obtained). */
+  private buildCollectionLog(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const meta = this.dungeon.meta;
+    const W = this.panelX;
+    const listX = Math.max(16, W / 2 - 380);
+    LOG_CATEGORIES.forEach((cat, i) => {
+      const got = cat.slots.filter((id) => meta.collection[id]).length;
+      const selected = cat.id === this.logCategory;
+      const row = add(this.add.text(listX, 90 + i * 26, `${cat.name.padEnd(18)} ${got}/${cat.slots.length}`, {
+        ...FONT, fontSize: '12px', color: got === cat.slots.length ? '#80ff80' : '#ffffff',
+        backgroundColor: selected ? '#5d5447' : '#2a241c', padding: { x: 6, y: 4 }, fixedWidth: 220,
+      }).setInteractive({ useHandCursor: true }));
+      row.on('pointerdown', () => {
+        this.logCategory = cat.id;
+        this.openModal('log');
+      });
+    });
+
+    const cat = LOG_CATEGORIES.find((c) => c.id === this.logCategory) ?? LOG_CATEGORIES[0];
+    const gx = listX + 240;
+    add(this.add.text(gx, 88, cat.name, { ...FONT, fontSize: '16px', color: '#ff981f' }));
+    if (cat.killCountOf) {
+      const kc = meta.killCounts[cat.killCountOf] ?? 0;
+      add(this.add.text(gx, 110, `${cat.killCountOf === 'mimic' ? 'Mimics' : cat.name} killed: ${kc}`, { ...FONT, fontSize: '12px', color: '#c8c8c8' }));
+    }
+    const caption = add(this.add.text(gx, 130, 'Hover a slot to see what it is.', { ...FONT, fontSize: '12px', color: '#ffffff' }));
+    const cell = 46;
+    const perRow = Math.max(4, Math.floor((W - gx - 20) / cell));
+    cat.slots.forEach((id, i) => {
+      const x = gx + (i % perRow) * cell;
+      const y = 152 + Math.floor(i / perRow) * cell;
+      const count = meta.collection[id] ?? 0;
+      const pet = PET_BY_ID[id];
+      const bg = add(this.add.rectangle(x, y, cell - 4, cell - 4, count ? 0x3e3529 : 0x1c1812).setOrigin(0).setInteractive());
+      const ref = pet ? { key: npcSprite(pet.bossId), tint: undefined } : ensureItemTexture(this, id);
+      const icon = add(this.add.image(x + cell / 2 - 2, y + cell / 2 - 2, ref.key).setScale(pet ? 0.9 : 1));
+      if (ref.tint !== undefined) icon.setTint(ref.tint);
+      if (!count) icon.setTint(0x000000).setAlpha(0.35); // silhouette until obtained
+      if (count > 1) add(this.add.text(x + 2, y + 1, String(count), { ...FONT, fontSize: '10px' }));
+      const name = pet ? pet.name : item(id).name;
+      bg.on('pointerover', () => caption.setText(count ? `${name}: obtained ${count}` : `${name}: not obtained yet`));
+      if (pet && count) {
+        const active = meta.activePet === id;
+        if (active) bg.setStrokeStyle(2, 0xffd040);
+        bg.setInteractive({ useHandCursor: true });
+        bg.on('pointerover', () => caption.setText(`${name}: ${active ? 'following you (click to dismiss)' : 'click to have it follow you'}`));
+        bg.on('pointerdown', () => {
+          this.dungeon.setActivePet(active ? null : id);
+          this.openModal('log');
+        });
+      }
+    });
+  }
+
+  /** Brief banner for unlocks; several queue up one after another. */
+  private toast(n: Notice): void {
+    const text = n.kind === 'achievement' ? `Achievement completed: ${n.name}  (+${n.reward} tokens)`
+      : n.kind === 'pet' ? `New pet: ${n.name}! It will follow you (change it in the Collection log).`
+        : `Collection log: ${n.name}`;
+    const color = n.kind === 'collection' ? '#ffffff' : '#ffd040';
+    // Just above the chatbox, stacking upwards, so they never cover window headers.
+    const t = this.add.text(this.panelX / 2, this.scale.height - CHAT_H - 8 - this.toasts * 28, text, {
+      ...FONT, fontSize: '14px', color, backgroundColor: '#2a241ce0', padding: { x: 10, y: 4 },
+    }).setOrigin(0.5, 1).setDepth(45);
+    this.toasts++;
+    this.tweens.add({
+      targets: t, alpha: 0, delay: 3000, duration: 600,
+      onComplete: () => {
+        t.destroy();
+        this.toasts--;
+      },
+    });
   }
 
   /** Buy list on the left, your sellable inventory on the right. */

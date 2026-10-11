@@ -1,5 +1,6 @@
 import { NO_TOOLS, Toolbelt } from '../data/tools';
 import { PerkRanks } from '../data/skillTree';
+import type { Counter } from '../data/achievements';
 
 /** Progress that survives between runs. */
 export interface MetaSave {
@@ -9,6 +10,16 @@ export interface MetaSave {
   perks: PerkRanks;
   runs: number;
   bestDepth: number;
+  /** Collection log: item or pet id -> times obtained. */
+  collection: Record<string, number>;
+  /** Lifetime kill count per monster id. */
+  killCounts: Record<string, number>;
+  /** Completed achievement ids. */
+  achievements: string[];
+  lifetime: Partial<Record<Counter, number>>;
+  pets: string[];
+  /** Pet that follows you around, if any. */
+  activePet: string | null;
 }
 
 const KEY = 'tickbound.meta';
@@ -16,7 +27,10 @@ const KEY = 'tickbound.meta';
 const LEGACY_KEY = 'roguescape.meta';
 
 export function freshMeta(): MetaSave {
-  return { version: 1, tokens: 0, tools: { ...NO_TOOLS }, perks: {}, runs: 0, bestDepth: 0 };
+  return {
+    version: 1, tokens: 0, tools: { ...NO_TOOLS }, perks: {}, runs: 0, bestDepth: 0,
+    collection: {}, killCounts: {}, achievements: [], lifetime: {}, pets: [], activePet: null,
+  };
 }
 
 export function loadMeta(): MetaSave {
@@ -24,7 +38,12 @@ export function loadMeta(): MetaSave {
     const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
     if (!raw) return freshMeta();
     const parsed = JSON.parse(raw) as Partial<MetaSave>;
-    return { ...freshMeta(), ...parsed, tools: { ...NO_TOOLS, ...parsed.tools }, perks: { ...parsed.perks } };
+    // Older saves lack the newer fields; fill them with defaults.
+    return {
+      ...freshMeta(), ...parsed, tools: { ...NO_TOOLS, ...parsed.tools }, perks: { ...parsed.perks },
+      collection: { ...parsed.collection }, killCounts: { ...parsed.killCounts }, lifetime: { ...parsed.lifetime },
+      achievements: [...(parsed.achievements ?? [])], pets: [...(parsed.pets ?? [])],
+    };
   } catch {
     return freshMeta();
   }
