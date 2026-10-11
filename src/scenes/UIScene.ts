@@ -10,6 +10,7 @@ import { PRAYERS, PROTECTION_HOTKEYS } from '../data/prayers';
 import { SPELLS, SPELL_BY_ID } from '../data/spells';
 import { RELIC_BY_ID } from '../data/relics';
 import { sellPriceOf } from '../data/prices';
+import { itemInfo, speedText } from '../ui/itemInfo';
 import { ensureItemTexture } from '../render/sprites';
 import { sfx } from '../audio/sfx';
 
@@ -36,9 +37,10 @@ const FONT = { fontFamily: 'monospace', fontSize: '13px', color: '#ffff00' };
 const PANEL_BG = 0x3e3529;
 const PANEL_EDGE = 0x1c1812;
 
-type Tab = 'inventory' | 'prayer' | 'magic';
+type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant';
-const TABS: Array<[Tab, string]> = [['inventory', 'Inventory'], ['prayer', 'Prayer'], ['magic', 'Magic']];
+const TABS: Array<[Tab, string]> = [['inventory', 'Items'], ['prayer', 'Prayer'], ['magic', 'Magic'], ['gear', 'Gear']];
+const TAB_W = 50;
 
 /** Style button labels and what each trains, per weapon type. */
 const STYLE_INFO: Record<'melee' | 'ranged' | 'magic', Array<[string, string]>> = {
@@ -80,7 +82,10 @@ export class UIScene extends Phaser.Scene {
   private prayerBar!: Phaser.GameObjects.Rectangle;
   private tab: Tab = 'inventory';
   private tabButtons = new Map<Tab, Phaser.GameObjects.Text>();
-  private tabObjects: Record<Tab, Phaser.GameObjects.GameObject[]> = { inventory: [], prayer: [], magic: [] };
+  private tabObjects: Record<Tab, Phaser.GameObjects.GameObject[]> = { inventory: [], prayer: [], magic: [], gear: [] };
+  private gearText!: Phaser.GameObjects.Text;
+  /** Item under the pointer in the inventory or equipment list, for the stats tooltip. */
+  private hoveredItem: (() => string | undefined) | null = null;
   private spellCells = new Map<string, { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text }>();
   private autocastText!: Phaser.GameObjects.Text;
   private prayerCells = new Map<string, { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text }>();
@@ -245,6 +250,7 @@ export class UIScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
       t.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPanelClick(p, this.equipmentOptions(slot)));
       this.hoverable(t, () => this.describe(this.equipmentOptions(slot)));
+      this.itemHover(t, () => this.state.player.equipment[slot]);
       this.equipTexts.set(slot, t);
       root.add(t);
     });
@@ -254,11 +260,11 @@ export class UIScene extends Phaser.Scene {
     root.add(this.toolText);
     y += 2 * 16 + 4;
 
-    this.tabObjects = { inventory: [], prayer: [], magic: [] };
+    this.tabObjects = { inventory: [], prayer: [], magic: [], gear: [] };
     this.tabButtons.clear();
     TABS.forEach(([tab, label], i) => {
-      const b = this.add.text(px + 10 + i * 73, y, label, {
-        ...FONT, fontSize: '12px', backgroundColor: '#2a241c', padding: { x: 4, y: 3 }, fixedWidth: 68, align: 'center',
+      const b = this.add.text(px + 10 + i * (TAB_W + 4), y, label, {
+        ...FONT, fontSize: '12px', backgroundColor: '#2a241c', padding: { x: 2, y: 3 }, fixedWidth: TAB_W, align: 'center',
       }).setInteractive({ useHandCursor: true });
       b.on('pointerdown', () => this.setTab(tab));
       this.hoverable(b, () => `Open ${label}`);
@@ -269,6 +275,8 @@ export class UIScene extends Phaser.Scene {
 
     this.buildPrayerBook(px, y);
     this.buildSpellbook(px, y);
+    this.gearText = this.add.text(px + 12, y + 2, '', { ...FONT, fontSize: '11px', color: '#ffffff', lineSpacing: 3 });
+    this.tabObjects.gear.push(this.gearText);
     const gridX = px + (PANEL_W - SLOT * 4) / 2;
     for (let i = 0; i < INVENTORY_SIZE; i++) {
       const sx = gridX + (i % 4) * SLOT;
@@ -281,11 +289,12 @@ export class UIScene extends Phaser.Scene {
       const qty = this.add.text(sx + 3, sy + 2, '', { ...FONT, fontSize: '11px' });
       bg.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPanelClick(p, this.inventoryOptions(i)));
       this.hoverable(bg, () => this.describe(this.inventoryOptions(i)));
+      this.itemHover(bg, () => this.state.player.inventory.slots[i]?.id);
       this.slots.push({ icon, label, qty });
       root.add([bg, icon, label, qty]);
       this.tabObjects.inventory.push(bg, icon, label, qty);
     }
-    for (const o of [...this.tabObjects.prayer, ...this.tabObjects.magic]) root.add(o);
+    for (const o of [...this.tabObjects.prayer, ...this.tabObjects.magic, ...this.tabObjects.gear]) root.add(o);
     this.setTab(this.tab);
 
     // ---- Boss HP bar (top centre of the game view) ----
@@ -704,24 +713,81 @@ export class UIScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: 4, alpha: 0, duration: 1600, onComplete: () => t.destroy() });
   }
 
-  private updateTooltip(): void {
+  /** Tracks which item `obj` shows, so hovering it brings up its stats tooltip. */
+  private itemHover(obj: Phaser.GameObjects.GameObject, id: () => string | undefined): void {
+    obj.on('pointerover', () => (this.hoveredItem = id));
+    obj.on('pointerout', () => this.hoveredItem === id && (this.hoveredItem = null));
+  }
+
+  private tooltipLines(): string[] | null {
+    if (this.menu.isOpen) return null;
+    const p = this.state.player;
     const s = this.hoveredSkill;
-    if (!s || this.menu.isOpen) {
+    if (s) {
+      const xp = Math.floor(p.skills.xp[s]);
+      const level = p.skills.level(s);
+      const lines = [`${SKILL_LABELS[s]} XP: ${xp.toLocaleString()}`];
+      if (level < MAX_LEVEL) {
+        const next = xpForLevel(level + 1);
+        lines.push(`Next level at: ${next.toLocaleString()}`, `Remaining XP: ${(next - xp).toLocaleString()}`);
+      }
+      return lines;
+    }
+    const id = this.hoveredItem?.();
+    return id ? itemInfo(id, p) : null;
+  }
+
+  private updateTooltip(): void {
+    const lines = this.tooltipLines();
+    if (!lines) {
       this.tooltip.setVisible(false);
       return;
-    }
-    const skills = this.state.player.skills;
-    const xp = Math.floor(skills.xp[s]);
-    const level = skills.level(s);
-    const lines = [`${SKILL_LABELS[s]} XP: ${xp.toLocaleString()}`];
-    if (level < MAX_LEVEL) {
-      const next = xpForLevel(level + 1);
-      lines.push(`Next level at: ${next.toLocaleString()}`, `Remaining XP: ${(next - xp).toLocaleString()}`);
     }
     this.tooltipText.setText(lines.join('\n'));
     this.tooltipBg.setSize(this.tooltipText.width + 12, this.tooltipText.height + 8);
     const p = this.input.activePointer;
-    this.tooltip.setPosition(Math.min(p.x + 12, this.scale.width - this.tooltipBg.width - 4), p.y + 16).setVisible(true);
+    // Keep it on screen: flip above / left of the cursor near the edges.
+    const w = this.tooltipBg.width;
+    const h = this.tooltipBg.height;
+    const x = p.x + 12 + w > this.scale.width ? p.x - w - 8 : p.x + 12;
+    const y = p.y + 16 + h > this.scale.height ? p.y - h - 8 : p.y + 16;
+    this.tooltip.setPosition(Math.max(4, x), Math.max(4, y)).setVisible(true);
+  }
+
+  /** Gear tab: total bonuses and what your next attack looks like. */
+  private updateGear(): void {
+    const g = this.state;
+    const p = g.player;
+    const b = p.bonuses();
+    const c = g.combatPreview();
+    const signed = (v: number) => `${v > 0 ? '+' : ''}${v}`.padEnd(5);
+    const [styleLabel, trains] = STYLE_INFO[c.mode][['accurate', 'aggressive', 'defensive'].indexOf(p.style)];
+    const lines = [
+      'Equipment bonuses',
+      `Attack  ${signed(b.attack)}  Strength ${signed(b.strength)}`,
+      `Defence ${signed(b.defence)}  Ranged   ${signed(b.ranged)}`,
+      `Rng str ${signed(b.rangedStrength)}  Magic    ${signed(b.magic)}`,
+      '',
+      `Current attack (${c.mode})`,
+      `Style:    ${styleLabel}`,
+      `          trains ${trains}`,
+      `Max hit:  ${c.maxHit}`,
+      `Accuracy: ${c.attackRoll.toLocaleString()}`,
+      `Speed:    ${speedText(c.speed)}`,
+      `Range:    ${c.range} tile${c.range > 1 ? 's' : ''}${c.mode === 'melee' ? ' (no diagonals)' : ''}`,
+    ];
+    if (c.mode === 'ranged') {
+      const ammo = p.equipment.ammo;
+      lines.push(`Ammo:     ${ammo ? `${item(ammo).name} x${p.ammo}` : 'none'}`);
+    }
+    if (c.mode === 'magic') lines.push(`Spell:    ${c.spell ? `${c.spell.name}` : 'none castable'}`);
+    if (c.problem) lines.push('', `! ${c.problem}`);
+    const target = p.intent?.kind === 'attack' ? p.intent.npc : null;
+    if (target && !target.dead) {
+      const weak = target.def.weakness === c.mode ? ' (weak!)' : '';
+      lines.push('', `vs ${target.name}:`, `  ${Math.round(100 * g.hitChanceAgainst(target, c))}% to hit${weak}`);
+    }
+    this.gearText.setText(lines.join('\n'));
   }
 
   update(): void {
@@ -805,6 +871,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     this.updateTooltip();
+    if (this.tab === 'gear') this.updateGear();
     this.relicText.setText(g.relics.length ? `Relics: ${g.relics.map((r) => RELIC_BY_ID[r].name).join(', ')}` : '');
     this.soundText.setText(`H: help   M: sound ${sfx.muted ? 'off' : 'on'}`);
     this.chat.setText(this.fitChat(g.messages));
