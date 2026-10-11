@@ -3,23 +3,18 @@
  * The AudioContext starts on the first click/keypress (browsers require a gesture).
  */
 
+import { saveSettings, settings } from '../save/settings';
+
 export type SoundName =
   | 'hit' | 'miss' | 'hurt' | 'block' | 'eat' | 'pickup' | 'mine' | 'chop' | 'fish' | 'cook' | 'burn'
-  | 'smith' | 'prayerOn' | 'prayerOff' | 'levelup' | 'death' | 'stairs' | 'magic' | 'arrow' | 'buy' | 'bury';
+  | 'smith' | 'prayerOn' | 'prayerOff' | 'levelup' | 'death' | 'stairs' | 'magic' | 'arrow' | 'buy' | 'bury' | 'warning';
 
-const MUTE_KEY = 'tickbound.muted';
 
 class Sfx {
   private ctx?: AudioContext;
   private master?: GainNode;
-  muted = false;
-
-  constructor() {
-    try {
-      this.muted = localStorage.getItem(MUTE_KEY) === '1';
-    } catch {
-      // No storage: default to sound on.
-    }
+  get muted(): boolean {
+    return settings.muted;
   }
 
   /** Call from a user gesture. */
@@ -31,7 +26,7 @@ class Sfx {
     try {
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.35;
+      this.master.gain.value = settings.volume;
       this.master.connect(this.ctx.destination);
     } catch {
       // WebAudio unavailable: stay silent.
@@ -39,13 +34,15 @@ class Sfx {
   }
 
   toggleMute(): boolean {
-    this.muted = !this.muted;
-    try {
-      localStorage.setItem(MUTE_KEY, this.muted ? '1' : '0');
-    } catch {
-      // Not persisted; fine.
-    }
-    return this.muted;
+    settings.muted = !settings.muted;
+    saveSettings();
+    return settings.muted;
+  }
+
+  setVolume(v: number): void {
+    settings.volume = Math.max(0, Math.min(1, v));
+    saveSettings();
+    if (this.master) this.master.gain.value = settings.volume;
   }
 
   private tone(freq: number, dur: number, type: OscillatorType, vol: number, slideTo?: number, delay = 0): void {
@@ -105,6 +102,7 @@ class Sfx {
       case 'arrow': this.noise(0.08, 0.3, 'highpass', 3500); this.tone(500, 0.06, 'triangle', 0.08, 300); break;
       case 'buy': this.tone(988, 0.08, 'square', 0.15); this.tone(1319, 0.2, 'square', 0.15, undefined, 0.08); break;
       case 'bury': this.noise(0.18, 0.35, 'lowpass', 400); break;
+      case 'warning': this.tone(880, 0.1, 'square', 0.15); this.tone(660, 0.14, 'square', 0.15, undefined, 0.13); break;
     }
   }
 }

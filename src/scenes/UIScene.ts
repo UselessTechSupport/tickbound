@@ -18,6 +18,7 @@ import { ALL_LOG_SLOTS, LOG_CATEGORIES, PET_BY_ID } from '../data/collectionLog'
 import type { Notice } from '../meta/tracker';
 import { ensureItemTexture, npcSprite } from '../render/sprites';
 import { sfx } from '../audio/sfx';
+import { saveSettings, settings } from '../save/settings';
 
 const CONTROLS = [
   'Controls: left-click to walk, attack, take or use. Right-click for all options.',
@@ -102,6 +103,13 @@ export class UIScene extends Phaser.Scene {
   private chat!: Phaser.GameObjects.Text;
   private runButton!: Phaser.GameObjects.Text;
   private soundText!: Phaser.GameObjects.Text;
+  private hoverDetail!: Phaser.GameObjects.Text;
+  private lowHp!: Phaser.GameObjects.Graphics;
+  private wasLowHp = false;
+  private quickButton!: Phaser.GameObjects.Text;
+  private quickSetupButton!: Phaser.GameObjects.Text;
+  /** Prayer tab is in "choose quick-prayers" mode. */
+  private quickSetup = false;
   private forfeitButton!: Phaser.GameObjects.Text;
   private forfeitConfirm?: Phaser.GameObjects.Container;
   private deathTitle!: Phaser.GameObjects.Text;
@@ -159,6 +167,7 @@ export class UIScene extends Phaser.Scene {
     });
     this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
     this.input.keyboard?.on('keydown-A', () => this.toggleModal('achievements'));
+    this.input.keyboard?.on('keydown-Q', () => this.state.toggleQuickPrayers(settings.quickPrayers));
     this.input.keyboard?.on('keydown-L', () => this.toggleModal('log'));
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
@@ -212,6 +221,12 @@ export class UIScene extends Phaser.Scene {
     const root = (this.root = this.add.container(0, 0));
 
     this.hoverLabel = this.add.text(8, 6, '', { ...FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3 });
+    this.hoverDetail = this.add.text(0, 6, '', { ...FONT, stroke: '#000000', strokeThickness: 3 });
+    root.add(this.hoverDetail);
+    // Pulsing red edge when HP is low.
+    this.lowHp = this.add.graphics().setDepth(19).setVisible(false);
+    this.lowHp.lineStyle(14, 0xff0000, 1).strokeRect(7, 7, W - PANEL_W - 14, H - 14);
+    root.add(this.lowHp);
     root.add(this.hoverLabel);
 
     // ---- Side panel ----
@@ -236,6 +251,13 @@ export class UIScene extends Phaser.Scene {
     y += 12;
 
     this.prayerText = this.add.text(px + 10, y, '', { ...FONT, color: '#ffffff' });
+    this.quickButton = this.add.text(px + PANEL_W - 10, y - 1, '', {
+      ...FONT, fontSize: '11px', backgroundColor: '#2a241c', padding: { x: 5, y: 2 },
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    this.quickButton.on('pointerdown', () => this.state.toggleQuickPrayers(settings.quickPrayers));
+    this.hoverable(this.quickButton, () => (settings.quickPrayers.length
+      ? 'Toggle quick-prayers (Q)' : 'No quick-prayers set: use "Set up" in the Prayer tab'));
+    root.add(this.quickButton);
     root.add(this.prayerText);
     y += 18;
     root.add(this.add.rectangle(px + 10, y, PANEL_W - 20, 8, 0x1a2a4a).setOrigin(0));
@@ -384,8 +406,9 @@ export class UIScene extends Phaser.Scene {
     const dim = this.add.rectangle(0, 0, gameW, H, 0x000000, 0.75).setOrigin(0).setInteractive();
     const title = this.add.text(gameW / 2, H / 2 - 80, 'Oh dear, you are dead!', { ...FONT, fontSize: '28px', color: '#ff3030' }).setOrigin(0.5);
     this.deathTitle = title;
-    const stats = this.add.text(gameW / 2, H / 2 - 20, '', { ...FONT, fontSize: '15px', color: '#ffffff', align: 'center', lineSpacing: 4 }).setOrigin(0.5);
-    const back = this.add.text(gameW / 2, H / 2 + 50, '[ Return to camp ]', {
+    const stats = this.add.text(gameW / 2, H / 2 + 10, '', { ...FONT, fontSize: '14px', color: '#ffffff', align: 'center', lineSpacing: 4 }).setOrigin(0.5);
+    title.setY(H / 2 - 170);
+    const back = this.add.text(gameW / 2, H / 2 + 170, '[ Return to camp ]', {
       ...FONT, fontSize: '18px', backgroundColor: '#2a241c', padding: { x: 14, y: 8 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     back.on('pointerdown', () => this.dungeon.toCamp());
@@ -653,6 +676,36 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
+  /** End-of-run report: how far, what killed you, damage, XP and loot. */
+  private runSummary(g: GameState): string[] {
+    const r = g.runStats;
+    const xp = (Object.entries(r.xp) as Array<[SkillName, number]>)
+      .filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([s, v]) => `${SKILL_LABELS[s]} +${Math.round(v).toLocaleString()}`);
+    const bosses = g.bossKills ? ` and ${g.bossKills} boss${g.bossKills > 1 ? 'es' : ''}` : '';
+    return [
+      `Floor ${g.depth} reached, ${g.kills} kills${bosses}, ${g.tickCount.toLocaleString()} ticks (${Math.round(g.tickCount * 0.6 / 60)} min).`,
+      g.forfeited ? 'You chose to leave.' : `Killed by: ${r.killedBy || 'unknown'}`,
+      '',
+      `Damage dealt ${r.damageDealt.toLocaleString()}   Damage taken ${r.damageTaken.toLocaleString()}   Food eaten ${r.foodEaten}`,
+      `Loot picked up: ${r.itemsLooted} items, ${r.coinsLooted.toLocaleString()} coins   Relics: ${g.relics.length}`,
+      `XP gained: ${xp.join(', ') || 'none'}`,
+      '',
+      `This run earned ${this.dungeon.lastEarned} Dungeoneering tokens (total ${this.dungeon.meta.tokens}).`,
+      'Spend them at camp with the Mentor and the Toolsmith.',
+    ];
+  }
+
+  /** Pulsing red border and a warning beep when HP drops below a quarter. */
+  private updateLowHp(g: GameState): void {
+    const p = g.player;
+    const low = settings.lowHpWarning && !g.isCamp && !g.over && p.hp > 0 && p.hp < p.maxHp * 0.25;
+    if (low && !this.wasLowHp) sfx.play('warning');
+    this.wasLowHp = low;
+    this.lowHp.setVisible(low);
+    if (low) this.lowHp.setAlpha(0.25 + 0.2 * Math.sin(this.time.now / 180));
+  }
+
   /** Brief banner for unlocks: at most MAX_TOASTS on screen, the rest wait their turn. */
   private toast(n: Notice): void {
     const text = n.kind === 'achievement' ? `Achievement completed: ${n.name}  (+${n.reward} tokens)`
@@ -820,7 +873,17 @@ export class UIScene extends Phaser.Scene {
       const text = this.add.text(cx + cw / 2 - 1, cy + ch / 2 - 1, `${pr.short}\nlvl ${pr.level}`, {
         ...FONT, fontSize: '9px', align: 'center', lineSpacing: -1,
       }).setOrigin(0.5);
-      bg.on('pointerdown', (p: Phaser.Input.Pointer) => p.leftButtonDown() && this.state.togglePrayer(pr.id));
+      bg.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        if (!p.leftButtonDown()) return;
+        if (!this.quickSetup) {
+          this.state.togglePrayer(pr.id);
+          return;
+        }
+        // Set-up mode: clicking picks which prayers the quick-prayer button uses.
+        const q = settings.quickPrayers;
+        settings.quickPrayers = q.includes(pr.id) ? q.filter((id) => id !== pr.id) : [...q, pr.id];
+        saveSettings();
+      });
       this.hoverable(bg, () => {
         const on = this.state.player.activePrayers.has(pr.id);
         const hotkey = PROTECTION_HOTKEYS.indexOf(pr.id as (typeof PROTECTION_HOTKEYS)[number]);
@@ -829,10 +892,17 @@ export class UIScene extends Phaser.Scene {
       this.prayerCells.set(pr.id, { bg, text });
       this.tabObjects.prayer.push(bg, text);
     });
-    const hint = this.add.text(px + PANEL_W / 2, y + Math.ceil(PRAYERS.length / 3) * ch + 4, 'Hotkeys: 1 Magic  2 Missiles  3 Melee', {
+    const below = y + Math.ceil(PRAYERS.length / 3) * ch;
+    const hint = this.add.text(px + PANEL_W / 2, below + 2, '1/2/3: protect   Q: quick-prayers', {
       ...FONT, fontSize: '10px', color: '#c8c8c8',
     }).setOrigin(0.5, 0);
-    this.tabObjects.prayer.push(hint);
+    this.quickSetupButton = this.add.text(px + PANEL_W / 2, below + 16, '', {
+      ...FONT, fontSize: '10px', backgroundColor: '#3e3529', padding: { x: 4, y: 1 },
+    }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true });
+    this.quickSetupButton.on('pointerdown', () => (this.quickSetup = !this.quickSetup));
+    this.hoverable(this.quickSetupButton, () => (this.quickSetup
+      ? 'Finish choosing quick-prayers' : 'Choose which prayers the quick-prayer button (Q) toggles'));
+    this.tabObjects.prayer.push(hint, this.quickSetupButton);
   }
 
   /** Combat spells; click one to autocast it with a staff, click again for "strongest available". */
@@ -1064,6 +1134,10 @@ export class UIScene extends Phaser.Scene {
       hover = this.panelHover?.() ?? (this.isOverUi(pointer.x, pointer.y) ? '' : this.dungeon.hoverText);
     }
     this.hoverLabel.setText(hover);
+    const detail = !this.menu.isOpen && !this.panelHover && hover === this.dungeon.hoverText ? this.dungeon.hoverDetail : null;
+    this.hoverDetail.setText(detail ? detail.text : '').setColor(detail?.color ?? '#ffffff')
+      .setPosition(this.hoverLabel.x + this.hoverLabel.width + 10, this.hoverLabel.y);
+    this.updateLowHp(g);
 
     this.header.setText(g.isCamp ? `Camp  Tokens ${this.dungeon.meta.tokens}` : `Floor ${g.depth}  Combat ${p.combatLevel}`);
     const running = this.dungeon.running;
@@ -1077,8 +1151,14 @@ export class UIScene extends Phaser.Scene {
       const cell = this.prayerCells.get(pr.id)!;
       const on = p.activePrayers.has(pr.id);
       cell.bg.setFillStyle(on ? 0x7a6a2a : 0x2a241c);
+      // In set-up mode, quick-prayer picks get a green outline.
+      cell.bg.setStrokeStyle(2, 0x40e040, this.quickSetup && settings.quickPrayers.includes(pr.id) ? 1 : 0);
       cell.text.setColor(prayerLevel < pr.level ? '#6a6a6a' : on ? '#ffffff' : '#ffff00');
     }
+
+    const quickOn = settings.quickPrayers.some((id) => p.activePrayers.has(id));
+    this.quickButton.setText(quickOn ? 'Quick: on' : 'Quick: off').setColor(quickOn ? '#60ff60' : '#a08a5a');
+    this.quickSetupButton.setText(this.quickSetup ? 'Done choosing quick-prayers' : 'Set up quick-prayers');
 
     const boss = g.npcs.find((n) => n.isBoss && (n.target || g.isVisible(n.pos.x, n.pos.y)));
     this.bossBar.setVisible(!!boss && !g.over);
@@ -1147,11 +1227,7 @@ export class UIScene extends Phaser.Scene {
 
     if (g.over) {
       (this.deathOverlay.getData('stats') as Phaser.GameObjects.Text)
-        .setText([
-          `Reached floor ${g.depth} with ${g.kills} kills${g.bossKills ? ` and ${g.bossKills} boss kill${g.bossKills > 1 ? 's' : ''}` : ''}.`,
-          `This run earned ${this.dungeon.lastEarned} Dungeoneering tokens (total ${this.dungeon.meta.tokens}).`,
-          'Spend them at camp with the Mentor and the Toolsmith.',
-        ].join('\n'));
+        .setText(this.runSummary(g).join('\n'));
     }
   }
 }
