@@ -3,7 +3,7 @@ import { EAT_DELAY, FOV_RADIUS, XP_RATE } from '../data/balance';
 import { PerkRanks, RunMods, computeMods } from '../data/skillTree';
 import { xpForLevel } from '../systems/xp';
 import type { SoundName } from '../audio/sfx';
-import { campNpc, generateCamp } from '../world/camp';
+import { campNpc, campStructure, generateCamp } from '../world/camp';
 import { item } from '../data/items';
 import { Recipe } from '../data/recipes';
 import { NO_TOOLS, Toolbelt } from '../data/tools';
@@ -27,6 +27,7 @@ import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer
 import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
+import { GARDEN_POOL, GARDEN_SUPER_POOL, STRUCTURE_BY_ID, StructureId, WORKBENCH_SKILLS } from '../data/construction';
 import { SPEC_BY_WEAPON, SPEC_DROP_CHANCE, SPEC_REGEN, SPEC_REGEN_TICKS, SpecDef, specWeaponsFor } from '../data/specials';
 import { PICKPOCKET, POCKET_LIMIT, STUN_TICKS, lockXpFor, thievingChance } from '../data/thieving';
 import { SHORTCUT_KINDS, shortcutChance, shortcutXp } from '../data/agility';
@@ -62,7 +63,7 @@ export type GameEvent =
   | { type: 'made'; item: string }
   | { type: 'slayerDone'; tokens: number }
   | { type: 'sound'; name: SoundName }
-  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' | 'armoury' | 'enchanter' }
+  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' | 'armoury' | 'enchanter' | 'builder' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
 /** What the player's next attack would look like; see GameState.combatPreview. */
@@ -95,19 +96,39 @@ const BOSS_PROJECTILE_TICKS = 2;
 const CAMP_FOV = 40;
 
 /** What a new GameState starts as: the camp hub, or a dungeon run with unlocks applied. */
+/** Run-wide bonuses from camp structures and your pet. */
+export interface CampBonuses {
+  /** Trophy room: max hit bonus (fraction). */
+  trophy: number;
+  /** Workbench: crafting XP bonus (fraction). */
+  workbench: number;
+  pet: { kind: 'melee' | 'ranged' | 'magic' | 'defence'; amount: number } | null;
+}
+
+/** What camp gives a new run. */
+export interface CampSetup extends Partial<CampBonuses> {
+  carried?: Array<{ id: string; qty: number }>;
+  gardenPotions?: number;
+  superPotions?: boolean;
+  startRelic?: string | null;
+}
+
 export interface RunSetup {
   tools?: Toolbelt;
   perks?: PerkRanks;
   camp?: boolean;
-  /** Camp only: whether the Slayer master and Armourer are around. */
+  /** Camp only: whether the Slayer master and Armourer are around, and what's been built. */
   slayerUnlocked?: boolean;
   armourerUnlocked?: boolean;
+  built?: StructureId[];
   /** Armourer starting gear and which weapon style to equip. */
   armoury?: ArmouryRanks;
   startStyle?: StartStyle;
   /** Enchanter: enchantments on Armourer gear lines. */
   enchants?: Enchantments;
   enchanterUnlocked?: boolean;
+  /** Camp structures and pets (see data/construction.ts). */
+  campSetup?: CampSetup;
   /** Skip ahead: start on this floor with catch-up levels and supplies (half rewards). */
   startDepth?: number;
   /** The save's Slayer task; progress is written straight into it. */
@@ -173,6 +194,8 @@ export class GameState {
   autoPickup = { coins: false, arrows: false, runes: false };
   /** The merchant whose shop window is open. */
   activeMerchant: ResourceNode | null = null;
+  /** Bonuses from camp structures and your pet for this run. */
+  campBonus: CampBonuses = { trophy: 0, workbench: 0, pet: null };
   /** Enchanted Armourer gear by item id. */
   private enchanted = new Map<string, Enchantment>();
   /** Leeching: fractional healing carried between hits. */
@@ -186,13 +209,19 @@ export class GameState {
     this.player = new Player({ x: 0, y: 0 });
     this.player.tools = { ...(setup.tools ?? NO_TOOLS) };
     if (setup.camp) {
-      this.loadCamp(setup.slayerUnlocked, setup.armourerUnlocked, setup.enchanterUnlocked);
+      this.loadCamp(setup.slayerUnlocked, setup.armourerUnlocked, setup.enchanterUnlocked, setup.built);
       return;
     }
     this.enchanted = enchantedItems(setup.armoury ?? NO_ARMOURY, setup.enchants ?? {});
+    this.campBonus = { trophy: 0, workbench: 0, pet: null, ...setup.campSetup };
     const startDepth = Math.max(1, setup.startDepth ?? 1);
     this.applyStartingKit(setup, startDepth);
     this.loadFloor(startDepth);
+    const startRelic = setup.campSetup?.startRelic;
+    if (startRelic && RELIC_BY_ID[startRelic]) {
+      this.relics.push(startRelic);
+      this.message(`The relic altar grants you the ${RELIC_BY_ID[startRelic].name}.`);
+    }
     if (startDepth > 1) {
       this.assisted = true;
       this.tokenBaseline = this.rawTokens();
@@ -259,14 +288,19 @@ export class GameState {
         p.inventory.add(id, qty);
       }
     }
+    // Camp: items kept by the bank chest, and potions from the herb garden.
+    for (const it of setup.campSetup?.carried ?? []) p.inventory.add(it.id, it.qty);
+    const garden = setup.campSetup?.gardenPotions ?? 0;
+    const pool = setup.campSetup?.superPotions ? GARDEN_SUPER_POOL : GARDEN_POOL;
+    for (let i = 0; i < garden; i++) p.inventory.add(pool[Math.floor(rand() * pool.length)]);
     p.hp = p.maxHp;
     p.prayerPoints = p.maxPrayer;
   }
 
   /** Camp: a newly unlocked NPC sets up shop without restarting the camp. */
-  addCampNpc(kind: 'armourer' | 'enchanter'): void {
+  addCampNpc(kind: 'armourer' | 'enchanter' | StructureId): void {
     if (!this.isCamp || this.nodes.some((n) => n.kind === kind)) return;
-    const node = campNpc(kind);
+    const node = kind === 'armourer' || kind === 'enchanter' ? campNpc(kind) : campStructure(kind);
     setTile(this.map, node.pos.x, node.pos.y, Tile.Object);
     this.nodes.push(node);
   }
@@ -290,6 +324,12 @@ export class GameState {
     return this.enchanted.get(itemId);
   }
 
+  /** Trophy room and pet bonuses to max hit. */
+  private campMaxHitMult(mode: AttackType): number {
+    const pet = this.campBonus.pet;
+    return (1 + this.campBonus.trophy) * (pet && pet.kind === mode ? 1 + pet.amount : 1);
+  }
+
   /** Restored runs (see save/runSave.ts) need their event sink reconnected. */
   attachEmitter(emit: (e: GameEvent) => void): void {
     this.emit = emit;
@@ -302,8 +342,8 @@ export class GameState {
     this.message(`Autoplay hands over on floor ${this.depth}. Autoplayed floors pay half tokens. Good luck!`);
   }
 
-  private loadCamp(slayerUnlocked = false, armourerUnlocked = false, enchanterUnlocked = false): void {
-    const { map, nodes } = generateCamp(slayerUnlocked, armourerUnlocked, enchanterUnlocked);
+  private loadCamp(slayerUnlocked = false, armourerUnlocked = false, enchanterUnlocked = false, built: StructureId[] = []): void {
+    const { map, nodes } = generateCamp(slayerUnlocked, armourerUnlocked, enchanterUnlocked, built);
     this.map = map;
     this.nodes = nodes;
     // The camp is safe and small: show all of it.
@@ -1190,7 +1230,8 @@ export class GameState {
           }
         } else {
           const menu = node.kind === 'slayer_master' ? 'slayer' : node.kind === 'armourer' ? 'armoury'
-            : node.kind === 'enchanter' ? 'enchanter' : node.kind as 'mentor' | 'toolsmith';
+            : node.kind === 'enchanter' ? 'enchanter'
+              : node.kind === 'builder' || node.kind in STRUCTURE_BY_ID ? 'builder' : node.kind as 'mentor' | 'toolsmith';
           this.emit({ type: 'campMenu', kind: menu });
         }
         return;
@@ -1307,7 +1348,7 @@ export class GameState {
     return {
       mode,
       attackRoll: Math.floor(this.mods.combatMult * glory * slayer * keen * attackRoll),
-      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * brutal * max),
+      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * brutal * this.campMaxHitMult(mode) * max),
       speed,
       range: p.attackRange,
       spell,
@@ -1585,6 +1626,7 @@ export class GameState {
     const hpBefore = p.maxHp;
     const prayerBefore = p.maxPrayer;
     if (this.hasRelic('seers_insight')) amount *= 1.5;
+    if (WORKBENCH_SKILLS.includes(skill)) amount *= 1 + this.campBonus.workbench;
     this.runStats.xp[skill] = (this.runStats.xp[skill] ?? 0) + amount;
     const gained = p.skills.addXp(skill, amount);
     this.emit({ type: 'xp', skill, amount });
@@ -1641,7 +1683,9 @@ export class GameState {
     const style = npc.attackStyle;
     const def = Math.floor(p.boostedLevel('defence') * (1 + p.prayerBoost('defence')));
     const attRoll = roll(d.attack + 9, d.attackBonus);
-    const defRoll = Math.floor(roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence) * (1 + this.enchantPower('fortified')));
+    const petDefence = this.campBonus.pet?.kind === 'defence' ? this.campBonus.pet.amount : 0;
+    const defRoll = Math.floor(roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence)
+      * (1 + this.enchantPower('fortified') + petDefence));
     const max = maxHit(d.strength + 9, d.strengthBonus);
     const dmg = rollDamage(hitChance(attRoll, defRoll), max, rand);
     npc.attackCooldown = d.attackSpeed;

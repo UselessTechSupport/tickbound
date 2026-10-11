@@ -1,5 +1,6 @@
 import { ResourceNode } from '../entities/ResourceNode';
 import { FloorMap, Tile, setTile } from './tiles';
+import { STRUCTURE_BY_ID, StructureId } from '../data/construction';
 
 export const CAMP_WIDTH = 26;
 export const CAMP_HEIGHT = 16;
@@ -12,7 +13,14 @@ export function campNpc(kind: keyof typeof NPC_SPOTS): ResourceNode {
   return new ResourceNode({ ...NPC_SPOTS[kind] }, kind);
 }
 
-export function generateCamp(slayerUnlocked = false, armourerUnlocked = false, enchanterUnlocked = false): { map: FloorMap; nodes: ResourceNode[] } {
+/** A built camp structure, at its fixed spot. */
+export function campStructure(id: StructureId): ResourceNode {
+  return new ResourceNode({ ...STRUCTURE_BY_ID[id].pos }, id);
+}
+
+export function generateCamp(
+  slayerUnlocked = false, armourerUnlocked = false, enchanterUnlocked = false, built: StructureId[] = [],
+): { map: FloorMap; nodes: ResourceNode[] } {
   const tiles = new Uint8Array(CAMP_WIDTH * CAMP_HEIGHT);
   const map: FloorMap = {
     width: CAMP_WIDTH, height: CAMP_HEIGHT, tiles, depth: 0, rooms: [],
@@ -33,6 +41,8 @@ export function generateCamp(slayerUnlocked = false, armourerUnlocked = false, e
     ...(slayerUnlocked ? [campNpc('slayer_master')] : []),
     ...(enchanterUnlocked ? [campNpc('enchanter')] : []),
     new ResourceNode({ x: 13, y: 12 }, 'fire'),
+    new ResourceNode({ x: 10, y: 4 }, 'builder'),
+    ...built.map(campStructure),
   ];
   for (const n of nodes) setTile(map, n.pos.x, n.pos.y, Tile.Object);
   return { map, nodes };

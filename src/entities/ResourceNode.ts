@@ -3,9 +3,11 @@ import { Station } from '../data/recipes';
 import { Point } from '../world/tiles';
 import type { StockEntry } from '../data/loot';
 import { SHORTCUT_KINDS } from '../data/agility';
+import { STRUCTURE_BY_ID, StructureId } from '../data/construction';
 
 /** Non-resource node kinds: crafting stations, altars, and camp NPCs. */
-export type FixtureKind = Exclude<Station, 'mix' | 'fletch'> | 'shortcut' | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer' | 'enchanter';
+export type FixtureKind = Exclude<Station, 'mix' | 'fletch'> | 'shortcut' | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer' | 'enchanter'
+  | 'builder' | StructureId;
 export type NodeKind = 'resource' | FixtureKind;
 
 /** A blocking world object the player interacts with: a resource or a crafting station. */
@@ -40,7 +42,8 @@ export class ResourceNode {
     }
     if (this.kind === 'chest' && this.lockLevel) return 'Locked chest';
     if (this.kind === 'shortcut') return SHORTCUT_KINDS[this.shortcut!.kind].name;
-    return { shortcut: '', fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest', slayer_master: 'Slayer master', armourer: 'Armourer', enchanter: 'Enchanter' }[this.kind as FixtureKind];
+    if (this.kind in STRUCTURE_BY_ID) return STRUCTURE_BY_ID[this.kind as StructureId].name;
+    return { builder: 'Builder', shortcut: '', fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest', slayer_master: 'Slayer master', armourer: 'Armourer', enchanter: 'Enchanter' }[this.kind as Exclude<FixtureKind, StructureId>];
   }
 
   get examine(): string {
@@ -53,7 +56,9 @@ export class ResourceNode {
     }
     if (this.kind === 'chest' && this.lockLevel) return `It's locked. I'd need a Thieving level of ${this.lockLevel} to pick it.`;
     if (this.kind === 'shortcut') return `${SHORTCUT_KINDS[this.shortcut!.kind].examine} (Agility ${this.shortcut!.level})`;
+    if (this.kind in STRUCTURE_BY_ID) return `Your ${STRUCTURE_BY_ID[this.kind as StructureId].name.toLowerCase()}. The Builder can upgrade it.`;
     return {
+      builder: 'Builds and upgrades camp structures from tokens and the materials you bring home.',
       shortcut: '',
       fire: 'Hot!',
       furnace: 'A red hot furnace, for smelting ore into bars.',
@@ -67,6 +72,6 @@ export class ResourceNode {
       armourer: 'Sells better starting gear for every future run.',
       enchanter: 'She can weave lasting magic into your Armourer gear.',
       chest: this.used ? "It's empty." : 'I wonder what is inside.',
-    }[this.kind as FixtureKind];
+    }[this.kind as Exclude<FixtureKind, StructureId>];
   }
 }
