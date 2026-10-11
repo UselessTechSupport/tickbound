@@ -287,6 +287,11 @@ export class GameState {
     return this.enchanted.get(itemId);
   }
 
+  /** Restored runs (see save/runSave.ts) need their event sink reconnected. */
+  attachEmitter(emit: (e: GameEvent) => void): void {
+    this.emit = emit;
+  }
+
   /** Autoplay handover: everything earned so far counts half from here on. */
   endAutoplay(): void {
     this.assisted = true;
