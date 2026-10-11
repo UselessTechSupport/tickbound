@@ -4,6 +4,9 @@ import { ResourceNode } from '../entities/ResourceNode';
 import { isBossFloor } from '../data/npcs';
 import { SHRINE_CHANCE } from '../data/relics';
 import { generateStock } from '../data/loot';
+import { LOCKED_CHEST_CHANCE, lockLevelFor } from '../data/thieving';
+import { SHORTCUT_KINDS, SHORTCUT_MIN_SAVING, shortcutLevelFor } from '../data/agility';
+import { findPath } from './pathfinding';
 import { FloorMap, Point, Tile, isWalkable, reachableCount, setTile, tileAt } from './tiles';
 
 /** Chance per floor of a furnace + anvil (floor 2 always has one). */
@@ -73,8 +76,48 @@ export function placeResources(map: FloorMap): ResourceNode[] {
   if (map.depth >= 2 && !isBossFloor(map.depth) && RNG.getUniform() < MERCHANT_CHANCE) {
     tryPlace((p) => Object.assign(new ResourceNode(p, 'merchant'), { stock: generateStock(map.depth) }));
   }
-  for (let i = 0; i < 2; i++) if (RNG.getUniform() < CHEST_CHANCE) tryPlace((p) => new ResourceNode(p, 'chest'));
+  for (let i = 0; i < 2; i++) {
+    if (RNG.getUniform() >= CHEST_CHANCE) continue;
+    const locked = map.depth >= 2 && RNG.getUniform() < LOCKED_CHEST_CHANCE;
+    tryPlace((p) => Object.assign(new ResourceNode(p, 'chest'), locked ? { lockLevel: lockLevelFor(map.depth) } : {}));
+  }
+  // Last, so nothing gets placed on a shortcut's landing spots afterwards.
+  nodes.push(...placeShortcuts(map, RNG.getUniformInt(1, 2)));
   return nodes;
+}
+
+/**
+ * Agility shortcuts: a single wall tile between two floor tiles where walking around
+ * takes much longer. The wall stays a wall; the shortcut is how you cross it.
+ */
+function placeShortcuts(map: FloorMap, count: number): ResourceNode[] {
+  const out: ResourceNode[] = [];
+  const spots: Array<{ wall: Point; a: Point; b: Point }> = [];
+  for (let y = 1; y < map.height - 1; y++) {
+    for (let x = 1; x < map.width - 1; x++) {
+      if (tileAt(map, x, y) !== Tile.Wall) continue;
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const a = { x: x - dx, y: y - dy };
+        const b = { x: x + dx, y: y + dy };
+        // A straight 1-thick wall: floor on both sides, wall either end.
+        if (tileAt(map, a.x, a.y) !== Tile.Floor || tileAt(map, b.x, b.y) !== Tile.Floor) continue;
+        if (tileAt(map, x + dy, y + dx) !== Tile.Wall || tileAt(map, x - dy, y - dx) !== Tile.Wall) continue;
+        spots.push({ wall: { x, y }, a, b });
+      }
+    }
+  }
+  const taken = (p: Point) => out.some((n) => Math.abs(n.pos.x - p.x) + Math.abs(n.pos.y - p.y) < 6);
+  let tries = 0;
+  for (const s of RNG.shuffle(spots)) {
+    if (out.length >= count || tries++ > 40) break;
+    if (taken(s.wall)) continue;
+    const around = findPath(map, s.a, s.b).length;
+    if (around < SHORTCUT_MIN_SAVING) continue;
+    out.push(Object.assign(new ResourceNode(s.wall, 'shortcut'), {
+      shortcut: { a: s.a, b: s.b, level: shortcutLevelFor(map.depth, RNG.getUniform()), kind: RNG.getUniformInt(0, SHORTCUT_KINDS.length - 1) },
+    }));
+  }
+  return out;
 }
 
 function resourceNode(pos: Point, def: ResourceDef): ResourceNode {

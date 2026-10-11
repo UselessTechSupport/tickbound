@@ -44,7 +44,9 @@ const CHAT_W = 520;
 const CHAT_H = 132;
 const CHAT_LINES = 7;
 const MINIMAP_SCALE = 3;
-const SKILL_COL_W = 112;
+/** Skills panel: 3 columns so all 17 skills fit. */
+const SKILL_COLS = 3;
+const SKILL_COL_W = 72;
 const SKILL_ROW_H = 17;
 
 const FONT = { fontFamily: 'monospace', fontSize: '13px', color: '#ffff00' };
@@ -77,7 +79,8 @@ const STYLE_INFO: Record<'melee' | 'ranged' | 'magic', Array<[string, string]>> 
 
 const SKILL_SHORT: Record<SkillName, string> = {
   attack: 'Atk', strength: 'Str', defence: 'Def', hitpoints: 'HP', ranged: 'Rng', magic: 'Mage', prayer: 'Pray',
-  mining: 'Mine', woodcutting: 'WC', fishing: 'Fish', cooking: 'Cook', smithing: 'Smith', herblore: 'Herb', slayer: 'Slay',
+  mining: 'Mine', woodcutting: 'WC', fishing: 'Fish', cooking: 'Cook', smithing: 'Smith', herblore: 'Herb',
+  fletching: 'Flet', thieving: 'Thie', agility: 'Agil', slayer: 'Slay',
 };
 
 interface SlotView {
@@ -314,18 +317,18 @@ export class UIScene extends Phaser.Scene {
     y += 28;
 
     SKILLS.forEach((s, i) => {
-      const sx = px + 10 + (i % 2) * SKILL_COL_W;
-      const sy = y + Math.floor(i / 2) * SKILL_ROW_H;
+      const sx = px + 10 + (i % SKILL_COLS) * SKILL_COL_W;
+      const sy = y + Math.floor(i / SKILL_COLS) * SKILL_ROW_H;
       const text = this.add.text(sx, sy, '', { ...FONT, fontSize: '12px', color: '#ffffff' });
-      const track = this.add.rectangle(sx, sy + 14, SKILL_COL_W - 14, 2, 0x1c1812).setOrigin(0);
+      const track = this.add.rectangle(sx, sy + 14, SKILL_COL_W - 8, 2, 0x1c1812).setOrigin(0);
       const bar = this.add.rectangle(sx, sy + 14, 0, 2, 0x00b000).setOrigin(0);
-      const hit = this.add.rectangle(sx, sy, SKILL_COL_W - 14, SKILL_ROW_H - 2, 0, 0).setOrigin(0).setInteractive();
+      const hit = this.add.rectangle(sx, sy, SKILL_COL_W - 8, SKILL_ROW_H - 2, 0, 0).setOrigin(0).setInteractive();
       hit.on('pointerover', () => (this.hoveredSkill = s));
       hit.on('pointerout', () => this.hoveredSkill === s && (this.hoveredSkill = null));
       this.skillViews.set(s, { text, bar });
       root.add([text, track, bar, hit]);
     });
-    y += Math.ceil(SKILLS.length / 2) * SKILL_ROW_H + 4;
+    y += Math.ceil(SKILLS.length / SKILL_COLS) * SKILL_ROW_H + 4;
 
     (['weapon', 'ammo', 'body', 'shield'] as EquipSlot[]).forEach((slot, i) => {
       const t = this.add.text(px + 10, y + i * 15, '', { ...FONT, fontSize: '12px', color: '#c8c8c8' })
@@ -1353,6 +1356,10 @@ export class UIScene extends Phaser.Scene {
       const ready = mixes.find((r) => r.inputs.every((i) => g.player.inventory.count(i.item) >= i.qty)) ?? mixes[0];
       opts.push({ label: `Mix ${item(ready.output).name}`, action: () => g.mix(ready) });
     }
+    // Logs and bars: Fletch what they make (bows from logs; arrows from a bar + logs).
+    for (const r of recipesFor('fletch').filter((r) => r.inputs[0].item === stack.id)) {
+      opts.push({ label: `Fletch ${r.outputQty ? `${r.outputQty} ` : ''}${item(r.output).name}${r.outputQty ? 's' : ''}`, action: () => g.fletch(r) });
+    }
     const verb = def.burnTicks ? 'Light' : def.restoresPrayer || def.boost ? 'Drink' : def.heal ? 'Eat' : def.buryXp ? 'Bury' : def.equip ? (def.equip.slot === 'weapon' || def.equip.slot === 'ammo' ? 'Wield' : 'Wear') : null;
     // Items without a use get a harmless Examine as their left-click, never Drop...
     const examine = { label: `Examine ${def.name}`, action: () => g.message(def.examine + (stack.qty > 1 ? ` (${stack.qty.toLocaleString()})` : '')) };
@@ -1623,7 +1630,7 @@ export class UIScene extends Phaser.Scene {
         .setColor(locked ? '#6a6a6a' : boost ? '#60ff60' : '#ffffff');
       const lo = xpForLevel(level);
       const frac = level >= MAX_LEVEL ? 1 : (p.skills.xp[s] - lo) / (xpForLevel(level + 1) - lo);
-      v.bar.width = (SKILL_COL_W - 14) * frac;
+      v.bar.width = (SKILL_COL_W - 8) * frac;
     }
     for (const [slot, t] of this.equipTexts) {
       const id = p.equipment[slot];
@@ -1635,7 +1642,7 @@ export class UIScene extends Phaser.Scene {
     const metal = (tier: number) => (tier ? TOOL_TIERS[tier - 1].name : '-');
     this.toolText.setText([
       `Pick: ${metal(t.pickaxe).padEnd(8)} Axe: ${metal(t.axe)}`,
-      `Fish: ${(['-', 'Net', 'Rod', 'Pot', 'Harpoon'][t.fishing]).padEnd(8)} ${t.hammer ? 'Hammer ' : ''}${t.tinderbox ? 'Tinder' : ''}`,
+      `Fish: ${(['-', 'Net', 'Rod', 'Pot', 'Harpoon'][t.fishing]).padEnd(8)} ${t.hammer ? 'Hammer ' : ''}${t.tinderbox ? 'Tinder ' : ''}${t.knife ? 'Knife' : ''}`,
     ].join('\n'));
 
     p.inventory.slots.forEach((stack, i) => {

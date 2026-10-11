@@ -28,6 +28,8 @@ export type Intent =
   | { kind: 'gather'; node: ResourceNode; started: boolean }
   | { kind: 'altar'; node: ResourceNode }
   | { kind: 'talk'; node: ResourceNode }
+  | { kind: 'pickpocket'; npc: Npc }
+  | { kind: 'shortcut'; node: ResourceNode }
   | { kind: 'process'; node: ResourceNode; recipe: Recipe; repeat: boolean; started: boolean };
 
 export class Player extends Actor {
@@ -51,6 +53,8 @@ export class Player extends Actor {
   activePrayers = new Set<string>();
   /** OSRS drain counter; a point drains each time it passes the drain resistance. */
   prayerDrain = 0;
+  /** Caught pickpocketing: can't act until this tick. */
+  stunnedUntil = 0;
 
   constructor(start: Point) {
     super(start, 10);

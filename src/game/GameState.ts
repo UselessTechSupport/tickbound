@@ -27,6 +27,8 @@ import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer
 import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
+import { PICKPOCKET, POCKET_LIMIT, STUN_TICKS, lockXpFor, thievingChance } from '../data/thieving';
+import { SHORTCUT_KINDS, shortcutChance, shortcutXp } from '../data/agility';
 import { Enchantment, Enchantments, enchantValue, enchantedItems } from '../data/enchants';
 import type { Counter } from '../data/achievements';
 import { sellPriceOf } from '../data/prices';
@@ -431,6 +433,108 @@ export class GameState {
     this.player.path = [];
   }
 
+  /** Thieving: walk up to a humanoid monster and try to pick its pocket. */
+  pickpocket(npc: Npc): void {
+    if (this.over) return;
+    this.player.intent = { kind: 'pickpocket', npc };
+    this.player.path = [];
+  }
+
+  /** Agility: walk to a wall shortcut and cross it. */
+  useShortcut(node: ResourceNode): void {
+    if (this.over) return;
+    this.player.intent = { kind: 'shortcut', node };
+    this.player.path = [];
+  }
+
+  /** Damage from traps and getting caught (not from a monster's attack). */
+  hurtPlayer(dmg: number, cause: string): void {
+    const p = this.player;
+    if (dmg >= p.hp && this.mods.undying && !this.undyingUsed) {
+      this.undyingUsed = true;
+      dmg = p.hp - 1;
+      this.message('You narrowly cheat death! (Undying)');
+    }
+    this.applyHit(p, dmg);
+    if (p.dead) {
+      this.over = true;
+      this.runStats.killedBy = cause;
+      this.message('Oh dear, you are dead!');
+      this.emit({ type: 'death' });
+    }
+  }
+
+  /** Put an item in the pack, or on the floor under you if it's full. */
+  dropHere(id: string, qty: number): void {
+    this.dropOnTile(id, qty, this.player.pos);
+  }
+
+  private tryPickpocket(npc: Npc): void {
+    const p = this.player;
+    const def = PICKPOCKET[npc.def.id];
+    if (!def) return;
+    const level = p.skills.level('thieving');
+    if (level < def.level) {
+      this.message(`You need a Thieving level of ${def.level} to pick the ${npc.name.toLowerCase()}'s pocket.`);
+      return;
+    }
+    if (npc.picked >= POCKET_LIMIT) {
+      this.message(`The ${npc.name.toLowerCase()}'s pockets are empty.`);
+      return;
+    }
+    this.message(`You attempt to pick the ${npc.name.toLowerCase()}'s pocket.`);
+    if (rand() >= thievingChance(level, def.level)) {
+      this.message(`You fail to pick the ${npc.name.toLowerCase()}'s pocket. "What do you think you're doing?!"`);
+      this.message("You've been stunned!");
+      p.stunnedUntil = this.tickCount + STUN_TICKS;
+      p.path = [];
+      npc.target = p;
+      this.sound('hurt');
+      const [lo, hi] = def.damage;
+      this.hurtPlayer(lo + Math.floor(rand() * (hi - lo + 1)), npc.name);
+      return;
+    }
+    npc.picked++;
+    const pick = RNG.getWeightedValue(Object.fromEntries(def.loot.map((l, i) => [i, l.weight])));
+    const loot = def.loot[Number(pick)];
+    const qty = loot.min + Math.floor(rand() * (loot.max - loot.min + 1));
+    this.emit({ type: 'obtain', item: loot.item, qty, source: 'pickpocket' });
+    if (p.inventory.add(loot.item, qty)) this.countLoot(loot.item, qty);
+    else this.dropOnTile(loot.item, qty, p.pos);
+    this.message(`You pick the ${npc.name.toLowerCase()}'s pocket.${qty > 1 || loot.item !== 'coins' ? ` (${qty} x ${item(loot.item).name})` : ''}`);
+    this.sound('pickup');
+    this.stat('pickpockets');
+    this.giveXp('thieving', def.xp * XP_RATE);
+  }
+
+  private crossShortcut(node: ResourceNode): void {
+    const p = this.player;
+    const sc = node.shortcut!;
+    const level = p.skills.level('agility');
+    const kind = SHORTCUT_KINDS[sc.kind];
+    if (level < sc.level) {
+      this.message(`You need an Agility level of ${sc.level} to use this shortcut.`);
+      return;
+    }
+    if (rand() >= shortcutChance(level, sc.level)) {
+      this.message(`You slip trying to ${kind.verb.toLowerCase().replace('-', ' ')} the ${kind.name.toLowerCase()}.`);
+      this.sound('hurt');
+      this.hurtPlayer(1 + Math.floor(rand() * (1 + Math.ceil(this.depth / 3))), `a ${kind.name.toLowerCase()}`);
+      return;
+    }
+    const to = samePos(p.pos, sc.a) ? sc.b : sc.a;
+    if (this.npcAt(to.x, to.y)) {
+      this.message('Something is blocking the other side.');
+      return;
+    }
+    p.pos = { ...to };
+    p.path = [];
+    this.message(`You ${kind.verb.toLowerCase().replace('-', ' ')} the ${kind.name.toLowerCase()}.`);
+    this.sound('stairs');
+    this.stat('shortcuts');
+    this.giveXp('agility', shortcutXp(sc.level) * XP_RATE);
+  }
+
   /** Walk to an item and pick it up; `all` takes the whole pile on that tile. */
   take(g: GroundItem, all = false): void {
     if (this.over) return;
@@ -502,8 +606,27 @@ export class GameState {
       this.message('The chest is empty.');
       return;
     }
+    // Locked chests: pick the lock first. They hold twice the loot and are never Mimics.
+    const locked = node.lockLevel;
+    if (locked) {
+      const level = this.player.skills.level('thieving');
+      if (level < locked) {
+        this.message(`This chest is locked. You need a Thieving level of ${locked} to pick it.`);
+        return;
+      }
+      if (rand() >= thievingChance(level, locked, 0.5)) {
+        this.message('You set off a trap! A dart shoots out of the lock.');
+        this.sound('hurt');
+        this.hurtPlayer(1 + Math.floor(rand() * (2 + Math.ceil(this.depth / 2))), 'a chest trap');
+        return;
+      }
+      node.lockLevel = undefined;
+      this.message('You pick the lock.');
+      this.stat('locks');
+      this.giveXp('thieving', lockXpFor(this.depth) * XP_RATE);
+    }
     node.used = true;
-    if (this.depth >= 3 && rand() < MIMIC_CHANCE) {
+    if (!locked && this.depth >= 3 && rand() < MIMIC_CHANCE) {
       // The "chest" was a monster all along: it leaves its spot and attacks.
       this.nodes.splice(this.nodes.indexOf(node), 1);
       setTile(this.map, node.pos.x, node.pos.y, Tile.Floor);
@@ -516,7 +639,8 @@ export class GameState {
     }
     const got: string[] = [];
     this.stat('chests');
-    for (const { id, qty } of chestLoot(this.depth)) {
+    const loot = locked ? [...chestLoot(this.depth), ...chestLoot(this.depth)] : chestLoot(this.depth);
+    for (const { id, qty } of loot) {
       this.emit({ type: 'obtain', item: id, qty, source: 'chest' });
       if (this.player.inventory.add(id, qty)) this.countLoot(id, qty);
       else this.dropOnTile(id, qty, this.player.pos);
@@ -546,6 +670,17 @@ export class GameState {
     }
     processStep(this, recipe);
     this.stat('potions');
+  }
+
+  /** Fletching: make a bow or arrows straight from the inventory (needs a knife). */
+  fletch(recipe: Recipe): void {
+    if (this.over) return;
+    const why = processBlocker(this.player, recipe);
+    if (why) {
+      this.message(why);
+      return;
+    }
+    processStep(this, recipe);
   }
 
   /** A drop's chance with your perks and relics (rare drops under 10% get boosted). */
@@ -887,9 +1022,31 @@ export class GameState {
     const p = this.player;
     if (p.attackCooldown > 0) p.attackCooldown--;
     if (p.eatCooldown > 0) p.eatCooldown--;
+    if (this.tickCount < p.stunnedUntil) return;
     const intent = p.intent;
 
     switch (intent?.kind) {
+      case 'pickpocket': {
+        const npc = intent.npc;
+        if (npc.dead || !this.npcs.includes(npc)) {
+          p.intent = null;
+          return;
+        }
+        const a = this.approach(npc.pos);
+        if (a === 'moving') return;
+        p.intent = null;
+        if (a === 'unreachable') this.message("I can't reach that!");
+        else this.tryPickpocket(npc);
+        return;
+      }
+      case 'shortcut': {
+        const a = this.approach(intent.node.pos);
+        if (a === 'moving') return;
+        p.intent = null;
+        if (a === 'unreachable') this.message("I can't reach that!");
+        else this.crossShortcut(intent.node);
+        return;
+      }
       case 'attack': {
         const npc = intent.npc;
         if (npc.dead || !this.npcs.includes(npc)) {

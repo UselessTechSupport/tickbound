@@ -44,6 +44,11 @@ npm run dev        # then open http://localhost:5173
   shield. Pick a starting style; gear above your level starts in your pack until you can wield it.
 - **Enchanter** (camp, arrives after your first TzTok-Jad kill): one enchantment per Armourer gear line, ranks I-III.
   Weapons: Keen, Brutal, Leeching, Flaming, Slayer's. Armour: Fortified, Thorns, Renewal, Blessed. Switching costs a fee.
+- **Fletching** (needs a knife from the Toolsmith): use logs to fletch shortbows, or a bar + logs to fletch 15 arrows.
+- **Thieving**: pickpocket goblins, dark wizards, mummies, infernal mages and dark archers (getting caught stuns and
+  hurts you; pockets run dry after 3 picks), and pick the locks of locked chests for double loot (fail = trap).
+- **Agility**: cracked walls, narrow gaps and loose rocks are shortcuts through walls that save a long walk.
+  Higher Agility = fewer slips.
 - **Resume**: a run in progress is saved in your browser (every few seconds and when you close the tab), so a
   refresh or closed tab picks up where you left off.
 - **Starting a run**: the ladder offers floor 1, a skip to the floor after any boss you've beaten (with catch-up
@@ -72,7 +77,7 @@ npm run dev        # then open http://localhost:5173
   potions. Potions boost your levels (shown in green) and fade by 1 a minute.
 - **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric or Savage variants in a gold aura. Tougher, but
   they roll their loot twice, always drop a herb and give bonus tokens.
-- **Achievements**: 62 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
+- **Achievements**: 69 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
   challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
 - **Collection log**: every notable drop from bosses, monsters and chests, with kill counts. Bosses have a 1/50
   pet drop; choose which pet follows you from the log.

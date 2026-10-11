@@ -15,7 +15,7 @@ export const TIERS: Array<{ id: Tier; name: string; reward: number; color: numbe
 export type Counter =
   | 'kills' | 'gathers' | 'cooks' | 'smiths' | 'bones' | 'chests' | 'purchases' | 'blocks'
   | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills' | 'tasks' | 'fires'
-  | 'potions' | 'herbs' | 'eliteKills';
+  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts';
 
 export interface AchievementContext {
   meta: MetaSave;
@@ -61,6 +61,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'firestarter', name: 'Firestarter', desc: 'Light 10 fires.', tier: 'easy', ...count('fires', 10) },
   { id: 'green_thumb', name: 'Green Thumb', desc: 'Pick 10 herbs.', tier: 'easy', ...count('herbs', 10) },
   { id: 'first_brew', name: 'First Brew', desc: 'Mix a potion.', tier: 'easy', ...count('potions', 1) },
+  { id: 'fletcher', name: 'Fletcher', desc: 'Fletch a bow or some arrows.', tier: 'easy', ...count('fletches', 1) },
+  { id: 'sticky_fingers', name: 'Sticky Fingers', desc: 'Pick a pocket.', tier: 'easy', ...count('pickpockets', 1) },
+  { id: 'shortcut_taker', name: 'Shortcut Taker', desc: 'Use an Agility shortcut.', tier: 'easy', ...count('shortcuts', 1) },
   { id: 'archer', name: 'Fletched', desc: 'Kill a monster with ranged.', tier: 'easy', ...count('rangedKills', 1) },
   { id: 'wizard', name: 'Abracadabra', desc: 'Kill a monster with magic.', tier: 'easy', ...count('magicKills', 1) },
 
@@ -81,6 +84,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'warlords_bane', name: "Warlord's Bane", desc: 'Kill the Goblin Warlord 5 times.', tier: 'medium', check: killedTimes('goblin_warlord', 5) },
   { id: 'mithril_smith', name: 'Mithril Smith', desc: 'Smith a mithril item.', tier: 'medium', check: made((id) => /^mithril_(scimitar|kiteshield|platebody)$/.test(id)) },
   { id: 'herbalist', name: 'Herbalist', desc: 'Mix 25 potions.', tier: 'medium', ...count('potions', 25) },
+  { id: 'master_thief', name: 'Master Thief', desc: 'Pick 50 pockets.', tier: 'medium', ...count('pickpockets', 50) },
+  { id: 'safecracker', name: 'Safecracker', desc: 'Pick the locks of 10 chests.', tier: 'medium', ...count('locks', 10) },
+  { id: 'parkour', name: 'Parkour', desc: 'Use 25 Agility shortcuts.', tier: 'medium', ...count('shortcuts', 25) },
+  { id: 'bowyer', name: 'Bowyer', desc: 'Fletch 50 times.', tier: 'medium', ...count('fletches', 50) },
   { id: 'elite_hunter', name: 'Elite Hunter', desc: 'Kill 10 elite monsters.', tier: 'medium', ...count('eliteKills', 10) },
   { id: 'juiced', name: 'Juiced', desc: 'Have 3 stats boosted by potions at once.', tier: 'medium', check: inRun((g) => Object.values(g.player.boosts).filter((b) => (b ?? 0) > 0).length >= 3) },
   { id: 'collector', name: 'Collector', desc: 'Log 20 unique items in your collection log.', tier: 'medium', check: (c) => uniques(c) >= 20 },

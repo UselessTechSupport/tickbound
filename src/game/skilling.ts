@@ -90,12 +90,16 @@ export function hasInputs(p: Player, recipe: Recipe): boolean {
 export function processBlocker(p: Player, recipe: Recipe): string | null {
   const what = lower(recipe.output);
   if (recipe.station === 'anvil' && !p.tools.hammer) return 'You need a hammer to work the metal with. Unlock one between runs.';
+  if (recipe.station === 'fletch' && !p.tools.knife) return 'You need a knife to fletch. Buy one from the Toolsmith between runs.';
   if (p.skills.level(recipe.skill) < recipe.level) {
-    const verb = { fire: 'cook', furnace: 'smelt', anvil: 'make', mix: 'mix' }[recipe.station];
+    const verb = { fire: 'cook', furnace: 'smelt', anvil: 'make', mix: 'mix', fletch: 'fletch' }[recipe.station];
     return `You need a ${SKILL_LABELS[recipe.skill]} level of ${recipe.level} to ${verb} ${recipe.station === 'anvil' ? 'a ' : ''}${what}.`;
   }
   if (!hasInputs(p, recipe)) {
     if (recipe.station === 'anvil') return `You don't have enough bars to make a ${what}.`;
+    if (recipe.station === 'fletch') {
+      return `You need ${recipe.inputs.map((i) => item(i.item).name.toLowerCase()).join(' and ')} to fletch that.`;
+    }
     if (recipe.station === 'mix') {
       const [herb, secondary] = recipe.inputs.map((i) => item(i.item).name.toLowerCase());
       return `You need ${herb}, ${secondary} and a vial of water to mix a ${what}.`;
@@ -123,8 +127,10 @@ export function processStep(g: GameState, recipe: Recipe): void {
     g.message(`You accidentally burn the ${what}.`);
     return;
   }
-  p.inventory.add(recipe.output);
+  const qty = recipe.outputQty ?? 1;
+  if (!p.inventory.add(recipe.output, qty)) g.dropHere(recipe.output, qty);
   g.sound(recipe.station === 'fire' ? 'cook' : 'smith');
+  if (recipe.station === 'fletch') g.stat('fletches');
   g.made(recipe.output);
   if (recipe.station === 'fire') g.stat('cooks');
   if (recipe.station === 'anvil') g.stat('smiths');
@@ -136,6 +142,7 @@ export function processStep(g: GameState, recipe: Recipe): void {
     recipe.station === 'fire' ? `You cook the ${what}.`
       : recipe.station === 'furnace' ? `You retrieve a bar of ${what.replace(' bar', '')}.`
         : recipe.station === 'mix' ? `You mix the ingredients into a ${what}.`
+          : recipe.station === 'fletch' ? (qty > 1 ? `You fletch ${qty} ${what}s.` : `You carefully cut the wood into a ${what}.`)
           : `You hammer the metal and make a ${what}.`,
   );
   g.giveXp(recipe.skill, recipe.xp * XP_RATE);

@@ -8,15 +8,15 @@ import { playRun, RunResult } from '../src/sim/bot';
 const STAGES: Record<string, RunSetup> = {
   'fresh save': {},
   'early (~150 tokens)': {
-    tools: { pickaxe: 0, axe: 1, fishing: 1, hammer: false, tinderbox: true },
+    tools: { pickaxe: 0, axe: 1, fishing: 1, hammer: false, tinderbox: true, knife: true },
     perks: { packed_lunch: 2, basic_training: 1 },
   },
   'mid (~800 tokens)': {
-    tools: { pickaxe: 1, axe: 1, fishing: 2, hammer: true, tinderbox: true },
+    tools: { pickaxe: 1, axe: 1, fishing: 2, hammer: true, tinderbox: true, knife: true },
     perks: { basic_training: 3, iron_will: 2, packed_lunch: 3, hearty_meals: 1, blessed: 2, veterans_kit: 1, treasure_hunter: 1 },
   },
   'late (~3000 tokens)': {
-    tools: { pickaxe: 3, axe: 3, fishing: 3, hammer: true, tinderbox: true },
+    tools: { pickaxe: 3, axe: 3, fishing: 3, hammer: true, tinderbox: true, knife: true },
     perks: {
       basic_training: 3, iron_will: 3, veterans_kit: 2, killer_instinct: 2, packed_lunch: 3, hearty_meals: 3,
       second_wind: 2, blessed: 3, focus: 2, pilgrim: 2, holy_supplies: 2, treasure_hunter: 3,

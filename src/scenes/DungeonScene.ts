@@ -24,6 +24,8 @@ import { themeForDepth } from '../data/themes';
 import { ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
 import { enchantCost } from '../data/enchants';
+import { PICKPOCKET } from '../data/thieving';
+import { SHORTCUT_KINDS } from '../data/agility';
 import { clearRun, loadRun, saveRun } from '../save/runSave';
 
 /** Your first kill of this boss brings the Enchanter to camp. */
@@ -605,7 +607,14 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'enchanter') return [{ label: 'Enchant Enchanter', action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
-    if (node.kind === 'chest') return node.used ? [] : [{ label: 'Open Chest', action: () => g.talkTo(node) }];
+    if (node.kind === 'chest') {
+      if (node.used) return [];
+      return [{ label: node.lockLevel ? 'Picklock Locked chest' : 'Open Chest', action: () => g.talkTo(node) }];
+    }
+    if (node.kind === 'shortcut') {
+      const sc = node.shortcut!;
+      return [{ label: `${SHORTCUT_KINDS[sc.kind].verb} ${node.name} (Agility ${sc.level})`, action: () => g.useShortcut(node) }];
+    }
     // Anvil: "Smith" opens a second menu listing what your bars can make.
     return [{
       label: 'Smith Anvil',
@@ -637,6 +646,7 @@ export class DungeonScene extends Phaser.Scene {
     if (npc && g.isVisible(t.x, t.y)) {
       const name = `${npc.name} (level-${npc.level})`;
       opts.push({ label: `Attack ${name}`, action: () => { g.attack(npc); this.destMarker.setVisible(false); } });
+      if (PICKPOCKET[npc.def.id]) opts.push({ label: `Pickpocket ${npc.name}`, action: () => g.pickpocket(npc) });
       const weak = npc.def.weakness ? ` It looks weak to ${npc.def.weakness === 'melee' ? 'melee' : npc.def.weakness}.` : '';
       examines.push({
         label: `Examine ${npc.name}`,
@@ -809,8 +819,24 @@ export class DungeonScene extends Phaser.Scene {
         sprite(`gen_${n.kind}`);
         break;
       case 'chest':
-        sprite(n.used ? 'chest_open' : 'chest');
+        sprite(n.used ? 'chest_open' : n.lockLevel ? 'chest_locked' : 'chest');
         break;
+      case 'shortcut': {
+        // A jagged gap through the wall with rubble at its foot, along the crossing direction.
+        const sc = n.shortcut!;
+        const across = sc.a.x !== sc.b.x; // crossing left-right: the crack runs top to bottom
+        const h = TILE / 2 - 2;
+        const zig = [-h, -h / 2, 0, h / 2, h].map((t, i) => (i % 2 ? 4 : -3));
+        const pts = [-h, -h / 2, 0, h / 2, h].map((t, i) => (across ? { x: cx + zig[i], y: cy + t } : { x: cx + t, y: cy + zig[i] }));
+        fx.lineStyle(7, 0x0c0a08, 1).strokePoints(pts);
+        fx.lineStyle(2, 0x6a5a48, 1).strokePoints(pts.map((p) => ({ x: p.x + 2, y: p.y + 2 })));
+        fx.fillStyle(0x8a7a64, 1);
+        for (const [dx, dy] of [[-8, 9], [6, 11], [10, 6], [-11, -7], [9, -10]]) {
+          fx.fillCircle(cx + (across ? dx : dy), cy + (across ? dy : dx), 2.5);
+        }
+        fx.lineStyle(1, 0xffd040, 0.45).strokeRect(n.pos.x * TILE + 1, n.pos.y * TILE + 1, TILE - 2, TILE - 2);
+        break;
+      }
       case 'shrine':
         sprite('shrine', n.used ? 0x606060 : undefined);
         if (!n.used) fx.lineStyle(2, 0xffd040, 0.7).strokeCircle(cx, cy, 14);
