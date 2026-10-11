@@ -16,6 +16,7 @@ import { Player } from '../entities/Player';
 import { ResourceNode } from '../entities/ResourceNode';
 import { GameEvent, GameState } from '../game/GameState';
 import { Skills } from '../systems/skills';
+import { SKILLS } from '../data/skills';
 
 /**
  * Saves the run in progress so a refresh or closed tab doesn't lose it.
@@ -165,6 +166,8 @@ export function deserializeRun(json: string, emit: (e: GameEvent) => void): Game
     if (data.v !== VERSION) return null;
     const g = decodeGraph(data.game) as GameState;
     if (!(g instanceof GameState)) return null;
+    // Skills added since the run was saved start at 0 XP.
+    for (const skill of SKILLS) g.player.skills.xp[skill] ??= 0;
     g.attachEmitter(emit);
     RNG.setState(data.rng);
     return g;

@@ -10,7 +10,7 @@ import { generateFloor } from '../src/world/dungeonGen';
 import { placeResources } from '../src/world/resources';
 import { Tile, reachableCount, setTile, tileAt } from '../src/world/tiles';
 
-const ALL_TOOLS: Toolbelt = { pickaxe: 6, axe: 6, fishing: 4, hammer: true, tinderbox: true };
+const ALL_TOOLS: Toolbelt = { pickaxe: 6, axe: 6, fishing: 4, hammer: true, tinderbox: true, knife: true };
 
 /** A quiet game with one node placed next to the player. */
 function withNode(kind: ResourceNode['kind'], defId?: string, tools = ALL_TOOLS) {
@@ -39,7 +39,8 @@ describe('resource placement', () => {
       const before = reachableCount(map, map.spawn);
       const nodes = placeResources(map);
       expect(nodes.length, `seed ${seed}`).toBeGreaterThan(3);
-      expect(reachableCount(map, map.spawn)).toBe(before - nodes.length);
+      // Shortcuts sit in walls, so only the other nodes take up floor.
+      expect(reachableCount(map, map.spawn)).toBe(before - nodes.filter((n) => n.kind !== 'shortcut').length);
       expect(tileAt(map, map.stairs.x, map.stairs.y)).toBe(Tile.StairsDown);
     }
   });

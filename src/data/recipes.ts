@@ -1,7 +1,10 @@
 import { SkillName } from './skills';
 
-/** 'mix' recipes are herblore: made straight from the inventory, no station needed. */
-export type Station = 'fire' | 'furnace' | 'anvil' | 'mix';
+/**
+ * 'mix' (Herblore) and 'fletch' (Fletching, needs a knife) recipes are made straight
+ * from the inventory, no station needed.
+ */
+export type Station = 'fire' | 'furnace' | 'anvil' | 'mix' | 'fletch';
 
 export interface Recipe {
   id: string;
@@ -11,6 +14,8 @@ export interface Recipe {
   xp: number;
   inputs: { item: string; qty: number }[];
   output: string;
+  /** How many you make at once (default 1). */
+  outputQty?: number;
   /** Cooking only: level at which you stop burning it. */
   stopBurn?: number;
 }
@@ -28,6 +33,17 @@ const mix = (output: string, level: number, xp: number, herb: string, secondary:
 const smelt = (metal: string, level: number, xp: number, ore: string, coal: number, extra?: string): Recipe => ({
   id: `smelt_${metal}`, station: 'furnace', skill: 'smithing', level, xp, output: `${metal}_bar`,
   inputs: [{ item: ore, qty: 1 }, ...(extra ? [{ item: extra, qty: 1 }] : []), ...(coal ? [{ item: 'coal', qty: coal }] : [])],
+});
+
+/** Logs -> shortbow. */
+const bow = (logs: string, output: string, level: number, xp: number): Recipe => ({
+  id: `fletch_${output}`, station: 'fletch', skill: 'fletching', level, xp, output, inputs: [{ item: logs, qty: 1 }],
+});
+
+/** A bar for the arrowheads plus logs for the shafts -> 15 arrows. */
+const arrows = (metal: string, logs: string, level: number, xpEach: number): Recipe => ({
+  id: `fletch_${metal}_arrow`, station: 'fletch', skill: 'fletching', level, xp: xpEach * 15, output: `${metal}_arrow`, outputQty: 15,
+  inputs: [{ item: `${metal}_bar`, qty: 1 }, { item: logs, qty: 1 }],
 });
 
 /** [metal, base smithing level, xp per bar] */
@@ -64,6 +80,18 @@ export const RECIPES: Recipe[] = [
     id: `smith_${metal}_${thing}`, station: 'anvil', skill: 'smithing', level: base + offset, xp: xp * bars,
     inputs: [{ item: `${metal}_bar`, qty: bars }], output: `${metal}_${thing}`,
   }))),
+
+  bow('logs', 'shortbow', 5, 5),
+  bow('oak_logs', 'oak_shortbow', 20, 16.5),
+  bow('willow_logs', 'willow_shortbow', 35, 33.3),
+  bow('maple_logs', 'maple_shortbow', 50, 50),
+  bow('yew_logs', 'yew_shortbow', 65, 67.5),
+  arrows('bronze', 'logs', 1, 1.3),
+  arrows('iron', 'logs', 15, 2.5),
+  arrows('steel', 'oak_logs', 30, 5),
+  arrows('mithril', 'willow_logs', 45, 7.5),
+  arrows('adamant', 'maple_logs', 60, 10),
+  arrows('rune', 'yew_logs', 75, 12.5),
 ];
 
 export function recipesFor(station: Station): Recipe[] {

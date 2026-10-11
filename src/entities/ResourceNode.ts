@@ -2,9 +2,10 @@ import { ResourceDef } from '../data/resources';
 import { Station } from '../data/recipes';
 import { Point } from '../world/tiles';
 import type { StockEntry } from '../data/loot';
+import { SHORTCUT_KINDS } from '../data/agility';
 
 /** Non-resource node kinds: crafting stations, altars, and camp NPCs. */
-export type FixtureKind = Exclude<Station, 'mix'> | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer' | 'enchanter';
+export type FixtureKind = Exclude<Station, 'mix' | 'fletch'> | 'shortcut' | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer' | 'enchanter';
 export type NodeKind = 'resource' | FixtureKind;
 
 /** A blocking world object the player interacts with: a resource or a crafting station. */
@@ -17,6 +18,10 @@ export class ResourceNode {
   used = false;
   /** Merchant's remaining wares. */
   stock?: StockEntry[];
+  /** Locked chests: Thieving level to pick the lock (cleared once picked). */
+  lockLevel?: number;
+  /** Agility shortcuts: the floor tiles on either side of the wall, and the level needed. */
+  shortcut?: { a: Point; b: Point; level: number; kind: number };
 
   constructor(
     public pos: Point,
@@ -33,7 +38,9 @@ export class ResourceNode {
       if (!this.depleted) return this.def.name;
       return { rock: 'Rocks', tree: 'Tree stump', fishing: 'Still water', herb: 'Picked patch' }[this.def.kind];
     }
-    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest', slayer_master: 'Slayer master', armourer: 'Armourer', enchanter: 'Enchanter' }[this.kind as FixtureKind];
+    if (this.kind === 'chest' && this.lockLevel) return 'Locked chest';
+    if (this.kind === 'shortcut') return SHORTCUT_KINDS[this.shortcut!.kind].name;
+    return { shortcut: '', fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest', slayer_master: 'Slayer master', armourer: 'Armourer', enchanter: 'Enchanter' }[this.kind as FixtureKind];
   }
 
   get examine(): string {
@@ -44,7 +51,10 @@ export class ResourceNode {
         fishing: 'The fish have gone.', herb: 'Nothing left to pick.',
       }[this.def.kind];
     }
+    if (this.kind === 'chest' && this.lockLevel) return `It's locked. I'd need a Thieving level of ${this.lockLevel} to pick it.`;
+    if (this.kind === 'shortcut') return `${SHORTCUT_KINDS[this.shortcut!.kind].examine} (Agility ${this.shortcut!.level})`;
     return {
+      shortcut: '',
       fire: 'Hot!',
       furnace: 'A red hot furnace, for smelting ore into bars.',
       anvil: 'Used for fashioning metal items.',
