@@ -13,8 +13,10 @@ import { sellPriceOf } from '../data/prices';
 import { itemInfo, speedText } from '../ui/itemInfo';
 import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/achievements';
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
-import { NPCS } from '../data/npcs';
-import { ALL_LOG_SLOTS, LOG_CATEGORIES, PET_BY_ID } from '../data/collectionLog';
+import { MIMIC_CHANCE, NPCS } from '../data/npcs';
+import { ALL_LOG_SLOTS, LOG_CATEGORIES, PET_BY_ID, PET_CHANCE, petForBoss } from '../data/collectionLog';
+import { CHEST_SECOND_PICK, CHEST_TABLE, chestCoins, metalForDepth } from '../data/loot';
+import type { Npc } from '../entities/Npc';
 import type { Notice } from '../meta/tracker';
 import { ensureItemTexture, npcSprite } from '../render/sprites';
 import { sfx } from '../audio/sfx';
@@ -45,7 +47,17 @@ const PANEL_BG = 0x3e3529;
 const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
-type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings';
+type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops';
+
+/** What the drop-table window is showing. */
+export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
+
+/** "Always", or "1/20 (5%)". */
+function formatChance(c: number): string {
+  if (c >= 1) return 'Always';
+  const pct = c * 100;
+  return `1/${Math.round(1 / c)} (${pct < 1 ? pct.toFixed(1) : Math.round(pct)}%)`;
+}
 const TABS: Array<[Tab, string]> = [['inventory', 'Items'], ['prayer', 'Prayer'], ['magic', 'Magic'], ['gear', 'Gear']];
 const TAB_W = 50;
 const MAX_TOASTS = 3;
@@ -125,6 +137,7 @@ export class UIScene extends Phaser.Scene {
   private relicText!: Phaser.GameObjects.Text;
   private modalKind: ModalKind | null = null;
   private logCategory = LOG_CATEGORIES[0].id;
+  private dropsSubject: DropsSubject | null = null;
   private achievementTier: Tier = 'easy';
   private taskText!: Phaser.GameObjects.Text;
   /** Toasts currently on screen, and the ones waiting for a free spot. */
@@ -551,6 +564,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
+      drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
     const meta = this.dungeon.meta;
@@ -563,6 +577,7 @@ export class UIScene extends Phaser.Scene {
       toolsmith: `Dungeoneering tokens: ${meta.tokens}`,
       slayer: `Dungeoneering tokens: ${meta.tokens}   Tasks completed: ${meta.lifetime.tasks ?? 0}`,
       settings: 'Saved in this browser',
+      drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
     }[kind];
     add(this.add.text(W / 2, 54, currency, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
     const close = add(this.add.text(W - 16, 16, '[ X ]', { ...FONT, fontSize: '16px', color: '#ff6060' }).setOrigin(1, 0)
@@ -574,6 +589,7 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'log') this.buildCollectionLog(add);
     else if (kind === 'slayer') this.buildSlayer(add);
     else if (kind === 'settings') this.buildSettings(add);
+    else if (kind === 'drops') this.buildDrops(add);
     else this.buildToolsmith(add);
   }
 
@@ -624,6 +640,80 @@ export class UIScene extends Phaser.Scene {
         add(this.add.text(x + colW - 90, y + 7, `${cur}/${target}`, { ...FONT, fontSize: '10px', color: '#c8c8c8' }).setOrigin(1, 0));
       }
     });
+  }
+
+  /** Examine: a monster's stats and drop table, or a chest's loot table, with live chances. */
+  openDrops(subject: DropsSubject): void {
+    this.dropsSubject = subject;
+    this.openModal('drops');
+  }
+
+  private buildDrops(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const subject = this.dropsSubject;
+    if (!subject) return;
+    const g = this.state;
+    const meta = this.dungeon.meta;
+    const W = this.panelX;
+    const x0 = W / 2 - 300;
+    let y = 90;
+    const info = (text: string, color = '#c8c8c8') => {
+      add(this.add.text(W / 2, y, text, { ...FONT, fontSize: '13px', color, align: 'center' }).setOrigin(0.5, 0));
+      y += 20;
+    };
+    const header = () => {
+      y += 6;
+      for (const [label, x] of [['Item', 40], ['Quantity', 330], ['Chance', 440]] as const) {
+        add(this.add.text(x0 + x, y, label, { ...FONT, fontSize: '12px', color: '#ff981f' }));
+      }
+      y += 20;
+    };
+    const row = (icon: { key: string; tint?: number; scale?: number }, name: string, qty: string, chance: string, note = '') => {
+      add(this.add.rectangle(x0, y - 2, 600, 28, 0x2a241c).setOrigin(0));
+      const img = add(this.add.image(x0 + 18, y + 12, icon.key).setScale(icon.scale ?? 0.75));
+      if (icon.tint !== undefined) img.setTint(icon.tint);
+      add(this.add.text(x0 + 40, y + 5, name, { ...FONT, fontSize: '12px', color: '#ffffff' }));
+      add(this.add.text(x0 + 330, y + 5, qty, { ...FONT, fontSize: '12px', color: '#ffffff' }));
+      add(this.add.text(x0 + 440, y + 5, chance, { ...FONT, fontSize: '12px', color: '#ffff00' }));
+      if (note) add(this.add.text(x0 + 594, y + 5, note, { ...FONT, fontSize: '10px', color: note === 'logged' ? '#60ff60' : '#80d0ff' }).setOrigin(1, 0));
+      y += 30;
+    };
+    /** Collection-log status for an item: logged, not yet logged, or not a log item. */
+    const logNote = (id: string) => (ALL_LOG_SLOTS.includes(id) ? (meta.collection[id] ? 'logged' : 'new log slot') : '');
+    const range = ([lo, hi]: [number, number]) => (lo === hi ? `${lo}` : `${lo}-${hi}`);
+
+    if (subject.kind === 'npc') {
+      const { npc } = subject;
+      const d = npc.def;
+      const style = npc.isBoss ? d.boss!.styles.join(' / ') : npc.attackStyle;
+      info(`Level ${npc.level}   HP ${npc.maxHp}   Attacks: ${style}${npc.attackRange > 1 ? ` (range ${npc.attackRange})` : ''}`
+        + `${d.weakness ? `   Weak to ${d.weakness}` : ''}`, '#ffffff');
+      info(`You have killed ${meta.killCounts[d.id] ?? 0}.   Chances include your current perks and relics.`);
+      header();
+      for (const drop of d.drops) {
+        const chance = g.dropChance(drop);
+        const base = chance !== drop.chance ? `  (base ${formatChance(drop.chance)})` : '';
+        row(ensureItemTexture(this, drop.item), item(drop.item).name, range(g.dropQuantity(drop)), formatChance(chance) + base, logNote(drop.item));
+      }
+      const pet = npc.isBoss ? petForBoss(d.id) : undefined;
+      if (pet) row({ key: npcSprite(d.id), scale: 0.6 }, `${pet.name} (pet)`, '1', formatChance(PET_CHANCE), meta.pets.includes(pet.id) ? 'logged' : 'new log slot');
+      return;
+    }
+
+    const depth = subject.depth;
+    info(`Coins: ${range(chestCoins(depth))} (always)   Bonus items: 1 (${Math.round((1 - CHEST_SECOND_PICK) * 100)}%) or 2 (${Math.round(CHEST_SECOND_PICK * 100)}%)`, '#ffffff');
+    info('Armour and weapons are one metal tier better 30% of the time.');
+    if (depth >= 3) info(`Careful: ${Math.round(MIMIC_CHANCE * 100)}% of chests from floor 3 are Mimics.`, '#ff8080');
+    header();
+    for (const e of CHEST_TABLE) {
+      if (e.label === 'Armour or weapon') {
+        const metal = metalForDepth(depth);
+        row(ensureItemTexture(this, `${metal}_scimitar`), `${metal[0].toUpperCase()}${metal.slice(1)} scimitar/kiteshield/platebody`,
+          '1', `${formatChance(e.chance)} per item`);
+      } else {
+        const id = e.item(depth);
+        row(ensureItemTexture(this, id), item(id).name, range(e.qty), `${formatChance(e.chance)} per item`);
+      }
+    }
   }
 
   /** Sound, gameplay toggles, zoom and the full keybind list. */

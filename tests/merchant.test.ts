@@ -88,3 +88,32 @@ describe('chests', () => {
     expect(mimics).toBeGreaterThan(0);
   });
 });
+
+describe('drop tables shown on examine', () => {
+  it('chest table chances sum to 1 and loot follows the table', async () => {
+    const { CHEST_TABLE, chestCoins } = await import('../src/data/loot');
+    expect(CHEST_TABLE.reduce((s, e) => s + e.chance, 0)).toBeCloseTo(1);
+    const [lo, hi] = chestCoins(6);
+    for (let i = 0; i < 200; i++) {
+      const loot = chestLoot(6);
+      expect(loot[0].id).toBe('coins');
+      expect(loot[0].qty).toBeGreaterThanOrEqual(lo);
+      expect(loot[0].qty).toBeLessThanOrEqual(hi);
+      expect(loot.length === 2 || loot.length === 3).toBe(true);
+    }
+  });
+
+  it('drop chances include perks and relics', () => {
+    const plain = new GameState(601);
+    const lucky = new GameState(602, () => {}, { perks: { lucky: 2, deep_pockets: 1 } });
+    lucky.relics = ['ring_of_wealth'];
+    const rare = { item: 'rune_scimitar', chance: 0.04 };
+    const common = { item: 'bones', chance: 1 };
+    const coins = { item: 'coins', chance: 0.5, min: 10, max: 20 };
+    expect(plain.dropChance(rare)).toBeCloseTo(0.04);
+    expect(lucky.dropChance(rare)).toBeCloseTo(0.04 * 1.5 * 1.25);
+    expect(lucky.dropChance(common)).toBe(1);
+    expect(plain.dropQuantity(coins)).toEqual([10, 20]);
+    expect(lucky.dropQuantity(coins)).toEqual([30, 60]); // Deep Pockets 1.5x, Ring of Wealth 2x
+  });
+});

@@ -49,17 +49,40 @@ export function generateStock(depth: number): StockEntry[] {
   return stock.filter((s, i) => stock.findIndex((o) => o.id === s.id) === i);
 }
 
-/** Coins plus one or two depth-appropriate goodies. */
+/** Chance a chest gives a second bonus item. */
+export const CHEST_SECOND_PICK = 0.4;
+
+/** Coins in a chest on `depth`: [min, max]. */
+export function chestCoins(depth: number): [number, number] {
+  return [20 * depth, 50 * depth];
+}
+
+export interface ChestEntry {
+  label: string;
+  chance: number;
+  qty: [number, number];
+  /** The item this entry gives at a depth (gear rolls its kind and tier when looted). */
+  item: (depth: number) => string;
+}
+
+/** Each bonus pick rolls once on this table; chances add up to 1. */
+export const CHEST_TABLE: ChestEntry[] = [
+  { label: 'Food', chance: 0.3, qty: [2, 3], item: foodForDepth },
+  { label: 'Prayer potion', chance: 0.2, qty: [1, 1], item: () => 'prayer_potion' },
+  { label: 'Arrows', chance: 0.15, qty: [20, 40], item: (d) => `${metalForDepth(d)}_arrow` },
+  { label: 'Runes', chance: 0.15, qty: [8, 20], item: (d) => (d >= 10 ? 'death_rune' : 'chaos_rune') },
+  { label: 'Armour or weapon', chance: 0.2, qty: [1, 1], item: gearForDepth },
+];
+
+/** Coins plus one or two depth-appropriate goodies, rolled from CHEST_TABLE. */
 export function chestLoot(depth: number): Array<{ id: string; qty: number }> {
-  const loot = [{ id: 'coins', qty: 20 * depth + RNG.getUniformInt(0, 30 * depth) }];
-  const picks = RNG.getUniform() < 0.4 ? 2 : 1;
+  const [lo, hi] = chestCoins(depth);
+  const loot = [{ id: 'coins', qty: RNG.getUniformInt(lo, hi) }];
+  const picks = RNG.getUniform() < CHEST_SECOND_PICK ? 2 : 1;
   for (let i = 0; i < picks; i++) {
-    const roll = RNG.getUniform();
-    if (roll < 0.3) loot.push({ id: foodForDepth(depth), qty: RNG.getUniformInt(2, 3) });
-    else if (roll < 0.5) loot.push({ id: 'prayer_potion', qty: 1 });
-    else if (roll < 0.65) loot.push({ id: `${metalForDepth(depth)}_arrow`, qty: RNG.getUniformInt(20, 40) });
-    else if (roll < 0.8) loot.push({ id: depth >= 10 ? 'death_rune' : 'chaos_rune', qty: RNG.getUniformInt(8, 20) });
-    else loot.push({ id: gearForDepth(depth), qty: 1 });
+    let roll = RNG.getUniform();
+    const entry = CHEST_TABLE.find((e) => (roll -= e.chance) < 0) ?? CHEST_TABLE[CHEST_TABLE.length - 1];
+    loot.push({ id: entry.item(depth), qty: RNG.getUniformInt(entry.qty[0], entry.qty[1]) });
   }
   return loot;
 }
