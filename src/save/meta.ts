@@ -11,7 +11,9 @@ export interface MetaSave {
   bestDepth: number;
 }
 
-const KEY = 'roguescape.meta';
+const KEY = 'tickbound.meta';
+/** Save key from before the rename; read once so earlier progress carries over. */
+const LEGACY_KEY = 'roguescape.meta';
 
 export function freshMeta(): MetaSave {
   return { version: 1, tokens: 0, tools: { ...NO_TOOLS }, perks: {}, runs: 0, bestDepth: 0 };
@@ -19,7 +21,7 @@ export function freshMeta(): MetaSave {
 
 export function loadMeta(): MetaSave {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
     if (!raw) return freshMeta();
     const parsed = JSON.parse(raw) as Partial<MetaSave>;
     return { ...freshMeta(), ...parsed, tools: { ...NO_TOOLS, ...parsed.tools }, perks: { ...parsed.perks } };

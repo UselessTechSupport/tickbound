@@ -7,7 +7,7 @@ export type SoundName =
   | 'hit' | 'miss' | 'hurt' | 'block' | 'eat' | 'pickup' | 'mine' | 'chop' | 'fish' | 'cook' | 'burn'
   | 'smith' | 'prayerOn' | 'prayerOff' | 'levelup' | 'death' | 'stairs' | 'magic' | 'arrow' | 'buy' | 'bury';
 
-const MUTE_KEY = 'roguescape.muted';
+const MUTE_KEY = 'tickbound.muted';
 
 class Sfx {
   private ctx?: AudioContext;

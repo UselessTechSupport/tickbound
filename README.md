@@ -1,4 +1,6 @@
-# RogueScape
+# Tickbound
+
+**Play it: https://uselesstechsupport.github.io/tickbound/**
 
 An Old School RuneScape–inspired roguelike that runs in the browser. Dive into procedurally generated
 dungeon floors on the OSRS 0.6s game tick, level 1–99 skills, fight with prayers and gear, and die.

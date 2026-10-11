@@ -1,2 +1,13 @@
 node_modules
 dist
+
+# Local-only files: never commit secrets, logs or editor/OS clutter
+.env
+.env.*
+*.log
+*.local
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/

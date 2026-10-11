@@ -5,7 +5,7 @@ export default defineConfig({
   base: './',
   server: {
     port: 5173,
-    // The project lives on the Windows drive (/mnt/c); WSL doesn't get file-change events there.
+    // Polling keeps hot reload working when the project sits on a Windows drive under WSL.
     watch: { usePolling: true, interval: 300 },
   },
 });
