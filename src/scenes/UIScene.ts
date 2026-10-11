@@ -9,6 +9,7 @@ import { TOOL_TIERS, nextUnlocks } from '../data/tools';
 import { PRAYERS, PROTECTION_HOTKEYS } from '../data/prayers';
 import { SPELLS, SPELL_BY_ID } from '../data/spells';
 import { RELIC_BY_ID } from '../data/relics';
+import { sellPriceOf } from '../data/prices';
 import { ensureItemTexture } from '../render/sprites';
 import { sfx } from '../audio/sfx';
 
@@ -36,6 +37,7 @@ const PANEL_BG = 0x3e3529;
 const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic';
+type ModalKind = 'mentor' | 'toolsmith' | 'merchant';
 const TABS: Array<[Tab, string]> = [['inventory', 'Inventory'], ['prayer', 'Prayer'], ['magic', 'Magic']];
 
 /** Style button labels and what each trains, per weapon type. */
@@ -92,7 +94,7 @@ export class UIScene extends Phaser.Scene {
   private modal!: Phaser.GameObjects.Container;
   private relicPanel!: Phaser.GameObjects.Container;
   private relicText!: Phaser.GameObjects.Text;
-  private modalKind: 'mentor' | 'toolsmith' | null = null;
+  private modalKind: ModalKind | null = null;
   private minimap!: Phaser.GameObjects.Graphics;
   private minimapRect = new Phaser.Geom.Rectangle();
   private tooltip!: Phaser.GameObjects.Container;
@@ -386,7 +388,12 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  openModal(kind: 'mentor' | 'toolsmith'): void {
+  /** True while a window is open that should pause the game. */
+  get pausesGame(): boolean {
+    return !!this.modalKind;
+  }
+
+  openModal(kind: ModalKind): void {
     this.modalKind = kind;
     this.modal.removeAll(true);
     this.modal.setVisible(true);
@@ -394,16 +401,67 @@ export class UIScene extends Phaser.Scene {
     const H = this.scale.height;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.modal.add(o), o);
     add(this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setInteractive());
-    add(this.add.text(W / 2, 24, kind === 'mentor' ? 'Mentor: Skill Tree' : 'Toolsmith', { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
-    add(this.add.text(W / 2, 54, `Dungeoneering tokens: ${this.dungeon.meta.tokens}`, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
+    const title = { mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant' }[kind];
+    add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
+    const currency = kind === 'merchant'
+      ? `Coins: ${this.state.player.inventory.count('coins').toLocaleString()}   (the game is paused)`
+      : `Dungeoneering tokens: ${this.dungeon.meta.tokens}`;
+    add(this.add.text(W / 2, 54, currency, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
     const close = add(this.add.text(W - 16, 16, '[ X ]', { ...FONT, fontSize: '16px', color: '#ff6060' }).setOrigin(1, 0)
       .setInteractive({ useHandCursor: true }));
     close.on('pointerdown', () => this.closeModal());
     if (kind === 'mentor') this.buildSkillTree(add);
+    else if (kind === 'merchant') this.buildMerchant(add);
     else this.buildToolsmith(add);
   }
 
+  /** Buy list on the left, your sellable inventory on the right. */
+  private buildMerchant(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const g = this.state;
+    const W = this.panelX;
+    const colW = Math.min(420, W / 2 - 30);
+    const leftX = W / 2 - colW - 10;
+    const rightX = W / 2 + 10;
+    const rowStyle = (enabled: boolean) => ({
+      ...FONT, fontSize: '13px', color: enabled ? '#ffffff' : '#7a7a7a',
+      backgroundColor: enabled ? '#3e3529' : '#241f18', padding: { x: 8, y: 4 }, fixedWidth: colW,
+    });
+    const clickable = (row: Phaser.GameObjects.Text, onClick: () => void) => {
+      row.setInteractive({ useHandCursor: true });
+      row.on('pointerover', () => row.setBackgroundColor('#5d5447'));
+      row.on('pointerout', () => row.setBackgroundColor('#3e3529'));
+      row.on('pointerdown', () => {
+        onClick();
+        this.openModal('merchant');
+      });
+    };
+
+    add(this.add.text(leftX, 90, 'Buy (click)', { ...FONT, color: '#c8c8c8' }));
+    const coins = g.player.inventory.count('coins');
+    (g.activeMerchant?.stock ?? []).forEach((s, i) => {
+      const bundle = item(s.id).stackable ? Math.min(s.qty, 25) : 1;
+      const can = s.qty > 0 && coins >= s.price * bundle;
+      const label = s.qty > 0
+        ? `${item(s.id).name}${bundle > 1 ? ` x${bundle}` : ''}  -  ${(s.price * bundle).toLocaleString()} gp  (${s.qty} left)`
+        : `${item(s.id).name}  -  sold out`;
+      const row = add(this.add.text(leftX, 112 + i * 28, label, rowStyle(can)));
+      if (can) clickable(row, () => g.buy(i));
+    });
+
+    add(this.add.text(rightX, 90, 'Sell (click, whole stack)', { ...FONT, color: '#c8c8c8' }));
+    const sellable = g.player.inventory.slots
+      .map((s, slot) => ({ s, slot }))
+      .filter(({ s }) => s && s.id !== 'coins' && sellPriceOf(s.id) > 0);
+    sellable.slice(0, 16).forEach(({ s, slot }, i) => {
+      const total = sellPriceOf(s!.id) * s!.qty;
+      const row = add(this.add.text(rightX, 112 + i * 28, `${item(s!.id).name}${s!.qty > 1 ? ` x${s!.qty}` : ''}  -  ${total.toLocaleString()} gp`, rowStyle(true)));
+      clickable(row, () => g.sell(slot));
+    });
+    if (!sellable.length) add(this.add.text(rightX, 112, 'Nothing the merchant wants.', { ...FONT, color: '#7a7a7a' }));
+  }
+
   closeModal(): void {
+    if (this.modalKind === 'merchant') this.state.closeShop();
     this.modalKind = null;
     this.modal.removeAll(true);
     this.modal.setVisible(false);

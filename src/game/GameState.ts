@@ -15,6 +15,9 @@ import { AttackType, DRAIN_RESISTANCE, PRAYER_BY_ID, PrayerGroup, potionRestore 
 import { SPELLS, SPELL_BY_ID, SpellDef } from '../data/spells';
 import { WEAKNESS_PENALTY } from '../data/npcs';
 import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
+import { MIMIC_CHANCE, mimicFor } from '../data/npcs';
+import { chestLoot } from '../data/loot';
+import { sellPriceOf } from '../data/prices';
 
 const ELEMENTAL_RUNES = ['air_rune', 'water_rune', 'earth_rune', 'fire_rune'];
 import { Actor } from '../entities/Actor';
@@ -37,7 +40,7 @@ export type GameEvent =
   | { type: 'enterDungeon' }
   | { type: 'relicChoice'; options: string[] }
   | { type: 'sound'; name: SoundName }
-  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' }
+  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
 /** A ranged/magic attack in flight; protection prayers are checked when it lands. */
@@ -95,6 +98,8 @@ export class GameState {
   relics: string[] = [];
   /** Relics on offer, waiting for the player to pick one (the scene pauses meanwhile). */
   pendingRelics: string[] | null = null;
+  /** The merchant whose shop window is open. */
+  activeMerchant: ResourceNode | null = null;
   /** Vampyric Fang: damage dealt that hasn't been converted to healing yet. */
   private lifestealBank = 0;
 
@@ -250,6 +255,76 @@ export class GameState {
     if (this.over) return;
     this.player.intent = { kind: 'process', node, recipe, repeat, started: false };
     this.player.path = [];
+  }
+
+  /** Buys one of a stock line from the open merchant. */
+  buy(index: number): boolean {
+    const m = this.activeMerchant;
+    const entry = m?.stock?.[index];
+    if (!entry || entry.qty <= 0) return false;
+    const inv = this.player.inventory;
+    // Ammo and runes come in bundles so buying isn't a hundred clicks.
+    const bundle = item(entry.id).stackable ? Math.min(entry.qty, 25) : 1;
+    const cost = entry.price * bundle;
+    if (inv.count('coins') < cost) {
+      this.message("You don't have enough coins.");
+      return false;
+    }
+    if (!inv.canAdd(entry.id)) {
+      this.message("You don't have enough inventory space.");
+      return false;
+    }
+    inv.remove('coins', cost);
+    inv.add(entry.id, bundle);
+    entry.qty -= bundle;
+    this.sound('buy');
+    return true;
+  }
+
+  /** Sells a whole inventory slot to the open merchant at 40% of value. */
+  sell(slot: number): boolean {
+    const stack = this.player.inventory.slots[slot];
+    if (!this.activeMerchant || !stack || stack.id === 'coins') return false;
+    const each = sellPriceOf(stack.id);
+    if (each <= 0) {
+      this.message("The merchant isn't interested in that.");
+      return false;
+    }
+    const qty = stack.qty; // take() empties the slot object, so read this first
+    this.player.inventory.take(slot);
+    this.player.inventory.add('coins', each * qty);
+    this.sound('pickup');
+    return true;
+  }
+
+  closeShop(): void {
+    this.activeMerchant = null;
+  }
+
+  private openChest(node: ResourceNode): void {
+    if (node.used) {
+      this.message('The chest is empty.');
+      return;
+    }
+    node.used = true;
+    if (this.depth >= 3 && rand() < MIMIC_CHANCE) {
+      // The "chest" was a monster all along: it leaves its spot and attacks.
+      this.nodes.splice(this.nodes.indexOf(node), 1);
+      setTile(this.map, node.pos.x, node.pos.y, Tile.Floor);
+      const mimic = new Npc(mimicFor(this.depth), node.pos);
+      mimic.target = this.player;
+      this.npcs.push(mimic);
+      this.message('The chest springs to life! It\'s a Mimic!');
+      this.sound('hurt');
+      return;
+    }
+    const got: string[] = [];
+    for (const { id, qty } of chestLoot(this.depth)) {
+      if (!this.player.inventory.add(id, qty)) this.dropOnTile(id, qty, this.player.pos);
+      got.push(`${qty > 1 ? `${qty} x ` : ''}${item(id).name}`);
+    }
+    this.message(`You open the chest and find: ${got.join(', ')}.`);
+    this.sound('buy');
   }
 
   hasRelic(id: string): boolean {
@@ -652,7 +727,12 @@ export class GameState {
         p.intent = null;
         if (a !== 'adjacent') return;
         const node = intent.node;
-        if (node.kind === 'shrine') {
+        if (node.kind === 'merchant') {
+          this.activeMerchant = node;
+          this.emit({ type: 'campMenu', kind: 'merchant' });
+        } else if (node.kind === 'chest') {
+          this.openChest(node);
+        } else if (node.kind === 'shrine') {
           if (node.used) {
             this.message('The shrine is dormant.');
           } else {
