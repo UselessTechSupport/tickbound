@@ -5,7 +5,7 @@ export const CAMP_WIDTH = 26;
 export const CAMP_HEIGHT = 16;
 
 /** The hand-made hub between runs: Mentor, Toolsmith, Slayer master, a campfire, and the ladder down. */
-export function generateCamp(): { map: FloorMap; nodes: ResourceNode[] } {
+export function generateCamp(slayerUnlocked = false): { map: FloorMap; nodes: ResourceNode[] } {
   const tiles = new Uint8Array(CAMP_WIDTH * CAMP_HEIGHT);
   const map: FloorMap = {
     width: CAMP_WIDTH, height: CAMP_HEIGHT, tiles, depth: 0, rooms: [],
@@ -21,7 +21,8 @@ export function generateCamp(): { map: FloorMap; nodes: ResourceNode[] } {
   const nodes = [
     new ResourceNode({ x: 7, y: 6 }, 'mentor'),
     new ResourceNode({ x: 19, y: 6 }, 'toolsmith'),
-    new ResourceNode({ x: 19, y: 10 }, 'slayer_master'),
+    // The Slayer master only shows up once Slayer is unlocked.
+    ...(slayerUnlocked ? [new ResourceNode({ x: 19, y: 10 }, 'slayer_master')] : []),
     new ResourceNode({ x: 13, y: 12 }, 'fire'),
   ];
   for (const n of nodes) setTile(map, n.pos.x, n.pos.y, Tile.Object);

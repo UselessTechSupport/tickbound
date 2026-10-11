@@ -25,6 +25,8 @@ export interface MetaSave {
   made: Record<string, number>;
   /** Current Slayer task; carries across runs until finished or skipped. */
   slayerTask: SlayerTask | null;
+  /** Slayer opens up after your first Goblin Warlord kill. */
+  slayerUnlocked: boolean;
 }
 
 const KEY = 'tickbound.meta';
@@ -35,6 +37,7 @@ export function freshMeta(): MetaSave {
   return {
     version: 1, tokens: 0, tools: { ...NO_TOOLS }, perks: {}, runs: 0, bestDepth: 0,
     collection: {}, killCounts: {}, achievements: [], lifetime: {}, pets: [], activePet: null, made: {}, slayerTask: null,
+    slayerUnlocked: false,
   };
 }
 
@@ -48,6 +51,8 @@ export function loadMeta(): MetaSave {
       ...freshMeta(), ...parsed, tools: { ...NO_TOOLS, ...parsed.tools }, perks: { ...parsed.perks },
       collection: { ...parsed.collection }, killCounts: { ...parsed.killCounts }, lifetime: { ...parsed.lifetime },
       made: { ...parsed.made }, slayerTask: parsed.slayerTask ?? null,
+      // Saves that already used Slayer (before it was gated) keep it.
+      slayerUnlocked: parsed.slayerUnlocked ?? (!!parsed.slayerTask || (parsed.lifetime?.tasks ?? 0) > 0),
       achievements: [...(parsed.achievements ?? [])], pets: [...(parsed.pets ?? [])],
     };
   } catch {

@@ -90,3 +90,26 @@ describe('new achievements', () => {
     expect(meta.achievements).toEqual(expect.arrayContaining(['into_the_fire', 'crypt_crawler', 'deep_diver']));
   });
 });
+
+describe('slayer unlock', () => {
+  it('the Slayer master only appears at camp once Slayer is unlocked', () => {
+    const locked = new GameState(410, () => {}, { camp: true });
+    expect(locked.nodes.some((n) => n.kind === 'slayer_master')).toBe(false);
+    const unlocked = new GameState(411, () => {}, { camp: true, slayerUnlocked: true });
+    expect(unlocked.nodes.some((n) => n.kind === 'slayer_master')).toBe(true);
+  });
+
+  it('older saves that already used Slayer keep it', async () => {
+    const { loadMeta } = await import('../src/save/meta');
+    const store: Record<string, string> = {};
+    (globalThis as { localStorage?: unknown }).localStorage = {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => (store[k] = v),
+    };
+    store['tickbound.meta'] = JSON.stringify({ tokens: 5, slayerTask: { category: 'rats', total: 6, remaining: 2 } });
+    expect(loadMeta().slayerUnlocked).toBe(true);
+    store['tickbound.meta'] = JSON.stringify({ tokens: 5 });
+    expect(loadMeta().slayerUnlocked).toBe(false);
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+});
