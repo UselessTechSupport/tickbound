@@ -7,6 +7,7 @@ import { GameEvent, GameState } from '../game/GameState';
 import { MAX_LEVEL, xpForLevel } from '../systems/xp';
 import { TOOL_TIERS, nextUnlocks } from '../data/tools';
 import { PRAYERS, PROTECTION_HOTKEYS } from '../data/prayers';
+import { BRANCHES, PERKS, nextRankCost, perkBlocker } from '../data/skillTree';
 import { ContextMenu, MenuOption, describeOptions } from '../ui/ContextMenu';
 import { FLOOR_HEIGHT, FLOOR_WIDTH } from '../world/dungeonGen';
 import { Tile, tileAt } from '../world/tiles';
@@ -64,7 +65,8 @@ export class UIScene extends Phaser.Scene {
   private bossFill!: Phaser.GameObjects.Rectangle;
   private chat!: Phaser.GameObjects.Text;
   private toolText!: Phaser.GameObjects.Text;
-  private shop!: Phaser.GameObjects.Container;
+  private modal!: Phaser.GameObjects.Container;
+  private modalKind: 'mentor' | 'toolsmith' | null = null;
   private minimap!: Phaser.GameObjects.Graphics;
   private minimapRect = new Phaser.Geom.Rectangle();
   private tooltip!: Phaser.GameObjects.Container;
@@ -97,12 +99,12 @@ export class UIScene extends Phaser.Scene {
     const bus = this.dungeon.bus;
     bus.on('xp', (e: Extract<GameEvent, { type: 'xp' }>) => this.xpDrop(e.skill, e.amount));
     bus.on('levelup', () => this.cameras.main.flash(250, 255, 255, 160));
-    bus.on('death', () => {
-      this.buildShop();
-      this.deathOverlay.setVisible(true);
-    });
+    bus.on('death', () => this.deathOverlay.setVisible(true));
+    bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
+    this.input.keyboard?.on('keydown-ESC', () => this.closeModal());
     bus.on('newrun', () => {
       this.deathOverlay?.setVisible(false);
+      if (this.modal) this.closeModal();
       this.drawMinimap();
     });
     bus.on('tick', () => this.drawMinimap());
@@ -120,7 +122,7 @@ export class UIScene extends Phaser.Scene {
     if (x >= this.panelX) return true;
     if (x < CHAT_W && y > this.scale.height - CHAT_H) return true;
     if (this.minimapRect.contains(x, y)) return true;
-    return this.deathOverlay?.visible ?? false;
+    return (this.deathOverlay?.visible ?? false) || this.modal?.visible;
   }
 
   openMenu(x: number, y: number, options: MenuOption[]): void {
@@ -280,50 +282,118 @@ export class UIScene extends Phaser.Scene {
     this.tooltip = this.add.container(0, 0, [this.tooltipBg, this.tooltipText]).setDepth(50).setVisible(false);
     root.add(this.tooltip);
 
-    // ---- Death overlay + between-runs unlock shop ----
+    // ---- Death overlay ----
     const gameW = this.panelX;
     const dim = this.add.rectangle(0, 0, gameW, H, 0x000000, 0.75).setOrigin(0).setInteractive();
-    const title = this.add.text(gameW / 2, 60, 'Oh dear, you are dead!', { ...FONT, fontSize: '28px', color: '#ff3030' }).setOrigin(0.5);
-    const stats = this.add.text(gameW / 2, 104, '', { ...FONT, fontSize: '15px', color: '#ffffff', align: 'center' }).setOrigin(0.5);
-    this.shop = this.add.container(0, 0);
-    this.deathOverlay = this.add.container(0, 0, [dim, title, stats, this.shop]).setDepth(20).setVisible(this.state?.over ?? false);
+    const title = this.add.text(gameW / 2, H / 2 - 80, 'Oh dear, you are dead!', { ...FONT, fontSize: '28px', color: '#ff3030' }).setOrigin(0.5);
+    const stats = this.add.text(gameW / 2, H / 2 - 20, '', { ...FONT, fontSize: '15px', color: '#ffffff', align: 'center', lineSpacing: 4 }).setOrigin(0.5);
+    const back = this.add.text(gameW / 2, H / 2 + 50, '[ Return to camp ]', {
+      ...FONT, fontSize: '18px', backgroundColor: '#2a241c', padding: { x: 14, y: 8 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    back.on('pointerdown', () => this.dungeon.toCamp());
+    this.deathOverlay = this.add.container(0, 0, [dim, title, stats, back]).setDepth(20).setVisible(this.state?.over ?? false);
     this.deathOverlay.setData('stats', stats);
     root.add(this.deathOverlay);
-    if (this.state?.over) this.buildShop();
+
+    // ---- Camp windows (Toolsmith shop, Mentor skill tree) ----
+    this.modal = this.add.container(0, 0).setDepth(30).setVisible(false);
+    root.add(this.modal);
+    if (this.modalKind) this.openModal(this.modalKind);
+  }
+
+  openModal(kind: 'mentor' | 'toolsmith'): void {
+    this.modalKind = kind;
+    this.modal.removeAll(true);
+    this.modal.setVisible(true);
+    const W = this.panelX;
+    const H = this.scale.height;
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.modal.add(o), o);
+    add(this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setInteractive());
+    add(this.add.text(W / 2, 24, kind === 'mentor' ? 'Mentor: Skill Tree' : 'Toolsmith', { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
+    add(this.add.text(W / 2, 54, `Dungeoneering tokens: ${this.dungeon.meta.tokens}`, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
+    const close = add(this.add.text(W - 16, 16, '[ X ]', { ...FONT, fontSize: '16px', color: '#ff6060' }).setOrigin(1, 0)
+      .setInteractive({ useHandCursor: true }));
+    close.on('pointerdown', () => this.closeModal());
+    if (kind === 'mentor') this.buildSkillTree(add);
+    else this.buildToolsmith(add);
+  }
+
+  closeModal(): void {
+    this.modalKind = null;
+    this.modal.removeAll(true);
+    this.modal.setVisible(false);
   }
 
   /** Lists the next unlock for each tool line; rebuilt after every purchase. */
-  private buildShop(): void {
-    this.shop.removeAll(true);
+  private buildToolsmith(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
     const d = this.dungeon;
     const cx = this.panelX / 2;
-    const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.shop.add(o), o);
-
-    add(this.add.text(cx, 150, `Dungeoneering tokens: ${d.meta.tokens}`, { ...FONT, fontSize: '18px' }).setOrigin(0.5));
-    add(this.add.text(cx, 176, 'Unlock tools for every future run:', { ...FONT, color: '#c8c8c8' }).setOrigin(0.5));
-
+    add(this.add.text(cx, 90, 'Tools you buy are yours for every future run.', { ...FONT, color: '#c8c8c8' }).setOrigin(0.5, 0));
     const offers = nextUnlocks(d.meta.tools);
     offers.forEach((o, i) => {
       const affordable = o.cost <= d.meta.tokens;
-      const row = add(this.add.text(cx, 210 + i * 30, `${o.label.padEnd(18)} ${String(o.cost).padStart(4)} tokens   ${o.detail}`, {
+      const row = add(this.add.text(cx, 130 + i * 32, `${o.label.padEnd(18)} ${String(o.cost).padStart(4)} tokens   ${o.detail}`, {
         ...FONT, fontSize: '14px', color: affordable ? '#ffffff' : '#7a7a7a',
-        backgroundColor: affordable ? '#3e3529' : '#241f18', padding: { x: 10, y: 5 }, fixedWidth: 560,
-      }).setOrigin(0.5));
+        backgroundColor: affordable ? '#3e3529' : '#241f18', padding: { x: 10, y: 5 }, fixedWidth: Math.min(600, this.panelX - 40),
+      }).setOrigin(0.5, 0));
       if (!affordable) return;
       row.setInteractive({ useHandCursor: true });
       row.on('pointerover', () => row.setBackgroundColor('#5d5447'));
       row.on('pointerout', () => row.setBackgroundColor('#3e3529'));
-      row.on('pointerdown', () => {
-        if (d.buyUnlock(o.key)) this.buildShop();
-      });
+      row.on('pointerdown', () => d.buyUnlock(o.key) && this.openModal('toolsmith'));
     });
-    if (!offers.length) add(this.add.text(cx, 210, 'Every tool is unlocked!', { ...FONT, color: '#00ff00' }).setOrigin(0.5));
+    if (!offers.length) add(this.add.text(cx, 130, 'Every tool is unlocked!', { ...FONT, color: '#00ff00' }).setOrigin(0.5, 0));
+  }
 
-    const btnY = 230 + Math.max(1, offers.length) * 30;
-    const again = add(this.add.text(cx, btnY, '[ Begin a new run ]', {
-      ...FONT, fontSize: '18px', backgroundColor: '#2a241c', padding: { x: 14, y: 8 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true }));
-    again.on('pointerdown', () => this.dungeon.newRun());
+  /** Five branch columns, perks as boxes linked to their prerequisite. */
+  private buildSkillTree(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const d = this.dungeon;
+    const ranks = d.meta.perks;
+    const colW = Math.min(200, (this.panelX - 40) / BRANCHES.length);
+    const x0 = (this.panelX - colW * BRANCHES.length) / 2;
+    const boxW = colW - 14;
+    const boxH = 70;
+    const rowY = (tier: number) => 120 + tier * 92;
+    const center = new Map<string, { x: number; y: number }>();
+    for (const perk of PERKS) {
+      const col = BRANCHES.findIndex((b) => b.id === perk.branch);
+      center.set(perk.id, { x: x0 + col * colW + colW / 2, y: rowY(perk.tier) + boxH / 2 });
+    }
+
+    const lines = add(this.add.graphics());
+    for (const perk of PERKS) {
+      if (!perk.requires) continue;
+      const a = center.get(perk.requires)!;
+      const b = center.get(perk.id)!;
+      lines.lineStyle(2, ranks[perk.requires] ? 0xc8a050 : 0x4a4038).lineBetween(a.x, a.y + boxH / 2, b.x, b.y - boxH / 2);
+    }
+
+    BRANCHES.forEach((b, i) => {
+      add(this.add.text(x0 + i * colW + colW / 2, 92, b.name, { ...FONT, fontSize: '15px', color: Phaser.Display.Color.IntegerToColor(b.color).rgba })
+        .setOrigin(0.5, 0));
+    });
+
+    const info = add(this.add.text(this.panelX / 2, rowY(4) + 4, 'Hover a perk to see what it does. Click to buy a rank.', {
+      ...FONT, fontSize: '13px', color: '#ffffff', align: 'center', wordWrap: { width: this.panelX - 60 },
+    }).setOrigin(0.5, 0));
+
+    for (const perk of PERKS) {
+      const c = center.get(perk.id)!;
+      const rank = ranks[perk.id] ?? 0;
+      const max = perk.costs.length;
+      const blocker = perkBlocker(ranks, d.meta.tokens, perk.id);
+      const color = BRANCHES.find((b) => b.id === perk.branch)!.color;
+      const locked = !!perk.requires && !ranks[perk.requires];
+      const box = add(this.add.rectangle(c.x, c.y, boxW, boxH, rank ? 0x4a3f2a : locked ? 0x1c1812 : 0x2e271e)
+        .setStrokeStyle(rank === max ? 3 : 1, locked ? 0x4a4038 : color).setInteractive({ useHandCursor: !blocker }));
+      const cost = nextRankCost(ranks, perk.id);
+      add(this.add.text(c.x, c.y, `${perk.name}\nRank ${rank}/${max}\n${cost === null ? 'MAX' : `${cost} tokens`}`, {
+        ...FONT, fontSize: '11px', align: 'center', lineSpacing: 2,
+        color: locked ? '#6a6a6a' : rank === max ? '#00ff80' : !blocker ? '#ffffff' : '#c8b070',
+      }).setOrigin(0.5));
+      box.on('pointerover', () => info.setText(`${perk.name}: ${perk.desc}\n${blocker ?? `Click to buy rank ${rank + 1} for ${cost} tokens.`}`));
+      box.on('pointerdown', () => d.buyPerk(perk.id) && this.openModal('mentor'));
+    }
   }
 
   /** OSRS-style prayer book: 3 columns; click to toggle. */
@@ -490,7 +560,7 @@ export class UIScene extends Phaser.Scene {
     }
     this.hoverLabel.setText(hover);
 
-    this.header.setText(`Floor ${g.depth}   Combat ${p.combatLevel}`);
+    this.header.setText(g.isCamp ? `Camp   Tokens ${this.dungeon.meta.tokens}` : `Floor ${g.depth}   Combat ${p.combatLevel}`);
     this.hpText.setText(`Hitpoints ${p.hp}/${p.maxHp}`);
     this.hpBar.width = (PANEL_W - 20) * Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.prayerText.setText(`Prayer ${p.prayerPoints}/${p.maxPrayer}`);
@@ -543,7 +613,11 @@ export class UIScene extends Phaser.Scene {
 
     if (g.over) {
       (this.deathOverlay.getData('stats') as Phaser.GameObjects.Text)
-        .setText(`Reached floor ${g.depth} with ${g.kills} kills, combat level ${p.combatLevel}.\nThis run earned ${this.dungeon.lastEarned} tokens.`);
+        .setText([
+          `Reached floor ${g.depth} with ${g.kills} kills${g.bossKills ? ` and ${g.bossKills} boss kill${g.bossKills > 1 ? 's' : ''}` : ''}.`,
+          `This run earned ${this.dungeon.lastEarned} Dungeoneering tokens (total ${this.dungeon.meta.tokens}).`,
+          'Spend them at camp with the Mentor and the Toolsmith.',
+        ].join('\n'));
     }
   }
 }

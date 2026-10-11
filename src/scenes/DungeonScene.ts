@@ -10,6 +10,7 @@ import { recipesFor } from '../data/recipes';
 import { UnlockKey, applyUnlock, nextUnlocks } from '../data/tools';
 import { ResourceNode } from '../entities/ResourceNode';
 import { MetaSave, loadMeta, saveMeta } from '../save/meta';
+import { nextRankCost, perkBlocker } from '../data/skillTree';
 import { AttackType } from '../data/prayers';
 import { describeOptions, type MenuOption } from '../ui/ContextMenu';
 import type { UIScene } from './UIScene';
@@ -66,6 +67,8 @@ export class DungeonScene extends Phaser.Scene {
   private splats: Hitsplat[] = [];
   private hoverTile = { x: -1, y: -1 };
   private lastFrameAt?: number;
+  private startPending = false;
+  private labels: Phaser.GameObjects.Text[] = [];
 
   constructor() {
     super('Dungeon');
@@ -91,7 +94,7 @@ export class DungeonScene extends Phaser.Scene {
 
     this.fitCamera();
     this.scale.on('resize', () => this.fitCamera());
-    this.newRun();
+    this.toCamp();
     this.scene.launch('UI');
   }
 
@@ -100,12 +103,32 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.setViewport(0, 0, Math.max(100, this.scale.width - PANEL_W), this.scale.height);
   }
 
-  newRun(): void {
+  /** Return to the camp hub (game start, and after a death). */
+  toCamp(): void {
+    this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), { camp: true, tools: this.meta.tools }));
+  }
+
+  /** Start a fresh dungeon run with every unlock and perk applied. */
+  startRun(): void {
+    this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), { tools: this.meta.tools, perks: this.meta.perks }));
+  }
+
+  private setState(state: GameState): void {
     for (const v of this.npcViews.values()) this.destroyView(v);
     this.npcViews.clear();
-    this.state = new GameState(randomSeed(), (e) => this.onGameEvent(e), this.meta.tools);
+    this.state = state;
     this.onFloorChanged();
     this.bus.emit('newrun');
+  }
+
+  /** Spends tokens on a skill-tree rank; returns false if it can't be bought. */
+  buyPerk(id: string): boolean {
+    const cost = nextRankCost(this.meta.perks, id);
+    if (cost === null || perkBlocker(this.meta.perks, this.meta.tokens, id)) return false;
+    this.meta.tokens -= cost;
+    this.meta.perks[id] = (this.meta.perks[id] ?? 0) + 1;
+    saveMeta(this.meta);
+    return true;
   }
 
   private onGameEvent(e: GameEvent): void {
@@ -113,6 +136,8 @@ export class DungeonScene extends Phaser.Scene {
     if (e.type === 'projectile') this.fireProjectile(e.from, e.to, e.style, e.ticks);
     if (e.type === 'floor' && this.state) this.onFloorChanged();
     if (e.type === 'death') this.bankRun();
+    // Swap to the run after the current tick finishes rather than mid-tick.
+    if (e.type === 'enterDungeon') this.startPending = true;
     this.bus.emit(e.type, e);
   }
 
@@ -145,6 +170,17 @@ export class DungeonScene extends Phaser.Scene {
     cam.setBounds(-200, -200, map.width * TILE + 400, map.height * TILE + 400);
     cam.startFollow(this.playerView.body, true, 0.15, 0.15);
     this.drawMap();
+
+    // Name labels over camp NPCs and the ladder.
+    for (const l of this.labels) l.destroy();
+    this.labels = [];
+    if (this.state.isCamp) {
+      const label = (x: number, y: number, text: string) => this.labels.push(this.add.text(x * TILE + TILE / 2, y * TILE - 4, text, {
+        fontFamily: 'monospace', fontSize: '12px', color: '#ffff00', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5, 1).setDepth(6));
+      for (const n of this.state.nodes) if (n.kind === 'mentor' || n.kind === 'toolsmith') label(n.pos.x, n.pos.y - 0.4, n.name);
+      label(map.stairs.x, map.stairs.y, 'Dungeon');
+    }
   }
 
   private get ui(): UIScene {
@@ -184,6 +220,8 @@ export class DungeonScene extends Phaser.Scene {
       return smeltable.map((r) => ({ label: `Smelt ${name(r.output)}`, action: () => g.process(node, r) }));
     }
     if (node.kind === 'altar') return [{ label: 'Pray-at Altar', action: () => g.prayAt(node) }];
+    if (node.kind === 'mentor') return [{ label: 'Talk-to Mentor', action: () => g.talkTo(node) }];
+    if (node.kind === 'toolsmith') return [{ label: 'Trade Toolsmith', action: () => g.talkTo(node) }];
     // Anvil: "Smith" opens a second menu listing what your bars can make.
     return [{
       label: 'Smith Anvil',
@@ -236,8 +274,12 @@ export class DungeonScene extends Phaser.Scene {
     }
     const tile = tileAt(g.map, t.x, t.y);
     if (tile === Tile.StairsDown) {
-      opts.push({ label: 'Climb-down Stairs', action: () => this.walkTo(t) });
-      examines.push({ label: 'Examine Stairs', action: () => g.message('Stairs leading deeper into the dungeon.') });
+      const what = g.isCamp ? 'Ladder' : 'Stairs';
+      opts.push({ label: `Climb-down ${what}`, action: () => this.walkTo(t) });
+      examines.push({
+        label: `Examine ${what}`,
+        action: () => g.message(g.isCamp ? 'A ladder down into the dungeon. Each run starts here.' : 'Stairs leading deeper into the dungeon.'),
+      });
     }
     if (tile !== Tile.Wall) opts.push({ label: 'Walk here', action: () => this.walkTo(t) });
     return [...opts, ...examines];
@@ -245,6 +287,10 @@ export class DungeonScene extends Phaser.Scene {
 
   private onTick(): void {
     this.state.tick();
+    if (this.startPending) {
+      this.startPending = false;
+      this.startRun();
+    }
     if (!this.state.player.path.length) this.destMarker.setVisible(false);
     this.drawMap();
     this.bus.emit('tick');
@@ -311,6 +357,11 @@ export class DungeonScene extends Phaser.Scene {
       case 'furnace':
         g.fillStyle(0x6a2a1a).fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
         g.fillStyle(0xff8020).fillRect(cx - 4, cy, 8, 6);
+        break;
+      case 'mentor':
+      case 'toolsmith':
+        g.fillStyle(n.kind === 'mentor' ? 0x6a4aa0 : 0x8a5a2a).fillRect(cx - 6, cy - 1, 12, 11);
+        g.fillStyle(0xe0b090).fillCircle(cx, cy - 6, 5);
         break;
       case 'altar':
         g.fillStyle(0x8a8a8a).fillRect(x + 3, y + 6, TILE - 6, TILE - 9);

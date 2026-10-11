@@ -14,7 +14,7 @@ const ALL_TOOLS: Toolbelt = { pickaxe: 6, axe: 6, fishing: 4, hammer: true, tind
 
 /** A quiet game with one node placed next to the player. */
 function withNode(kind: ResourceNode['kind'], defId?: string, tools = ALL_TOOLS) {
-  const g = new GameState(21, () => {}, tools);
+  const g = new GameState(21, () => {}, { tools });
   g.npcs = [];
   g.nodes = [];
   const { x, y } = g.player.pos;
@@ -122,7 +122,7 @@ describe('processing', () => {
 
 describe('fires', () => {
   it('lights logs with a tinderbox, then burns out', () => {
-    const g = new GameState(22, () => {}, ALL_TOOLS);
+    const g = new GameState(22, () => {}, { tools: ALL_TOOLS });
     g.npcs = [];
     g.player.inventory.add('logs');
     const slot = g.player.inventory.slots.findIndex((s) => s?.id === 'logs');

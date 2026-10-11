@@ -2,6 +2,10 @@ import { ResourceDef } from '../data/resources';
 import { Station } from '../data/recipes';
 import { Point } from '../world/tiles';
 
+/** Non-resource node kinds: crafting stations, altars, and camp NPCs. */
+export type FixtureKind = Station | 'altar' | 'mentor' | 'toolsmith';
+export type NodeKind = 'resource' | FixtureKind;
+
 /** A blocking world object the player interacts with: a resource or a crafting station. */
 export class ResourceNode {
   /** Products left before depletion (resources only). */
@@ -11,7 +15,7 @@ export class ResourceNode {
 
   constructor(
     public pos: Point,
-    public kind: 'resource' | Station | 'altar',
+    public kind: NodeKind,
     public def?: ResourceDef,
   ) {}
 
@@ -24,7 +28,7 @@ export class ResourceNode {
       if (!this.depleted) return this.def.name;
       return this.def.kind === 'rock' ? 'Rocks' : this.def.kind === 'tree' ? 'Tree stump' : 'Still water';
     }
-    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar' }[this.kind as Station | 'altar'];
+    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith' }[this.kind as FixtureKind];
   }
 
   get examine(): string {
@@ -38,6 +42,8 @@ export class ResourceNode {
       furnace: 'A red hot furnace, for smelting ore into bars.',
       anvil: 'Used for fashioning metal items.',
       altar: 'An altar to the gods. Pray here to recharge your Prayer.',
-    }[this.kind as Station | 'altar'];
+      mentor: 'A grizzled dungeoneer. Maybe they can teach me a thing or two.',
+      toolsmith: 'Makes and sells tools for the dungeon.',
+    }[this.kind as FixtureKind];
   }
 }
