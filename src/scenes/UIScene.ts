@@ -30,7 +30,7 @@ import { BRANCHES, PERKS, nextRankCost, perkBlocker } from '../data/skillTree';
 import { ContextMenu, MenuOption, describeOptions } from '../ui/ContextMenu';
 import { FLOOR_HEIGHT, FLOOR_WIDTH } from '../world/dungeonGen';
 import { Tile, tileAt } from '../world/tiles';
-import { PANEL_W, type DungeonScene } from './DungeonScene';
+import { LONG_PRESS_MS, PANEL_W, type DungeonScene } from './DungeonScene';
 
 const SLOT = 46;
 const CHAT_W = 520;
@@ -45,7 +45,7 @@ const PANEL_BG = 0x3e3529;
 const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
-type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer';
+type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings';
 const TABS: Array<[Tab, string]> = [['inventory', 'Items'], ['prayer', 'Prayer'], ['magic', 'Magic'], ['gear', 'Gear']];
 const TAB_W = 50;
 const MAX_TOASTS = 3;
@@ -103,6 +103,7 @@ export class UIScene extends Phaser.Scene {
   private chat!: Phaser.GameObjects.Text;
   private runButton!: Phaser.GameObjects.Text;
   private soundText!: Phaser.GameObjects.Text;
+  private stairsButton!: Phaser.GameObjects.Text;
   private invGrid = { x: 0, y: 0 };
   /** Inventory drag in progress: from slot, press position, whether it has moved yet. */
   private drag: { from: number; x: number; y: number; moved: boolean } | null = null;
@@ -175,6 +176,7 @@ export class UIScene extends Phaser.Scene {
     });
     this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
     this.input.keyboard?.on('keydown-A', () => this.toggleModal('achievements'));
+    this.input.keyboard?.on('keydown-O', () => this.toggleModal('settings'));
     this.input.keyboard?.on('keydown-Q', () => this.state.toggleQuickPrayers(settings.quickPrayers));
     this.input.keyboard?.on('keydown-L', () => this.toggleModal('log'));
     // Not captured, so Shift still works normally in the browser.
@@ -348,7 +350,17 @@ export class UIScene extends Phaser.Scene {
       // Right-click opens the menu at once; left-click acts on release so you can drag instead.
       bg.on('pointerdown', (p: Phaser.Input.Pointer) => {
         if (p.rightButtonDown()) this.onPanelClick(p, this.inventoryOptions(i));
-        else if (this.state.player.inventory.slots[i]) this.drag = { from: i, x: p.x, y: p.y, moved: false };
+        else if (this.state.player.inventory.slots[i]) {
+          this.drag = { from: i, x: p.x, y: p.y, moved: false };
+          // Touch: holding a slot opens its menu instead.
+          if (p.wasTouch) {
+            window.setTimeout(() => {
+              if (this.drag?.from !== i || this.drag.moved) return;
+              this.drag = null;
+              this.openMenu(p.x, p.y, this.inventoryOptions(i));
+            }, LONG_PRESS_MS);
+          }
+        }
       });
       this.hoverable(bg, () => this.describe(this.inventoryOptions(i)));
       this.itemHover(bg, () => this.state.player.inventory.slots[i]?.id);
@@ -378,6 +390,11 @@ export class UIScene extends Phaser.Scene {
     };
     footerButton(px + 8, '[Achievements]', 'achievements');
     footerButton(px + 110, '[Collection log]', 'log');
+    const settingsButton = this.add.text(px + 110, H - 4, '[Settings]', { ...FONT, fontSize: '10px', color: '#ffd040' })
+      .setOrigin(0, 1).setInteractive({ useHandCursor: true });
+    settingsButton.on('pointerdown', () => this.toggleModal('settings'));
+    this.hoverable(settingsButton, () => 'Open settings (O)');
+    root.add(settingsButton);
     this.forfeitButton = this.add.text(px + 8, H - 4, '[Forfeit run]', { ...FONT, fontSize: '10px', color: '#d06060' })
       .setOrigin(0, 1).setInteractive({ useHandCursor: true });
     this.forfeitButton.on('pointerdown', () => this.showForfeitConfirm());
@@ -398,7 +415,12 @@ export class UIScene extends Phaser.Scene {
     });
     this.hoverable(mmBg, () => 'Walk here');
     this.minimap = this.add.graphics();
-    root.add([mmBg, this.minimap]);
+    this.stairsButton = this.add.text(this.minimapRect.right, this.minimapRect.bottom + 4, '[G] Go to stairs', {
+      ...FONT, fontSize: '11px', color: '#ffd040', backgroundColor: '#2a241ccc', padding: { x: 4, y: 2 },
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true }).setVisible(false);
+    this.stairsButton.on('pointerdown', () => this.dungeon.goToStairs());
+    this.hoverable(this.stairsButton, () => 'Walk to the stairs (G)');
+    root.add([mmBg, this.minimap, this.stairsButton]);
     this.drawMinimap();
 
     // ---- Chatbox ----
@@ -528,7 +550,7 @@ export class UIScene extends Phaser.Scene {
     add(this.add.rectangle(0, 0, W, H, 0x0c0a08, 0.94).setOrigin(0).setInteractive());
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
-      achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master',
+      achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
     const meta = this.dungeon.meta;
@@ -540,6 +562,7 @@ export class UIScene extends Phaser.Scene {
       mentor: `Dungeoneering tokens: ${meta.tokens}`,
       toolsmith: `Dungeoneering tokens: ${meta.tokens}`,
       slayer: `Dungeoneering tokens: ${meta.tokens}   Tasks completed: ${meta.lifetime.tasks ?? 0}`,
+      settings: 'Saved in this browser',
     }[kind];
     add(this.add.text(W / 2, 54, currency, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
     const close = add(this.add.text(W - 16, 16, '[ X ]', { ...FONT, fontSize: '16px', color: '#ff6060' }).setOrigin(1, 0)
@@ -550,13 +573,14 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'achievements') this.buildAchievements(add);
     else if (kind === 'log') this.buildCollectionLog(add);
     else if (kind === 'slayer') this.buildSlayer(add);
+    else if (kind === 'settings') this.buildSettings(add);
     else this.buildToolsmith(add);
   }
 
   /** Hotkeys toggle these windows; they never replace a shop or relic choice in progress. */
-  private toggleModal(kind: 'achievements' | 'log'): void {
+  private toggleModal(kind: 'achievements' | 'log' | 'settings'): void {
     if (this.modalKind === kind) this.closeModal();
-    else if (!this.modalKind || this.modalKind === 'achievements' || this.modalKind === 'log') this.openModal(kind);
+    else if (!this.modalKind || ['achievements', 'log', 'settings'].includes(this.modalKind)) this.openModal(kind);
   }
 
   /** One tier at a time (tabs), two columns of achievements with progress bars for counter goals. */
@@ -600,6 +624,75 @@ export class UIScene extends Phaser.Scene {
         add(this.add.text(x + colW - 90, y + 7, `${cur}/${target}`, { ...FONT, fontSize: '10px', color: '#c8c8c8' }).setOrigin(1, 0));
       }
     });
+  }
+
+  /** Sound, gameplay toggles, zoom and the full keybind list. */
+  private buildSettings(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const W = this.panelX;
+    const x0 = W / 2 - 260;
+    let y = 96;
+    const heading = (text: string) => {
+      add(this.add.text(x0, y, text, { ...FONT, fontSize: '14px', color: '#ff981f' }));
+      y += 24;
+    };
+    const button = (x: number, text: string, onClick: () => void) => {
+      const b = add(this.add.text(x, y, text, {
+        ...FONT, fontSize: '12px', color: '#ffffff', backgroundColor: '#3e3529', padding: { x: 6, y: 2 },
+      }).setInteractive({ useHandCursor: true }));
+      b.on('pointerover', () => b.setBackgroundColor('#5d5447'));
+      b.on('pointerout', () => b.setBackgroundColor('#3e3529'));
+      b.on('pointerdown', () => {
+        onClick();
+        saveSettings();
+        this.openModal('settings');
+      });
+      return b;
+    };
+    const toggle = (label: string, get: () => boolean, set: (v: boolean) => void) => {
+      add(this.add.text(x0 + 10, y + 2, label, { ...FONT, fontSize: '12px', color: '#ffffff' }));
+      button(x0 + 260, get() ? 'On ' : 'Off', () => set(!get())).setColor(get() ? '#60ff60' : '#ff8080');
+      y += 24;
+    };
+    const stepper = (label: string, value: string, dec: () => void, inc: () => void) => {
+      add(this.add.text(x0 + 10, y + 2, label, { ...FONT, fontSize: '12px', color: '#ffffff' }));
+      button(x0 + 260, '-', dec);
+      add(this.add.text(x0 + 290, y + 2, value, { ...FONT, fontSize: '12px', color: '#ffffff' }));
+      button(x0 + 340, '+', inc);
+      y += 24;
+    };
+
+    heading('Sound');
+    stepper('Volume', `${Math.round(settings.volume * 100)}%`, () => sfx.setVolume(settings.volume - 0.1), () => sfx.setVolume(settings.volume + 0.1));
+    toggle('Sound effects', () => !settings.muted, () => sfx.toggleMute());
+    heading('Gameplay');
+    toggle('Run by default', () => settings.run, (v) => this.dungeon.setRunning(v));
+    toggle('Low-HP warning', () => settings.lowHpWarning, (v) => (settings.lowHpWarning = v));
+    toggle('Ground item labels', () => settings.groundLabels, (v) => (settings.groundLabels = v));
+    toggle('Unlock toasts', () => settings.showToasts, (v) => (settings.showToasts = v));
+    toggle('Auto-pickup coins', () => settings.autoPickup.coins, (v) => (settings.autoPickup.coins = v));
+    toggle('Auto-pickup arrows', () => settings.autoPickup.arrows, (v) => (settings.autoPickup.arrows = v));
+    toggle('Auto-pickup runes', () => settings.autoPickup.runes, (v) => (settings.autoPickup.runes = v));
+    heading('View');
+    stepper('Zoom (or mouse wheel)', `${Math.round(settings.zoom * 100)}%`, () => this.dungeon.setZoom(settings.zoom - 0.25), () => this.dungeon.setZoom(settings.zoom + 0.25));
+
+    add(this.add.text(x0 + 400, 96, [
+      'Keys',
+      'Left-click   walk / attack / use',
+      'Right-click  all options',
+      '  (touch: tap / long-press)',
+      'Shift+click  drop item',
+      'Drag item    move slot',
+      'Wheel        zoom',
+      '1 2 3        protect prayers',
+      'Q            quick-prayers',
+      'R            run / walk',
+      'G            go to stairs',
+      'A / L        achievements / log',
+      'O            settings',
+      'M            mute',
+      'H            help in chat',
+      'Esc          close windows',
+    ].join('\n'), { ...FONT, fontSize: '12px', color: '#c8c8c8', lineSpacing: 4 }));
   }
 
   /** Slayer master: your task, and getting or skipping one. */
@@ -725,6 +818,7 @@ export class UIScene extends Phaser.Scene {
       : n.kind === 'pet' ? `New pet: ${n.name}! It will follow you (change it in the Collection log).`
         : n.kind === 'unlock' ? n.name
           : `Collection log: ${n.name}`;
+    if (!settings.showToasts) return;
     this.toastQueue.push({ text, color: n.kind === 'collection' ? '#ffffff' : '#ffd040' });
     this.showToasts();
   }
@@ -1038,6 +1132,12 @@ export class UIScene extends Phaser.Scene {
     for (const gi of g.groundItems) if (g.isExplored(gi.pos.x, gi.pos.y)) m.fillRect(r.x + gi.pos.x * S, r.y + gi.pos.y * S, S, S);
     m.fillStyle(0xffff00);
     for (const n of g.npcs) if (g.isVisible(n.pos.x, n.pos.y)) m.fillRect(r.x + n.pos.x * S, r.y + n.pos.y * S, S, S);
+    // Stairs get a big, outlined marker once found.
+    const st = map.stairs;
+    if (g.isExplored(st.x, st.y)) {
+      m.fillStyle(0x000000).fillRect(r.x + st.x * S - 3, r.y + st.y * S - 3, S + 6, S + 6);
+      m.fillStyle(0xffd040).fillRect(r.x + st.x * S - 2, r.y + st.y * S - 2, S + 4, S + 4);
+    }
     m.fillStyle(0xffffff);
     m.fillRect(r.x + g.player.pos.x * S - 1, r.y + g.player.pos.y * S - 1, S + 2, S + 2);
   }
@@ -1275,7 +1375,9 @@ export class UIScene extends Phaser.Scene {
     const task = g.slayerTask ?? (g.isCamp ? this.dungeon.meta.slayerTask : null);
     this.taskText.setText(task && task.remaining > 0
       ? `Slayer task: ${task.remaining}/${task.total} ${SLAYER_BY_ID[task.category].name.toLowerCase()} left` : '');
-    this.soundText.setText(`H: help   M: sound ${sfx.muted ? 'off' : 'on'}`);
+    this.soundText.setText('H: help');
+    const st = g.map.stairs;
+    this.stairsButton.setVisible(!g.over && g.isExplored(st.x, st.y) && !this.modalKind);
     this.forfeitButton.setVisible(!g.isCamp && !g.over);
     this.deathTitle.setText(g.forfeited ? 'Run forfeited' : 'Oh dear, you are dead!').setColor(g.forfeited ? '#ff981f' : '#ff3030');
     this.chat.setText(this.fitChat(g.messages));
