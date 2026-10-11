@@ -51,6 +51,10 @@ npm run dev        # then open http://localhost:5173
   Higher Agility = fewer slips.
 - **Special attacks**: rare weapons (dragon dagger, granite maul, magic shortbow, ancient staff, dragon warhammer,
   dragon claws) have a special move. Click the spec bar or press E to arm it; energy refills 10% every 30 seconds.
+- **Builder** (camp): spend tokens plus timber and metal (from the logs, ores and bars you carry when a run ends) on
+  camp structures: Bank chest (keeps your best carried items for the next run), Herb garden (start with potions),
+  Trophy room (+max hit per boss beaten), Workbench (+crafting XP), Relic altar (start with a relic you've found)
+  and Pet kennel (your pet gives a bonus that grows with the floors it comes along for).
 - **Resume**: a run in progress is saved in your browser (every few seconds and when you close the tab), so a
   refresh or closed tab picks up where you left off.
 - **Starting a run**: the ladder offers floor 1, a skip to the floor after any boss you've beaten (with catch-up

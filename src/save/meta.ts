@@ -4,6 +4,7 @@ import type { Counter } from '../data/achievements';
 import type { SlayerTask } from '../data/slayer';
 import { ArmouryRanks, NO_ARMOURY, StartStyle } from '../data/armoury';
 import type { Enchantments } from '../data/enchants';
+import type { Materials, StructureLevels } from '../data/construction';
 
 const BOSS_FLOORS: Record<string, number> = { goblin_warlord: 5, tztok_jad: 10, chaos_elemental: 15, demonic_gorilla: 20 };
 
@@ -40,6 +41,15 @@ export interface MetaSave {
   /** The Enchanter arrives after your first TzTok-Jad kill. */
   enchanterUnlocked: boolean;
   enchants: Enchantments;
+  /** Camp building: structure levels, materials, and the bank chest's kept items. */
+  structures: StructureLevels;
+  materials: Materials;
+  bank: Array<{ id: string; qty: number }>;
+  /** Every relic you've ever picked, and the one the relic altar starts runs with. */
+  relicsFound: string[];
+  startRelic: string | null;
+  /** Floors each pet has come along for (pet levels). */
+  petFloors: Record<string, number>;
 }
 
 const KEY = 'tickbound.meta';
@@ -52,6 +62,7 @@ export function freshMeta(): MetaSave {
     collection: {}, killCounts: {}, achievements: [], lifetime: {}, pets: [], activePet: null, made: {}, slayerTask: null,
     slayerUnlocked: false, armoury: { ...NO_ARMOURY }, startStyle: 'melee', deepestBoss: 0,
     enchanterUnlocked: false, enchants: {},
+    structures: {}, materials: { timber: 0, metal: 0 }, bank: [], relicsFound: [], startRelic: null, petFloors: {},
   };
 }
 
@@ -78,6 +89,9 @@ export function loadMeta(): MetaSave {
       slayerUnlocked: parsed.slayerUnlocked ?? (!!parsed.slayerTask || (parsed.lifetime?.tasks ?? 0) > 0),
       armoury: { ...NO_ARMOURY, ...parsed.armoury },
       enchants: { ...parsed.enchants },
+      structures: { ...parsed.structures },
+      materials: { timber: 0, metal: 0, ...parsed.materials },
+      petFloors: { ...parsed.petFloors },
       enchanterUnlocked: parsed.enchanterUnlocked ?? (parsed.killCounts?.tztok_jad ?? 0) > 0,
       // Older saves: credit boss floors already beaten, from the kill counts.
       deepestBoss: parsed.deepestBoss ?? Math.max(0, ...Object.entries(BOSS_FLOORS)

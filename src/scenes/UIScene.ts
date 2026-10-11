@@ -15,6 +15,7 @@ import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/ac
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
+import { PET_BUFFS, PET_MAX_LEVEL, STRUCTURES, TROPHY_BONUS, TROPHY_MOUNTS, nextStructureLevel, petBonus, petLevel } from '../data/construction';
 import { ARMOURY, ARMOURY_LINES, ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { ENCHANTS, ENCHANT_COSTS, ENCHANT_SWITCH_FEE, ROMAN, describeEnchant, enchantCost, lineKind } from '../data/enchants';
 import { recipesFor } from '../data/recipes';
@@ -56,7 +57,7 @@ const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops'
-  | 'armoury' | 'startRun' | 'enchanter';
+  | 'armoury' | 'startRun' | 'enchanter' | 'builder';
 
 /** What the drop-table window is showing. */
 export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
@@ -594,7 +595,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
-      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter',
+      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures',
       drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
@@ -610,6 +611,7 @@ export class UIScene extends Phaser.Scene {
       settings: 'Saved in this browser',
       armoury: `Dungeoneering tokens: ${meta.tokens}`,
       enchanter: `Dungeoneering tokens: ${meta.tokens}`,
+      builder: `Tokens: ${meta.tokens}   Timber: ${meta.materials.timber}   Metal: ${meta.materials.metal}`,
       startRun: `Best floor: ${meta.bestDepth}   Deepest boss beaten: ${meta.deepestBoss ? `floor ${meta.deepestBoss}` : 'none yet'}`,
       drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
     }[kind];
@@ -626,6 +628,7 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'drops') this.buildDrops(add);
     else if (kind === 'armoury') this.buildArmoury(add);
     else if (kind === 'enchanter') this.buildEnchanter(add);
+    else if (kind === 'builder') this.buildBuilder(add);
     else if (kind === 'startRun') this.buildStartRun(add);
     else this.buildToolsmith(add);
   }
@@ -792,6 +795,73 @@ export class UIScene extends Phaser.Scene {
         }
       }
       y += 34;
+    }
+  }
+
+  /** Builder: build and upgrade camp structures; also where you set the altar's relic and see the bank and pet. */
+  private buildBuilder(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const d = this.dungeon;
+    const m = d.meta;
+    const W = this.panelX;
+    const x0 = W / 2 - 340;
+    add(this.add.text(W / 2, 84, 'Materials come from the logs, ores and bars you are carrying when a run ends.', {
+      ...FONT, fontSize: '11px', color: '#c8c8c8',
+    }).setOrigin(0.5, 0));
+    let y = 106;
+    const small = { ...FONT, fontSize: '11px', color: '#c8c8c8' };
+    for (const s of STRUCTURES) {
+      const level = m.structures[s.id] ?? 0;
+      const next = nextStructureLevel(m.structures, s.id);
+      // Row: name and build button, then what it does now, then details.
+      add(this.add.text(x0, y + 2, `${s.name}  ${level}/${s.levels.length}`, { ...FONT, fontSize: '13px', color: level ? '#ff981f' : '#a08a5a' }));
+      if (next) {
+        const ok = m.tokens >= next.tokens && m.materials.timber >= next.timber && m.materials.metal >= next.metal;
+        const cost = [`${next.tokens} tokens`, next.timber ? `${next.timber} timber` : '', next.metal ? `${next.metal} metal` : ''].filter(Boolean).join(', ');
+        const b = add(this.add.text(x0 + 680, y, `${level ? 'Upgrade' : 'Build'} (${cost})`, {
+          ...FONT, fontSize: '11px', color: ok ? '#ffffff' : '#7a7a7a', backgroundColor: ok ? '#3e3529' : '#241f18', padding: { x: 6, y: 3 },
+        }).setOrigin(1, 0));
+        this.hoverable(b, () => `Next level: ${next.effect}`);
+        if (ok) {
+          b.setInteractive({ useHandCursor: true });
+          b.on('pointerdown', () => d.build(s.id) && this.openModal('builder'));
+        }
+      } else {
+        add(this.add.text(x0 + 680, y + 2, 'Maxed', { ...FONT, fontSize: '11px', color: '#60ff60' }).setOrigin(1, 0));
+      }
+      add(this.add.text(x0 + 16, y + 19, level ? s.levels[level - 1].effect : `Not built. First level: ${s.levels[0].effect}`, {
+        ...FONT, fontSize: '11px', color: level ? '#ffffff' : '#8a8a8a',
+      }));
+      let detail = '';
+      if (s.id === 'bank_chest' && level) {
+        detail = m.bank.length ? `Kept for your next run: ${m.bank.map((b) => `${b.qty > 1 ? `${b.qty} x ` : ''}${item(b.id).name}`).join(', ')}` : 'Nothing kept yet.';
+      }
+      if (s.id === 'trophy_room' && level) {
+        const bosses = Object.values(NPCS).filter((n) => n.boss && (m.killCounts[n.id] ?? 0) > 0).length;
+        const mounted = Math.min(bosses, TROPHY_MOUNTS[level]);
+        detail = `Bosses defeated: ${bosses}. Trophies mounted: ${mounted} (+${Math.round(mounted * TROPHY_BONUS * 100)}% max hit).`;
+      }
+      if (s.id === 'pet_kennel') {
+        const pet = m.activePet ? PET_BUFFS[m.activePet] : undefined;
+        const floors = m.activePet ? m.petFloors[m.activePet] ?? 0 : 0;
+        detail = !m.activePet ? 'No pet following you (pick one in the Collection log).'
+          : !pet ? 'Your pet has no bonus.'
+            : `${PET_BY_ID[m.activePet].name}: level ${petLevel(floors)}/${PET_MAX_LEVEL}${level ? `, +${Math.round(petBonus(floors, level) * 100)}% ${pet.label}` : ` (build the kennel for +${petLevel(floors)}% ${pet.label})`}`;
+      }
+      if (s.id === 'relic_altar' && level) {
+        const relic = m.startRelic ? RELIC_BY_ID[m.startRelic] : null;
+        detail = m.relicsFound.length ? `Starting relic: ${relic ? `${relic.name}: ${relic.desc}` : 'none'}`
+          : 'Pick a relic in a run first; every relic you find can be chosen here.';
+        if (m.relicsFound.length) {
+          const c = add(this.add.text(x0 + 680, y + 33, '[Change relic]', { ...FONT, fontSize: '11px', color: '#ffff00' }).setOrigin(1, 0)
+            .setInteractive({ useHandCursor: true }));
+          c.on('pointerdown', () => {
+            d.cycleStartRelic();
+            this.openModal('builder');
+          });
+        }
+      }
+      if (detail) add(this.add.text(x0 + 16, y + 33, detail, small));
+      y += 54;
     }
   }
 
@@ -1089,7 +1159,9 @@ export class UIScene extends Phaser.Scene {
       `XP gained: ${xp.join(', ') || 'none'}`,
       '',
       `This run earned ${this.dungeon.lastEarned} Dungeoneering tokens (total ${this.dungeon.meta.tokens}).`,
-      'Spend them at camp with the Mentor and the Toolsmith.',
+      ...(this.dungeon.lastMaterials
+        ? [`Materials brought home: ${this.dungeon.lastMaterials.timber} timber, ${this.dungeon.lastMaterials.metal} metal (for the Builder).`] : []),
+      'Spend them at camp with the Mentor, the Toolsmith and the Builder.',
     ];
   }
 

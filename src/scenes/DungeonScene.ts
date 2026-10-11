@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { TickScheduler } from '../core/tick';
 import { randomSeed } from '../core/rng';
 import { item } from '../data/items';
-import { GameEvent, GameState } from '../game/GameState';
+import { CampSetup, GameEvent, GameState } from '../game/GameState';
 import { Actor } from '../entities/Actor';
 import { Npc } from '../entities/Npc';
 import { Point, Tile, isWalkable, tileAt } from '../world/tiles';
@@ -25,6 +25,8 @@ import { ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
 import { enchantCost } from '../data/enchants';
 import { PICKPOCKET } from '../data/thieving';
+import { Materials, STRUCTURES, STRUCTURE_BY_ID, StructureId, nextStructureLevel } from '../data/construction';
+import { campSetupFor, settleRun } from '../meta/camp';
 import { SHORTCUT_KINDS } from '../data/agility';
 import { clearRun, loadRun, saveRun } from '../save/runSave';
 
@@ -133,6 +135,8 @@ export class DungeonScene extends Phaser.Scene {
   private hoverTile = { x: -1, y: -1 };
   private lastFrameAt?: number;
   private startPending = false;
+  /** Materials the last run brought home (shown on the death screen). */
+  lastMaterials: Materials | null = null;
   /** Autoplay in progress: target floor and the bot's memory. */
   autoplay: { target: number; memo: BotMemory; floorTicks: number; floor: number } | null = null;
   private touchHold?: number;
@@ -204,6 +208,7 @@ export class DungeonScene extends Phaser.Scene {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
       camp: true, tools: this.meta.tools, slayerUnlocked: this.meta.slayerUnlocked,
       armourerUnlocked: (this.meta.perks[ARMOURER_PERK] ?? 0) > 0, enchanterUnlocked: this.meta.enchanterUnlocked,
+      built: STRUCTURES.filter((s) => (this.meta.structures[s.id] ?? 0) > 0).map((s) => s.id),
     }));
   }
 
@@ -216,6 +221,7 @@ export class DungeonScene extends Phaser.Scene {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
       tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
       armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth, enchants: this.meta.enchants,
+      campSetup: this.campSetup(),
     }));
     if (opts.autoplayTo && opts.autoplayTo > 1) {
       this.autoplay = { target: opts.autoplayTo, memo: newBotMemory(), floorTicks: 0, floor: 1 };
@@ -340,9 +346,49 @@ export class DungeonScene extends Phaser.Scene {
     saveRun(g);
   }
 
+  private campSetup(): CampSetup {
+    const setup = campSetupFor(this.meta);
+    saveMeta(this.meta);
+    return setup;
+  }
+
+  private settleCamp(g: GameState): void {
+    const mats = settleRun(this.meta, g);
+    if (mats.timber || mats.metal) this.lastMaterials = mats;
+  }
+
+  /** Builder: build or upgrade a camp structure. */
+  build(id: StructureId): boolean {
+    const m = this.meta;
+    const next = nextStructureLevel(m.structures, id);
+    if (!next || m.tokens < next.tokens || m.materials.timber < next.timber || m.materials.metal < next.metal) return false;
+    m.tokens -= next.tokens;
+    m.materials.timber -= next.timber;
+    m.materials.metal -= next.metal;
+    m.structures[id] = (m.structures[id] ?? 0) + 1;
+    if (id === 'relic_altar' && !m.startRelic) m.startRelic = m.relicsFound[0] ?? null;
+    saveMeta(m);
+    sfx.play('smith');
+    if (m.structures[id] === 1) {
+      this.state.addCampNpc(id);
+      this.onFloorChanged();
+    }
+    return true;
+  }
+
+  /** Relic altar: step to the next relic you've found (or none). */
+  cycleStartRelic(): void {
+    const m = this.meta;
+    const options = [...m.relicsFound, null];
+    m.startRelic = options[(options.indexOf(m.startRelic) + 1) % options.length];
+    saveMeta(m);
+  }
+
   private bankRun(): void {
     clearRun();
     const g = this.state;
+    this.lastMaterials = null;
+    this.settleCamp(g);
     this.lastEarned = g.tokensEarned;
     this.meta.tokens += this.lastEarned;
     this.meta.runs++;
@@ -517,7 +563,7 @@ export class DungeonScene extends Phaser.Scene {
         fontFamily: 'monospace', fontSize: '12px', color: '#ffff00', stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5, 1).setDepth(6));
       for (const n of this.state.nodes) {
-        if (['mentor', 'toolsmith', 'slayer_master', 'armourer', 'enchanter'].includes(n.kind)) label(n.pos.x, n.pos.y - 0.4, n.name);
+        if ((['mentor', 'toolsmith', 'slayer_master', 'armourer', 'enchanter', 'builder'].includes(n.kind) || n.kind in STRUCTURE_BY_ID)) label(n.pos.x, n.pos.y - 0.4, n.name);
       }
       label(map.stairs.x, map.stairs.y, 'Dungeon');
     }
@@ -605,6 +651,8 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'slayer_master') return [{ label: 'Get-task Slayer master', action: () => g.talkTo(node) }];
     if (node.kind === 'armourer') return [{ label: 'Trade Armourer', action: () => g.talkTo(node) }];
     if (node.kind === 'enchanter') return [{ label: 'Enchant Enchanter', action: () => g.talkTo(node) }];
+    if (node.kind === 'builder') return [{ label: 'Build Builder', action: () => g.talkTo(node) }];
+    if (node.kind in STRUCTURE_BY_ID) return [{ label: `Use ${node.name}`, action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
     if (node.kind === 'chest') {
@@ -820,6 +868,16 @@ export class DungeonScene extends Phaser.Scene {
         break;
       case 'chest':
         sprite(n.used ? 'chest_open' : n.lockLevel ? 'chest_locked' : 'chest');
+        break;
+      case 'herb_garden':
+        sprite('herb_patch');
+        break;
+      case 'workbench':
+        sprite('gen_anvil', 0xc8a070);
+        break;
+      case 'relic_altar':
+        sprite('shrine');
+        fx.lineStyle(2, 0xc080ff, 0.7).strokeCircle(cx, cy, 14);
         break;
       case 'shortcut': {
         // A jagged gap through the wall with rubble at its foot, along the crossing direction.
