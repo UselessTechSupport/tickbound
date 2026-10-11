@@ -55,9 +55,18 @@ export function loadMeta(): MetaSave {
     const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
     if (!raw) return freshMeta();
     const parsed = JSON.parse(raw) as Partial<MetaSave>;
+    // Veteran's Kit used to have 2 ranks (iron gear); it's now 1 rank that unlocks the Armourer.
+    const perks = { ...parsed.perks };
+    let tokens = parsed.tokens ?? 0;
+    if ((perks.veterans_kit ?? 0) > 1) {
+      tokens += 150;
+      perks.veterans_kit = 1;
+    }
+    // Anyone who already bought Armourer gear keeps the Armourer.
+    if (Object.values(parsed.armoury ?? {}).some((r) => r > 0)) perks.veterans_kit = 1;
     // Older saves lack the newer fields; fill them with defaults.
     return {
-      ...freshMeta(), ...parsed, tools: { ...NO_TOOLS, ...parsed.tools }, perks: { ...parsed.perks },
+      ...freshMeta(), ...parsed, tokens, tools: { ...NO_TOOLS, ...parsed.tools }, perks,
       collection: { ...parsed.collection }, killCounts: { ...parsed.killCounts }, lifetime: { ...parsed.lifetime },
       made: { ...parsed.made }, slayerTask: parsed.slayerTask ?? null,
       // Saves that already used Slayer (before it was gated) keep it.

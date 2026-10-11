@@ -72,3 +72,33 @@ describe('autoplay handover', () => {
     expect(g.tokensEarned).toBe(Math.floor(before / 2));
   });
 });
+
+describe("Veteran's Kit unlocks the Armourer", () => {
+  it('the Armourer is only at camp once unlocked, and can arrive mid-visit', () => {
+    const locked = new GameState(950, () => {}, { camp: true });
+    expect(locked.nodes.some((n) => n.kind === 'armourer')).toBe(false);
+    locked.addCampNpc('armourer');
+    expect(locked.nodes.filter((n) => n.kind === 'armourer')).toHaveLength(1);
+    locked.addCampNpc('armourer'); // no duplicates
+    expect(locked.nodes.filter((n) => n.kind === 'armourer')).toHaveLength(1);
+    const unlocked = new GameState(951, () => {}, { camp: true, armourerUnlocked: true });
+    expect(unlocked.nodes.some((n) => n.kind === 'armourer')).toBe(true);
+  });
+
+  it('old saves: rank 2 is refunded, Armourer buyers keep access', async () => {
+    const { loadMeta } = await import('../src/save/meta');
+    const store: Record<string, string> = {};
+    (globalThis as { localStorage?: unknown }).localStorage = {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => (store[k] = v),
+    };
+    store['tickbound.meta'] = JSON.stringify({ tokens: 10, perks: { basic_training: 1, veterans_kit: 2 } });
+    let m = loadMeta();
+    expect(m.perks.veterans_kit).toBe(1);
+    expect(m.tokens).toBe(160);
+    store['tickbound.meta'] = JSON.stringify({ tokens: 0, perks: {}, armoury: { melee: 2 } });
+    m = loadMeta();
+    expect(m.perks.veterans_kit).toBe(1);
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+});

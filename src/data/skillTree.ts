@@ -28,7 +28,7 @@ export interface PerkDef {
 export const PERKS: PerkDef[] = [
   { id: 'basic_training', branch: 'warrior', tier: 0, name: 'Basic Training', costs: [15, 30, 50], desc: '+3 starting Attack, Strength and Defence levels per rank.' },
   { id: 'iron_will', branch: 'warrior', tier: 1, name: 'Iron Will', costs: [20, 40, 70], requires: 'basic_training', desc: '+2 starting Hitpoints levels per rank.' },
-  { id: 'veterans_kit', branch: 'warrior', tier: 2, name: "Veteran's Kit", costs: [60, 150], requires: 'basic_training', desc: 'Rank 1: start with an iron scimitar. Rank 2: also an iron platebody.' },
+  { id: 'veterans_kit', branch: 'warrior', tier: 2, name: "Veteran's Kit", costs: [60], requires: 'basic_training', desc: 'Unlocks the Armourer at camp, who sells better starting weapons and armour.' },
   { id: 'killer_instinct', branch: 'warrior', tier: 3, name: 'Killer Instinct', costs: [80, 160, 300], requires: 'iron_will', desc: '+5% accuracy and max hit per rank.' },
 
   { id: 'rangers_kit', branch: 'arsenal', tier: 0, name: "Ranger's Kit", costs: [20, 60], desc: 'Rank 1: start with a shortbow and 150 bronze arrows. Rank 2: an oak shortbow, 150 iron arrows and Ranged level 5.' },
@@ -65,8 +65,6 @@ export type PerkRanks = Record<string, number>;
 export interface RunMods {
   startLevels: { attack: number; strength: number; defence: number; hitpoints: number; prayer: number; ranged: number; magic: number };
   startItems: Array<{ id: string; qty: number }>;
-  startWeapon?: string;
-  startBody?: string;
   /** Multiplier on player attack rolls and max hit. */
   combatMult: number;
   foodHealBonus: number;
@@ -108,8 +106,6 @@ export function computeMods(ranks: PerkRanks): RunMods {
       magic: r('apprentice_kit') >= 2 ? 9 : 1,
     },
     startItems,
-    startWeapon: r('veterans_kit') >= 1 ? 'iron_scimitar' : undefined,
-    startBody: r('veterans_kit') >= 2 ? 'iron_platebody' : undefined,
     combatMult: 1 + 0.05 * r('killer_instinct'),
     foodHealBonus: r('hearty_meals'),
     hpRegenTicks: [100, 70, 45][r('second_wind')],
@@ -130,6 +126,9 @@ export function computeMods(ranks: PerkRanks): RunMods {
 }
 
 export const DEFAULT_MODS = computeMods({});
+
+/** The Armourer is unlocked by this perk. */
+export const ARMOURER_PERK = 'veterans_kit';
 
 /** Cost of the next rank, or null if maxed. */
 export function nextRankCost(ranks: PerkRanks, id: string): number | null {
