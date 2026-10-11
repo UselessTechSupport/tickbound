@@ -17,7 +17,7 @@ import { sfx } from '../audio/sfx';
 const CONTROLS = [
   'Controls: left-click to walk, attack, take or use. Right-click for all options.',
   '1 / 2 / 3: Protect from Magic / Missiles / Melee.  R: run/walk.  M: mute.  Esc: close windows.',
-  'Click the minimap to walk there. Hover skills for XP details.',
+  'Click the minimap to walk there. Hover skills for XP details, items for stats. Shift-click items to drop.',
 ];
 import { BRANCHES, PERKS, nextRankCost, perkBlocker } from '../data/skillTree';
 import { ContextMenu, MenuOption, describeOptions } from '../ui/ContextMenu';
@@ -95,6 +95,7 @@ export class UIScene extends Phaser.Scene {
   private chat!: Phaser.GameObjects.Text;
   private runButton!: Phaser.GameObjects.Text;
   private soundText!: Phaser.GameObjects.Text;
+  private shiftKey?: Phaser.Input.Keyboard.Key;
   private toolText!: Phaser.GameObjects.Text;
   private modal!: Phaser.GameObjects.Container;
   private relicPanel!: Phaser.GameObjects.Container;
@@ -137,6 +138,8 @@ export class UIScene extends Phaser.Scene {
     bus.on('relicChoice', () => this.showRelicChoice());
     this.input.keyboard?.on('keydown-ESC', () => this.closeModal());
     this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
+    // Not captured, so Shift still works normally in the browser.
+    this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
     this.input.keyboard?.on('keydown-R', () => this.dungeon.setRunning(!this.dungeon.running));
     this.input.keyboard?.on('keydown-H', () => {
       for (const line of CONTROLS) this.state.message(line);
@@ -642,12 +645,15 @@ export class UIScene extends Phaser.Scene {
     const def = item(stack.id);
     const opts: MenuOption[] = [];
     const verb = def.burnTicks ? 'Light' : def.restoresPrayer ? 'Drink' : def.heal ? 'Eat' : def.buryXp ? 'Bury' : def.equip ? (def.equip.slot === 'weapon' || def.equip.slot === 'ammo' ? 'Wield' : 'Wear') : null;
-    // Items without a use get a harmless Examine as their left-click, never Drop.
+    // Items without a use get a harmless Examine as their left-click, never Drop...
     const examine = { label: `Examine ${def.name}`, action: () => g.message(def.examine + (stack.qty > 1 ? ` (${stack.qty.toLocaleString()})` : '')) };
+    const drop = { label: `Drop ${def.name}`, action: () => g.dropItem(slot) };
     if (verb) opts.push({ label: `${verb} ${def.name}`, action: () => g.useItem(slot) });
     else opts.push(examine);
-    opts.push({ label: `Drop ${def.name}`, action: () => g.dropItem(slot) });
+    opts.push(drop);
     if (verb) opts.push(examine);
+    // ...unless Shift is held: then left-click drops, like OSRS shift-click dropping.
+    if (this.shiftKey?.isDown) return [drop, ...opts.filter((o) => o !== drop)];
     return opts;
   }
 
