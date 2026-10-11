@@ -96,7 +96,7 @@ export class GameState {
     }
     this.applyStartingKit();
     this.loadFloor(1);
-    this.message('Welcome to RogueScape. Find the stairs and go deeper.');
+    this.message('Welcome to Tickbound. Find the stairs and go deeper.');
     const t = this.player.tools;
     if (!t.pickaxe && !t.axe && !t.fishing) {
       this.message('You have no tools yet. Earn Dungeoneering tokens and buy them from the Toolsmith at camp.');
@@ -132,7 +132,7 @@ export class GameState {
     p.pos = { ...map.spawn };
     p.prev = { ...map.spawn };
     this.updateFov();
-    this.message('You are at camp. Talk to the Mentor to learn perks, or the Toolsmith for tools.');
+    this.message('Welcome to Tickbound! You are at camp. Talk to the Mentor to learn perks, or the Toolsmith for tools.');
     this.message('Climb down the ladder when you are ready to enter the dungeon. Press H for controls.');
     this.emit({ type: 'floor', depth: 0 });
   }

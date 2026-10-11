@@ -29,7 +29,7 @@ const runs = Number(argv[2] ?? 40);
 const pct = (xs: number[], q: number) => [...xs].sort((a, b) => a - b)[Math.floor((xs.length - 1) * q)];
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
-console.log(`RogueScape balance sim: ${runs} bot runs per stage\n`);
+console.log(`Tickbound balance sim: ${runs} bot runs per stage\n`);
 for (const [name, setup] of Object.entries(STAGES)) {
   const started = Date.now();
   const results: RunResult[] = [];
