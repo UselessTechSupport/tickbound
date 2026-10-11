@@ -630,6 +630,8 @@ export class DungeonScene extends Phaser.Scene {
             fx.fillStyle(def.color).fillRect(cx - 7, cy - 4, 4, 4).fillRect(cx + 3, cy + 1, 4, 4).fillRect(cx - 2, cy + 5, 3, 3);
             fx.fillStyle(0xffffff, 0.5).fillRect(cx - 7, cy - 4, 2, 2).fillRect(cx + 3, cy + 1, 2, 2);
           }
+        } else if (def.kind === 'herb') {
+          sprite('herb_patch', n.depleted ? 0x6a5a40 : undefined);
         } else if (def.kind === 'tree') {
           if (n.depleted) sprite('gen_stump');
           else sprite('tree', Phaser.Display.Color.IntegerToColor(def.color).lighten(35).color);
@@ -795,7 +797,9 @@ export class DungeonScene extends Phaser.Scene {
         const styled = npc.isBoss || npc.attackStyle !== 'melee';
         const img = this.add.image(0, 0, npcSprite(npc.def.id));
         if (npc.def.id === 'mimic') img.setTint(0xff8080); // a chest with teeth
-        v = this.makeActorView([img], styled);
+        // Elites stand in a gold aura.
+        const aura = npc.elite ? [this.add.ellipse(0, 10, TILE + 4, 14, 0xffc040, 0.55).setStrokeStyle(2, 0xffe080)] : [];
+        v = this.makeActorView([...aura, img], styled);
         if (npc.isBoss) v.body.setScale(1.3);
         this.npcViews.set(npc, v);
       }

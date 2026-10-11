@@ -32,6 +32,10 @@ export interface ItemDef {
   stackable?: boolean;
   heal?: number;
   restoresPrayer?: boolean;
+  /** Drinkable stat boost (OSRS formula: base + pct of your level), fading 1 level per minute. */
+  boost?: { skills: SkillName[]; base: number; pct: number };
+  /** Herb or herblore ingredient (supplies; not logged in the collection log). */
+  herblore?: boolean;
   buryXp?: number;
   equip?: EquipStats;
 }
@@ -141,6 +145,32 @@ const list: ItemDef[] = [
   { id: 'death_rune', name: 'Death rune', color: 0xd0d0d0, stackable: true, examine: 'Used for high level missile spells.' },
 
   { id: 'prayer_potion', name: 'Prayer potion', color: 0x40c0b0, restoresPrayer: true, examine: 'A potion that restores prayer points.' },
+
+  // Herblore: herbs, secondaries, vials and potions
+  { id: 'guam_leaf', name: 'Guam leaf', color: 0x6aa040, herblore: true, examine: 'A fresh herb.' },
+  { id: 'tarromin', name: 'Tarromin', color: 0x8aa030, herblore: true, examine: 'A fresh herb.' },
+  { id: 'harralander', name: 'Harralander', color: 0xa09030, herblore: true, examine: 'A fresh herb.' },
+  { id: 'ranarr_weed', name: 'Ranarr weed', color: 0x40a050, herblore: true, examine: 'A valuable herb.' },
+  { id: 'irit_leaf', name: 'Irit leaf', color: 0x5a9a5a, herblore: true, examine: 'A fresh herb.' },
+  { id: 'kwuarm', name: 'Kwuarm', color: 0x7a9a3a, herblore: true, examine: 'A fresh herb.' },
+  { id: 'cadantine', name: 'Cadantine', color: 0x3a8a5a, herblore: true, examine: 'A fresh herb.' },
+  { id: 'dwarf_weed', name: 'Dwarf weed', color: 0x6a8a2a, herblore: true, examine: 'A fresh herb.' },
+  { id: 'lantadyme', name: 'Lantadyme', color: 0x8ab040, herblore: true, examine: 'A fresh herb.' },
+  { id: 'eye_of_newt', name: 'Eye of newt', color: 0xe0d0a0, stackable: true, herblore: true, examine: 'It seems to be looking at me.' },
+  { id: 'limpwurt_root', name: 'Limpwurt root', color: 0xc08040, stackable: true, herblore: true, examine: 'The root of a limpwurt plant.' },
+  { id: 'white_berries', name: 'White berries', color: 0xf0f0f0, stackable: true, herblore: true, examine: 'Poisonous berries.' },
+  { id: 'snape_grass', name: 'Snape grass', color: 0x60a060, stackable: true, herblore: true, examine: 'Strange spiky grass.' },
+  { id: 'wine_of_zamorak', name: 'Wine of zamorak', color: 0x902040, stackable: true, herblore: true, examine: 'A jug full of Zamorak wine.' },
+  { id: 'potato_cactus', name: 'Potato cactus', color: 0x70a050, stackable: true, herblore: true, examine: 'How on earth did a cactus get down here?' },
+  { id: 'vial_of_water', name: 'Vial of water', color: 0xa0c0ff, stackable: true, herblore: true, examine: 'A glass vial containing water.' },
+  { id: 'attack_potion', name: 'Attack potion', color: 0x4060ff, boost: { skills: ['attack'], base: 3, pct: 0.1 }, examine: 'Boosts your Attack.' },
+  { id: 'strength_potion', name: 'Strength potion', color: 0xd04040, boost: { skills: ['strength'], base: 3, pct: 0.1 }, examine: 'Boosts your Strength.' },
+  { id: 'defence_potion', name: 'Defence potion', color: 0x40c060, boost: { skills: ['defence'], base: 3, pct: 0.1 }, examine: 'Boosts your Defence.' },
+  { id: 'super_attack', name: 'Super attack', color: 0x40e0e0, boost: { skills: ['attack'], base: 5, pct: 0.15 }, examine: 'Greatly boosts your Attack.' },
+  { id: 'super_strength', name: 'Super strength', color: 0xe040e0, boost: { skills: ['strength'], base: 5, pct: 0.15 }, examine: 'Greatly boosts your Strength.' },
+  { id: 'super_defence', name: 'Super defence', color: 0xe0c040, boost: { skills: ['defence'], base: 5, pct: 0.15 }, examine: 'Greatly boosts your Defence.' },
+  { id: 'ranging_potion', name: 'Ranging potion', color: 0x60e0a0, boost: { skills: ['ranged'], base: 4, pct: 0.1 }, examine: 'Boosts your Ranged.' },
+  { id: 'magic_potion', name: 'Magic potion', color: 0xc04080, boost: { skills: ['magic'], base: 4, pct: 0 }, examine: 'Boosts your Magic.' },
 
   // Skilling resources
   { id: 'copper_ore', name: 'Copper ore', color: 0xb87333, examine: 'This needs refining.' },

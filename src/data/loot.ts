@@ -44,6 +44,8 @@ export function generateStock(depth: number): StockEntry[] {
     entry(gearForDepth(depth), 1),
     entry(gearForDepth(depth), 1),
     entry(RNG.getUniform() < 0.5 ? bowForDepth(depth) : depth >= 8 ? 'staff_of_fire' : 'staff_of_air', 1),
+    entry('vial_of_water', 25),
+    entry(RNG.getItem(['eye_of_newt', 'limpwurt_root', 'white_berries', 'snape_grass'])!, 10),
   ];
   // Merge duplicates (two identical gear rolls).
   return stock.filter((s, i) => stock.findIndex((o) => o.id === s.id) === i);

@@ -1,6 +1,7 @@
 import { SkillName } from './skills';
 
-export type Station = 'fire' | 'furnace' | 'anvil';
+/** 'mix' recipes are herblore: made straight from the inventory, no station needed. */
+export type Station = 'fire' | 'furnace' | 'anvil' | 'mix';
 
 export interface Recipe {
   id: string;
@@ -16,6 +17,12 @@ export interface Recipe {
 
 const cook = (raw: string, cooked: string, level: number, xp: number, stopBurn: number): Recipe => ({
   id: `cook_${cooked}`, station: 'fire', skill: 'cooking', level, xp, inputs: [{ item: raw, qty: 1 }], output: cooked, stopBurn,
+});
+
+/** Herb + secondary + vial of water -> potion. */
+const mix = (output: string, level: number, xp: number, herb: string, secondary: string): Recipe => ({
+  id: `mix_${output}`, station: 'mix', skill: 'herblore', level, xp, output,
+  inputs: [{ item: herb, qty: 1 }, { item: secondary, qty: 1 }, { item: 'vial_of_water', qty: 1 }],
 });
 
 const smelt = (metal: string, level: number, xp: number, ore: string, coal: number, extra?: string): Recipe => ({
@@ -35,6 +42,16 @@ export const RECIPES: Recipe[] = [
   cook('raw_trout', 'trout', 10, 70, 30),
   cook('raw_lobster', 'lobster', 25, 120, 45),
   cook('raw_swordfish', 'swordfish', 30, 140, 55),
+
+  mix('attack_potion', 1, 25, 'guam_leaf', 'eye_of_newt'),
+  mix('strength_potion', 5, 50, 'tarromin', 'limpwurt_root'),
+  mix('defence_potion', 10, 75, 'harralander', 'white_berries'),
+  mix('prayer_potion', 15, 87.5, 'ranarr_weed', 'snape_grass'),
+  mix('super_attack', 20, 100, 'irit_leaf', 'eye_of_newt'),
+  mix('super_strength', 25, 125, 'kwuarm', 'limpwurt_root'),
+  mix('super_defence', 30, 150, 'cadantine', 'white_berries'),
+  mix('ranging_potion', 30, 162.5, 'dwarf_weed', 'wine_of_zamorak'),
+  mix('magic_potion', 35, 172.5, 'lantadyme', 'potato_cactus'),
 
   smelt('bronze', 1, 6.25, 'copper_ore', 0, 'tin_ore'),
   smelt('iron', 10, 12.5, 'iron_ore', 0),

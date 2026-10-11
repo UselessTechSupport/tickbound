@@ -62,6 +62,28 @@ const WEAKNESSES: Record<string, AttackType> = {
   ice_beast: 'magic', frost_giant: 'magic', freezing_wraith: 'ranged',
 };
 
+/** Herblore secondaries and vials, appended to the drop tables above. */
+const HERBLORE_DROPS: Record<string, Drop[]> = {
+  goblin: [{ item: 'limpwurt_root', chance: 0.1 }, { item: 'vial_of_water', chance: 0.15, min: 1, max: 2 }],
+  zombie: [{ item: 'white_berries', chance: 0.12 }, { item: 'vial_of_water', chance: 0.12 }],
+  dark_wizard: [{ item: 'eye_of_newt', chance: 0.3, min: 1, max: 3 }, { item: 'vial_of_water', chance: 0.2, min: 1, max: 2 }],
+  skeleton: [{ item: 'vial_of_water', chance: 0.15, min: 1, max: 2 }],
+  giant_spider: [{ item: 'snape_grass', chance: 0.18 }],
+  hill_giant: [{ item: 'limpwurt_root', chance: 0.25, min: 1, max: 2 }],
+  moss_giant: [{ item: 'white_berries', chance: 0.18 }, { item: 'vial_of_water', chance: 0.15, min: 1, max: 3 }],
+  ghoul: [{ item: 'snape_grass', chance: 0.15 }],
+  wight: [{ item: 'eye_of_newt', chance: 0.25, min: 1, max: 3 }, { item: 'vial_of_water', chance: 0.15, min: 1, max: 2 }],
+  mummy: [{ item: 'wine_of_zamorak', chance: 0.12 }],
+  infernal_mage: [{ item: 'eye_of_newt', chance: 0.25, min: 2, max: 4 }],
+  fire_elemental: [{ item: 'wine_of_zamorak', chance: 0.12 }],
+  salamander: [{ item: 'potato_cactus', chance: 0.15 }],
+  dark_archer: [{ item: 'snape_grass', chance: 0.15 }],
+  lesser_demon: [{ item: 'wine_of_zamorak', chance: 0.15 }],
+  ice_beast: [{ item: 'white_berries', chance: 0.2, min: 1, max: 2 }],
+  frost_giant: [{ item: 'limpwurt_root', chance: 0.2, min: 1, max: 3 }],
+  freezing_wraith: [{ item: 'potato_cactus', chance: 0.15 }, { item: 'vial_of_water', chance: 0.2, min: 1, max: 3 }],
+};
+
 /** Ranged and magic supplies, appended to the drop tables above. */
 const SUPPLY_DROPS: Record<string, Drop[]> = {
   goblin: [{ item: 'bronze_arrow', chance: 0.2, min: 5, max: 15 }, { item: 'shortbow', chance: 0.03 }],
@@ -402,7 +424,7 @@ const list: NpcDef[] = [
 
 for (const n of list) {
   n.weakness = WEAKNESSES[n.id];
-  n.drops.push(...(SUPPLY_DROPS[n.id] ?? []));
+  n.drops.push(...(SUPPLY_DROPS[n.id] ?? []), ...(HERBLORE_DROPS[n.id] ?? []));
 }
 
 /** Chests on floor 3+ are sometimes Mimics. */

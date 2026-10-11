@@ -1,5 +1,6 @@
 import { NpcDef } from '../data/npcs';
 import { AttackType } from '../data/prayers';
+import type { EliteAffix } from '../data/elites';
 import { combatLevel } from '../systems/combat';
 import { Point } from '../world/tiles';
 import { Actor } from './Actor';
@@ -8,6 +9,8 @@ export class Npc extends Actor {
   def: NpcDef;
   spawn: Point;
   target: Actor | null = null;
+  /** Set for elite monsters (their def already includes the boosts). */
+  elite?: EliteAffix;
   /** Index into def.boss.styles for the style it's currently using. */
   styleIndex = 0;
   attacksSinceSwitch = 0;
@@ -19,7 +22,7 @@ export class Npc extends Actor {
   }
 
   get name(): string {
-    return this.def.name;
+    return this.elite ? `${this.elite.name} ${this.def.name}` : this.def.name;
   }
 
   get maxHp(): number {

@@ -1,6 +1,6 @@
 import { SkillName } from './skills';
 
-export type ResourceKind = 'rock' | 'tree' | 'fishing';
+export type ResourceKind = 'rock' | 'tree' | 'fishing' | 'herb';
 
 export interface ResourceDef {
   id: string;
@@ -40,6 +40,27 @@ const spot = (id: string, verb: string, fishingTier: number, level: number, xp: 
   uses: [4, 8], minDepth, maxDepth, weight: 1, color: 0x2a5a8a, examine: `I can ${verb.toLowerCase()} fish here.`,
 });
 
+/** Herbs by depth: [item, Herblore level to pick, first depth, pick XP]. Also used for herb drops. */
+export const HERBS: Array<[string, number, number, number]> = [
+  ['guam_leaf', 1, 1, 5], ['tarromin', 5, 2, 7], ['harralander', 10, 4, 9], ['ranarr_weed', 15, 6, 12],
+  ['irit_leaf', 20, 8, 14], ['kwuarm', 25, 10, 16], ['cadantine', 30, 12, 18], ['dwarf_weed', 30, 14, 20],
+  ['lantadyme', 35, 16, 22],
+];
+
+/** Herb patches: no tool needed, you just pick them. */
+const HERB_PATCHES: ResourceDef[] = HERBS.map(([product, level, minDepth, xp]) => ({
+  id: `patch_${product}`, kind: 'herb' as const, name: 'Herb patch', verb: 'Pick', skill: 'herblore' as const,
+  level, xp, product, rollTicks: 3, uses: [1, 3] as [number, number], minDepth, maxDepth: minDepth + 8,
+  weight: 1, color: 0x50a040, examine: `A patch of herbs. Looks like ${product.replace(/_/g, ' ')}.`,
+}));
+
+/** A random herb that grows at this depth (herb drops and patches). */
+export function herbForDepth(depth: number, rand: () => number): string {
+  const pool = HERBS.filter(([, , min]) => depth >= min && depth <= min + 8);
+  const list = pool.length ? pool : HERBS.slice(-2);
+  return list[Math.floor(rand() * list.length)][0];
+}
+
 /** Level requirements are compressed vs OSRS so higher tiers are reachable within a run. */
 const list: ResourceDef[] = [
   rock('copper', 'Copper rocks', 1, 17.5, 'copper_ore', 1, 7, 3, 0xb87333),
@@ -55,6 +76,8 @@ const list: ResourceDef[] = [
   tree('willow', 'Willow tree', 20, 67.5, 'willow_logs', [3, 6], 6, 99, 2, 0x6a9a3a),
   tree('maple', 'Maple tree', 30, 100, 'maple_logs', [3, 6], 10, 99, 2, 0xb05a20),
   tree('yew', 'Yew tree', 40, 175, 'yew_logs', [3, 6], 14, 99, 1, 0x2a5a2a),
+
+  ...HERB_PATCHES,
 
   spot('net', 'Net', 1, 1, 10, 'raw_shrimps', 1, 8),
   spot('lure', 'Lure', 2, 12, 50, 'raw_trout', 4, 14),

@@ -4,7 +4,9 @@ import { ITEMS, item } from '../data/items';
 /** CC0 Dungeon Crawl tiles copied into public/assets/tiles (see CREDITS.txt there). */
 const TILE_KEYS = [
   'floor_0', 'floor_1', 'floor_2', 'floor_3', 'wall_0', 'wall_1', 'wall_2', 'wall_3',
-  'grass_0', 'grass_1', 'grass_2', 'shrine', 'chest', 'chest_open', 'merchant', 'npc_mimic', 'stairs', 'ladder', 'water', 'boulder', 'tree', 'fire', 'altar',
+  'grass_0', 'grass_1', 'grass_2', 'herb_patch', 'item_attack_potion', 'item_strength_potion', 'item_defence_potion',
+  'item_super_attack', 'item_super_strength', 'item_super_defence', 'item_ranging_potion', 'item_magic_potion',
+  'item_vial_of_water', 'shrine', 'chest', 'chest_open', 'merchant', 'npc_mimic', 'stairs', 'ladder', 'water', 'boulder', 'tree', 'fire', 'altar',
   'mentor', 'toolsmith',
   'npc_rat', 'npc_goblin', 'npc_giant_rat', 'npc_zombie',
   'npc_ghoul', 'npc_wight', 'npc_mummy', 'npc_hellhound', 'npc_fire_elemental', 'npc_salamander',
@@ -64,6 +66,7 @@ export function itemSprite(id: string): SpriteRef {
   if (id === 'coins') return { key: 'item_coins' };
   if (id === 'bones' || id === 'big_bones') return { key: 'item_bones' };
   if (id === 'prayer_potion') return { key: 'item_prayer_potion' };
+  if (POTION_SPRITES.has(id)) return { key: `item_${id}` };
   if (id === 'wooden_shield') return { key: 'item_wooden_shield' };
   if (id.endsWith('_kiteshield')) return { key: 'gen_kiteshield', tint: metalOf(id) };
   if (id.endsWith('_arrow')) return { key: 'item_arrow', tint: metalOf(id) };
@@ -203,6 +206,64 @@ const ANVIL = [
   '...oooooooooo',
 ];
 
+const POTION_SPRITES = new Set([
+  'attack_potion', 'strength_potion', 'defence_potion', 'super_attack', 'super_strength', 'super_defence',
+  'ranging_potion', 'magic_potion', 'vial_of_water',
+]);
+
+const LEAF = [
+  '', '', '',
+  '.........oo',
+  '........oxxo',
+  '.......oxXxo',
+  '...oo.oxXxxo',
+  '..oxxooxXxo',
+  '..oxXxoxxxo',
+  '...oxXxxxo',
+  '....oxxxo',
+  '.....odo',
+  '....odo',
+  '...odo',
+  '...oo',
+];
+
+const BERRY = [
+  '', '', '', '', '',
+  '.....oo..oo',
+  '....oXxooXxo',
+  '....oxxooxxo',
+  '.....oooooo',
+  '....oXxooXxo',
+  '....oxxooxxo',
+  '.....oo..oo',
+];
+
+const ROOT = [
+  '', '', '', '',
+  '......oooo',
+  '.....oXxxxo',
+  '....oxXxxxdo',
+  '....oxxxxxdo',
+  '.....oxxxdo',
+  '......oxdo',
+  '.......odo',
+  '......odo',
+  '.......oo',
+];
+
+const JUG = [
+  '', '', '',
+  '......oooo',
+  '......oddo',
+  '.....oxxxxo',
+  '....oxXxxxxo',
+  '....oxXxxxxo',
+  '....oxxxxxxo',
+  '....oxxxxxdo',
+  '.....oxxxdo',
+  '......oooo',
+];
+
 const RUNE = [
   '', '', '',
   '.....oooooo',
@@ -275,7 +336,12 @@ export function generateSprites(scene: Phaser.Scene): void {
   for (const def of Object.values(ITEMS)) {
     const c = def.color;
     const tones = { o: 0x1a1612, x: c, X: shade(c, 1.35), d: shade(c, 0.65), k: 0x101010, l: 0xd8b880 };
-    if (def.id.endsWith('_rune')) paint(scene, `gen_${def.id}`, RUNE, { o: 0x1a1a1a, m: 0x8a8a92, d: 0x5a5a62, x: c });
+    if (def.herblore && !POTION_SPRITES.has(def.id)) {
+      const pattern = def.stackable
+        ? (def.id === 'wine_of_zamorak' ? JUG : ['eye_of_newt', 'white_berries'].includes(def.id) ? BERRY : ROOT)
+        : LEAF;
+      paint(scene, `gen_${def.id}`, pattern, tones);
+    } else if (def.id.endsWith('_rune')) paint(scene, `gen_${def.id}`, RUNE, { o: 0x1a1a1a, m: 0x8a8a92, d: 0x5a5a62, x: c });
     else if (def.id.endsWith('_ore') || def.id === 'coal') paint(scene, `gen_${def.id}`, ORE, { ...ROCK, x: c, X: shade(c, 1.4) });
     else if (def.id.endsWith('_bar')) paint(scene, `gen_${def.id}`, BAR, tones);
     else if (def.id.endsWith('logs')) paint(scene, `gen_${def.id}`, LOGS, tones);

@@ -1,4 +1,5 @@
 import type { GameState } from '../game/GameState';
+import { RECIPES } from './recipes';
 import type { MetaSave } from '../save/meta';
 
 export type Tier = 'easy' | 'medium' | 'hard' | 'elite';
@@ -13,7 +14,8 @@ export const TIERS: Array<{ id: Tier; name: string; reward: number; color: numbe
 /** Lifetime counters kept in the save (see ProgressTracker). */
 export type Counter =
   | 'kills' | 'gathers' | 'cooks' | 'smiths' | 'bones' | 'chests' | 'purchases' | 'blocks'
-  | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills' | 'tasks' | 'fires';
+  | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills' | 'tasks' | 'fires'
+  | 'potions' | 'herbs' | 'eliteKills';
 
 export interface AchievementContext {
   meta: MetaSave;
@@ -39,7 +41,8 @@ const uniques = (c: AchievementContext) => Object.keys(c.meta.collection).length
 const killedTimes = (npcId: string, n: number) => (c: AchievementContext) => (c.meta.killCounts[npcId] ?? 0) >= n;
 const made = (pred: (id: string) => boolean) => (c: AchievementContext) => Object.keys(c.meta.made).some(pred);
 const inRun = (f: (g: GameState) => boolean) => (c: AchievementContext) => !c.game.isCamp && f(c.game);
-const NON_COMBAT = ['mining', 'woodcutting', 'fishing', 'cooking', 'smithing'] as const;
+const NON_COMBAT = ['mining', 'woodcutting', 'fishing', 'cooking', 'smithing', 'herblore'] as const;
+const MIX_OUTPUTS = RECIPES.filter((r) => r.station === 'mix').map((r) => r.output);
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   // Easy
@@ -54,6 +57,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'relic_hunter', name: 'Relic Hunter', desc: 'Choose a relic.', tier: 'easy', ...count('relics', 1) },
   { id: 'slayer_novice', name: 'Slayer Novice', desc: 'Complete a Slayer task.', tier: 'easy', ...count('tasks', 1) },
   { id: 'firestarter', name: 'Firestarter', desc: 'Light 10 fires.', tier: 'easy', ...count('fires', 10) },
+  { id: 'green_thumb', name: 'Green Thumb', desc: 'Pick 10 herbs.', tier: 'easy', ...count('herbs', 10) },
+  { id: 'first_brew', name: 'First Brew', desc: 'Mix a potion.', tier: 'easy', ...count('potions', 1) },
   { id: 'archer', name: 'Fletched', desc: 'Kill a monster with ranged.', tier: 'easy', ...count('rangedKills', 1) },
   { id: 'wizard', name: 'Abracadabra', desc: 'Kill a monster with magic.', tier: 'easy', ...count('magicKills', 1) },
 
@@ -73,6 +78,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'relic_collector', name: 'Relic Collector', desc: 'Hold 3 relics in one run.', tier: 'medium', check: inRun((g) => g.relics.length >= 3) },
   { id: 'warlords_bane', name: "Warlord's Bane", desc: 'Kill the Goblin Warlord 5 times.', tier: 'medium', check: killedTimes('goblin_warlord', 5) },
   { id: 'mithril_smith', name: 'Mithril Smith', desc: 'Smith a mithril item.', tier: 'medium', check: made((id) => /^mithril_(scimitar|kiteshield|platebody)$/.test(id)) },
+  { id: 'herbalist', name: 'Herbalist', desc: 'Mix 25 potions.', tier: 'medium', ...count('potions', 25) },
+  { id: 'elite_hunter', name: 'Elite Hunter', desc: 'Kill 10 elite monsters.', tier: 'medium', ...count('eliteKills', 10) },
+  { id: 'juiced', name: 'Juiced', desc: 'Have 3 stats boosted by potions at once.', tier: 'medium', check: inRun((g) => Object.values(g.player.boosts).filter((b) => (b ?? 0) > 0).length >= 3) },
   { id: 'collector', name: 'Collector', desc: 'Log 20 unique items in your collection log.', tier: 'medium', check: (c) => uniques(c) >= 20 },
 
   // Hard
@@ -89,6 +97,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'specialist', name: 'Specialist', desc: 'Reach level 50 in a gathering or crafting skill in one run.', tier: 'hard', check: inRun((g) => NON_COMBAT.some((s) => g.player.skills.level(s) >= 50)) },
   { id: 'relic_hoarder', name: 'Relic Hoarder', desc: 'Hold 5 relics in one run.', tier: 'hard', check: inRun((g) => g.relics.length >= 5) },
   { id: 'fire_cape', name: 'Fire Cape', desc: 'Kill TzTok-Jad 5 times.', tier: 'hard', check: killedTimes('tztok_jad', 5) },
+  { id: 'super_brewer', name: 'Super Brewer', desc: 'Mix a super defence.', tier: 'hard', check: made((id) => id === 'super_defence') },
+  { id: 'champion_slayer', name: 'Champion Slayer', desc: 'Kill 100 elite monsters.', tier: 'hard', ...count('eliteKills', 100) },
   { id: 'thousand', name: 'Slayer of a Thousand', desc: 'Kill 1,000 monsters.', tier: 'hard', ...count('kills', 1000) },
   { id: 'combat_80', name: 'Veteran', desc: 'Reach combat level 80 in a run.', tier: 'hard', check: (c) => !c.game.isCamp && c.game.player.combatLevel >= 80 },
 
@@ -102,6 +112,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'slayer_master', name: 'Slayer Master', desc: 'Complete 50 Slayer tasks.', tier: 'elite', ...count('tasks', 50) },
   { id: 'dragon_slayer', name: 'Dragon Slayer', desc: 'Obtain a dragon scimitar.', tier: 'elite', check: (c) => (c.meta.collection.dragon_scimitar ?? 0) > 0 },
   { id: 'zookeeper', name: 'Zookeeper', desc: 'Own every boss pet.', tier: 'elite', check: (c) => c.meta.pets.length >= 4 },
+  { id: 'master_herbalist', name: 'Master Herbalist', desc: 'Mix every kind of potion.', tier: 'elite', check: (c) => MIX_OUTPUTS.every((id) => (c.meta.made[id] ?? 0) > 0) },
   { id: 'completionist', name: 'Completionist', desc: 'Log 60 unique items in your collection log.', tier: 'elite', check: (c) => uniques(c) >= 60 },
 ];
 
