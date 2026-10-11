@@ -6,7 +6,14 @@ const TILE_KEYS = [
   'floor_0', 'floor_1', 'floor_2', 'floor_3', 'wall_0', 'wall_1', 'wall_2', 'wall_3',
   'grass_0', 'grass_1', 'grass_2', 'shrine', 'chest', 'chest_open', 'merchant', 'npc_mimic', 'stairs', 'ladder', 'water', 'boulder', 'tree', 'fire', 'altar',
   'mentor', 'toolsmith',
-  'npc_rat', 'npc_goblin', 'npc_giant_rat', 'npc_zombie', 'npc_skeleton', 'npc_giant_spider', 'npc_hill_giant', 'npc_moss_giant',
+  'npc_rat', 'npc_goblin', 'npc_giant_rat', 'npc_zombie',
+  'npc_ghoul', 'npc_wight', 'npc_mummy', 'npc_hellhound', 'npc_fire_elemental', 'npc_salamander',
+  'npc_ice_beast', 'npc_frost_giant', 'npc_freezing_wraith', 'slayer_master',
+  'crypt_floor_0', 'crypt_floor_1', 'crypt_wall_0', 'crypt_wall_1', 'crypt_wall_2', 'crypt_wall_3',
+  'volcanic_floor_0', 'volcanic_floor_1', 'volcanic_floor_2', 'volcanic_floor_3',
+  'volcanic_wall_0', 'volcanic_wall_1', 'volcanic_wall_2', 'volcanic_wall_3',
+  'frozen_floor_0', 'frozen_floor_1', 'frozen_floor_2', 'frozen_floor_3',
+  'frozen_wall_0', 'frozen_wall_1', 'frozen_wall_2', 'frozen_wall_3', 'npc_skeleton', 'npc_giant_spider', 'npc_hill_giant', 'npc_moss_giant',
   'npc_lesser_demon', 'npc_greater_demon', 'npc_dark_wizard', 'npc_skeleton_archer', 'npc_infernal_mage',
   'npc_dark_archer', 'npc_goblin_warlord', 'npc_tztok_jad', 'npc_chaos_elemental', 'npc_demonic_gorilla',
   'pd_base', 'pd_plate', 'pd_dagger', 'pd_sword', 'pd_scimitar', 'pd_wooden_shield', 'pd_kiteshield',
@@ -28,7 +35,7 @@ export interface SpriteRef {
 
 /** Brighter versions of the metal colours: tint multiplies, so dark tints would muddy the art. */
 const METAL_TINT: Record<string, number> = {
-  bronze: 0xe0a070, iron: 0xb8b8b8, steel: 0xeeeef8, mithril: 0x8090ff, adamant: 0x70d070, rune: 0x70e8ff,
+  bronze: 0xe0a070, iron: 0xb8b8b8, steel: 0xeeeef8, mithril: 0x8090ff, adamant: 0x70d070, rune: 0x70e8ff, dragon: 0xff5040,
 };
 
 const metalOf = (id: string) => METAL_TINT[id.split('_')[0]];

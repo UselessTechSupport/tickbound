@@ -13,7 +13,7 @@ export const TIERS: Array<{ id: Tier; name: string; reward: number; color: numbe
 /** Lifetime counters kept in the save (see ProgressTracker). */
 export type Counter =
   | 'kills' | 'gathers' | 'cooks' | 'smiths' | 'bones' | 'chests' | 'purchases' | 'blocks'
-  | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills';
+  | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills' | 'tasks' | 'fires';
 
 export interface AchievementContext {
   meta: MetaSave;
@@ -36,6 +36,10 @@ const count = (counter: Counter, target: number) => ({ counter: [counter, target
 const killed = (npcId: string) => (c: AchievementContext) => (c.meta.killCounts[npcId] ?? 0) > 0;
 const reached = (depth: number) => (c: AchievementContext) => c.meta.bestDepth >= depth || (!c.game.isCamp && c.game.depth >= depth);
 const uniques = (c: AchievementContext) => Object.keys(c.meta.collection).length;
+const killedTimes = (npcId: string, n: number) => (c: AchievementContext) => (c.meta.killCounts[npcId] ?? 0) >= n;
+const made = (pred: (id: string) => boolean) => (c: AchievementContext) => Object.keys(c.meta.made).some(pred);
+const inRun = (f: (g: GameState) => boolean) => (c: AchievementContext) => !c.game.isCamp && f(c.game);
+const NON_COMBAT = ['mining', 'woodcutting', 'fishing', 'cooking', 'smithing'] as const;
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   // Easy
@@ -48,6 +52,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'treasure_seeker', name: 'Treasure Seeker', desc: 'Open 5 chests.', tier: 'easy', ...count('chests', 5) },
   { id: 'customer', name: 'Valued Customer', desc: 'Buy something from a wandering merchant.', tier: 'easy', ...count('purchases', 1) },
   { id: 'relic_hunter', name: 'Relic Hunter', desc: 'Choose a relic.', tier: 'easy', ...count('relics', 1) },
+  { id: 'slayer_novice', name: 'Slayer Novice', desc: 'Complete a Slayer task.', tier: 'easy', ...count('tasks', 1) },
+  { id: 'firestarter', name: 'Firestarter', desc: 'Light 10 fires.', tier: 'easy', ...count('fires', 10) },
   { id: 'archer', name: 'Fletched', desc: 'Kill a monster with ranged.', tier: 'easy', ...count('rangedKills', 1) },
   { id: 'wizard', name: 'Abracadabra', desc: 'Kill a monster with magic.', tier: 'easy', ...count('magicKills', 1) },
 
@@ -60,6 +66,13 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'flicker', name: 'Prayer Flicker', desc: 'Block 25 hits with protection prayers.', tier: 'medium', ...count('blocks', 25) },
   { id: 'combat_40', name: 'Seasoned', desc: 'Reach combat level 40 in a run.', tier: 'medium', check: (c) => !c.game.isCamp && c.game.player.combatLevel >= 40 },
   { id: 'hoarder', name: 'Hoarder', desc: 'Carry 1,000 coins at once.', tier: 'medium', check: (c) => c.game.player.inventory.count('coins') >= 1000 },
+  { id: 'crypt_crawler', name: 'Crypt Crawler', desc: 'Reach the Crypt (floor 6).', tier: 'medium', check: reached(6) },
+  { id: 'slayer_adept', name: 'Slayer Adept', desc: 'Complete 10 Slayer tasks.', tier: 'medium', ...count('tasks', 10) },
+  { id: 'master_chef', name: 'Master Chef', desc: 'Cook 100 fish.', tier: 'medium', ...count('cooks', 100) },
+  { id: 'prospector', name: 'Prospector', desc: 'Gather 100 resources.', tier: 'medium', ...count('gathers', 100) },
+  { id: 'relic_collector', name: 'Relic Collector', desc: 'Hold 3 relics in one run.', tier: 'medium', check: inRun((g) => g.relics.length >= 3) },
+  { id: 'warlords_bane', name: "Warlord's Bane", desc: 'Kill the Goblin Warlord 5 times.', tier: 'medium', check: killedTimes('goblin_warlord', 5) },
+  { id: 'mithril_smith', name: 'Mithril Smith', desc: 'Smith a mithril item.', tier: 'medium', check: made((id) => /^mithril_(scimitar|kiteshield|platebody)$/.test(id)) },
   { id: 'collector', name: 'Collector', desc: 'Log 20 unique items in your collection log.', tier: 'medium', check: (c) => uniques(c) >= 20 },
 
   // Hard
@@ -69,6 +82,13 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'ghost', name: 'Ghost', desc: 'Reach floor 5 without killing anything.', tier: 'hard', check: (c) => !c.game.isCamp && c.game.depth >= 5 && c.game.kills === 0 },
   { id: 'iron_stomach', name: 'Iron Stomach', desc: 'Reach floor 10 without eating.', tier: 'hard', check: (c) => !c.game.isCamp && c.game.depth >= 10 && c.game.runStats.foodEaten === 0 },
   { id: 'master_of_arms', name: 'Master of Arms', desc: 'Kill monsters with melee, ranged and magic in one run.', tier: 'hard', check: (c) => c.game.runStats.killStyles.size === 3 },
+  { id: 'into_the_fire', name: 'Into the Fire', desc: 'Reach the Volcanic depths (floor 11).', tier: 'hard', check: reached(11) },
+  { id: 'rune_smith', name: 'Rune Smith', desc: 'Smith a rune item.', tier: 'hard', check: made((id) => /^rune_(scimitar|kiteshield|platebody)$/.test(id)) },
+  { id: 'runite_miner', name: 'Runite Miner', desc: 'Mine runite ore.', tier: 'hard', check: made((id) => id === 'runite_ore') },
+  { id: 'harpoon_master', name: 'Harpoon Master', desc: 'Catch a raw swordfish.', tier: 'hard', check: made((id) => id === 'raw_swordfish') },
+  { id: 'specialist', name: 'Specialist', desc: 'Reach level 50 in a gathering or crafting skill in one run.', tier: 'hard', check: inRun((g) => NON_COMBAT.some((s) => g.player.skills.level(s) >= 50)) },
+  { id: 'relic_hoarder', name: 'Relic Hoarder', desc: 'Hold 5 relics in one run.', tier: 'hard', check: inRun((g) => g.relics.length >= 5) },
+  { id: 'fire_cape', name: 'Fire Cape', desc: 'Kill TzTok-Jad 5 times.', tier: 'hard', check: killedTimes('tztok_jad', 5) },
   { id: 'thousand', name: 'Slayer of a Thousand', desc: 'Kill 1,000 monsters.', tier: 'hard', ...count('kills', 1000) },
   { id: 'combat_80', name: 'Veteran', desc: 'Reach combat level 80 in a run.', tier: 'hard', check: (c) => !c.game.isCamp && c.game.player.combatLevel >= 80 },
 
@@ -78,6 +98,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'abyss_walker', name: 'Abyss Walker', desc: 'Reach floor 25.', tier: 'elite', check: reached(25) },
   { id: 'pet_owner', name: 'Funny Feeling', desc: 'Obtain a boss pet.', tier: 'elite', check: (c) => c.meta.pets.length > 0 },
   { id: 'speedrunner', name: 'Speedrunner', desc: 'Reach floor 10 within 1,500 ticks.', tier: 'elite', check: (c) => !c.game.isCamp && c.game.depth >= 10 && c.game.tickCount <= 1500 },
+  { id: 'frostbitten', name: 'Frostbitten', desc: 'Reach the Frozen caverns (floor 16).', tier: 'elite', check: reached(16) },
+  { id: 'slayer_master', name: 'Slayer Master', desc: 'Complete 50 Slayer tasks.', tier: 'elite', ...count('tasks', 50) },
+  { id: 'dragon_slayer', name: 'Dragon Slayer', desc: 'Obtain a dragon scimitar.', tier: 'elite', check: (c) => (c.meta.collection.dragon_scimitar ?? 0) > 0 },
+  { id: 'zookeeper', name: 'Zookeeper', desc: 'Own every boss pet.', tier: 'elite', check: (c) => c.meta.pets.length >= 4 },
   { id: 'completionist', name: 'Completionist', desc: 'Log 60 unique items in your collection log.', tier: 'elite', check: (c) => uniques(c) >= 60 },
 ];
 

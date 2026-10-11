@@ -85,6 +85,7 @@ const list: ItemDef[] = [
   { id: 'bronze_dagger', name: 'Bronze dagger', color: BRONZE, equip: weapon(4, 3, 1), examine: 'Short but pointy.' },
   { id: 'bronze_sword', name: 'Bronze sword', color: BRONZE, equip: weapon(7, 6, 1), examine: 'A razor sharp sword.' },
   { id: 'bronze_scimitar', name: 'Bronze scimitar', color: BRONZE, equip: weapon(7, 6, 1), examine: 'A vicious, curved sword.' },
+  { id: 'dragon_scimitar', name: 'Dragon scimitar', color: 0xd03020, equip: weapon(67, 66, 60), examine: 'A vicious, curved sword of dragon metal.' },
   { id: 'iron_scimitar', name: 'Iron scimitar', color: IRON, equip: weapon(10, 9, 1), examine: 'A vicious, curved sword.' },
   { id: 'steel_scimitar', name: 'Steel scimitar', color: STEEL, equip: weapon(15, 14, 5), examine: 'A vicious, curved sword.' },
   { id: 'mithril_scimitar', name: 'Mithril scimitar', color: MITHRIL, equip: weapon(21, 20, 20), examine: 'A vicious, curved sword.' },

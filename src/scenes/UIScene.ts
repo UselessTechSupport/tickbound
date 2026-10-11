@@ -11,7 +11,9 @@ import { SPELLS, SPELL_BY_ID } from '../data/spells';
 import { RELIC_BY_ID } from '../data/relics';
 import { sellPriceOf } from '../data/prices';
 import { itemInfo, speedText } from '../ui/itemInfo';
-import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, tierOf } from '../data/achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/achievements';
+import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
+import { NPCS } from '../data/npcs';
 import { ALL_LOG_SLOTS, LOG_CATEGORIES, PET_BY_ID } from '../data/collectionLog';
 import type { Notice } from '../meta/tracker';
 import { ensureItemTexture, npcSprite } from '../render/sprites';
@@ -29,20 +31,20 @@ import { FLOOR_HEIGHT, FLOOR_WIDTH } from '../world/dungeonGen';
 import { Tile, tileAt } from '../world/tiles';
 import { PANEL_W, type DungeonScene } from './DungeonScene';
 
-const SLOT = 48;
+const SLOT = 46;
 const CHAT_W = 520;
 const CHAT_H = 132;
 const CHAT_LINES = 7;
 const MINIMAP_SCALE = 3;
 const SKILL_COL_W = 112;
-const SKILL_ROW_H = 18;
+const SKILL_ROW_H = 17;
 
 const FONT = { fontFamily: 'monospace', fontSize: '13px', color: '#ffff00' };
 const PANEL_BG = 0x3e3529;
 const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
-type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log';
+type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer';
 const TABS: Array<[Tab, string]> = [['inventory', 'Items'], ['prayer', 'Prayer'], ['magic', 'Magic'], ['gear', 'Gear']];
 const TAB_W = 50;
 
@@ -55,7 +57,7 @@ const STYLE_INFO: Record<'melee' | 'ranged' | 'magic', Array<[string, string]>> 
 
 const SKILL_SHORT: Record<SkillName, string> = {
   attack: 'Atk', strength: 'Str', defence: 'Def', hitpoints: 'HP', ranged: 'Rng', magic: 'Mage', prayer: 'Pray',
-  mining: 'Mine', woodcutting: 'WC', fishing: 'Fish', cooking: 'Cook', smithing: 'Smith',
+  mining: 'Mine', woodcutting: 'WC', fishing: 'Fish', cooking: 'Cook', smithing: 'Smith', slayer: 'Slay',
 };
 
 interface SlotView {
@@ -109,6 +111,8 @@ export class UIScene extends Phaser.Scene {
   private relicText!: Phaser.GameObjects.Text;
   private modalKind: ModalKind | null = null;
   private logCategory = LOG_CATEGORIES[0].id;
+  private achievementTier: Tier = 'easy';
+  private taskText!: Phaser.GameObjects.Text;
   /** Toasts currently on screen (stacked downwards). */
   private toasts = 0;
   private minimap!: Phaser.GameObjects.Graphics;
@@ -389,6 +393,8 @@ export class UIScene extends Phaser.Scene {
 
     // ---- Relics owned (under the hover text) and the relic choice window ----
     this.relicText = this.add.text(8, 24, '', { ...FONT, fontSize: '11px', color: '#ffd040', stroke: '#000000', strokeThickness: 3 });
+    this.taskText = this.add.text(8, 40, '', { ...FONT, fontSize: '11px', color: '#ff9a9a', stroke: '#000000', strokeThickness: 3 });
+    root.add(this.taskText);
     root.add(this.relicText);
     this.relicPanel = this.add.container(0, 0).setDepth(35).setVisible(false);
     root.add(this.relicPanel);
@@ -484,7 +490,7 @@ export class UIScene extends Phaser.Scene {
     add(this.add.rectangle(0, 0, W, H, 0x0c0a08, 0.94).setOrigin(0).setInteractive());
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
-      achievements: 'Achievements', log: 'Collection Log',
+      achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master',
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
     const meta = this.dungeon.meta;
@@ -495,6 +501,7 @@ export class UIScene extends Phaser.Scene {
       log: `Unique items: ${ALL_LOG_SLOTS.filter((id) => meta.collection[id]).length} / ${ALL_LOG_SLOTS.length}`,
       mentor: `Dungeoneering tokens: ${meta.tokens}`,
       toolsmith: `Dungeoneering tokens: ${meta.tokens}`,
+      slayer: `Dungeoneering tokens: ${meta.tokens}   Tasks completed: ${meta.lifetime.tasks ?? 0}`,
     }[kind];
     add(this.add.text(W / 2, 54, currency, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
     const close = add(this.add.text(W - 16, 16, '[ X ]', { ...FONT, fontSize: '16px', color: '#ff6060' }).setOrigin(1, 0)
@@ -504,6 +511,7 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'merchant') this.buildMerchant(add);
     else if (kind === 'achievements') this.buildAchievements(add);
     else if (kind === 'log') this.buildCollectionLog(add);
+    else if (kind === 'slayer') this.buildSlayer(add);
     else this.buildToolsmith(add);
   }
 
@@ -513,42 +521,80 @@ export class UIScene extends Phaser.Scene {
     else if (!this.modalKind || this.modalKind === 'achievements' || this.modalKind === 'log') this.openModal(kind);
   }
 
-  /** Two columns of achievements grouped by tier, with progress for counter goals. */
+  /** One tier at a time (tabs), two columns of achievements with progress bars for counter goals. */
   private buildAchievements(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
     const meta = this.dungeon.meta;
     const W = this.panelX;
+    TIERS.forEach((tier, i) => {
+      const list = ACHIEVEMENTS.filter((a) => a.tier === tier.id);
+      const done = list.filter((a) => meta.achievements.includes(a.id)).length;
+      const selected = this.achievementTier === tier.id;
+      const tab = add(this.add.text(W / 2 + (i - 1.5) * 170, 84, `${tier.name} ${done}/${list.length}`, {
+        ...FONT, fontSize: '13px', color: Phaser.Display.Color.IntegerToColor(tier.color).rgba,
+        backgroundColor: selected ? '#5d5447' : '#2a241c', padding: { x: 8, y: 4 }, fixedWidth: 160, align: 'center',
+      }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true }));
+      tab.on('pointerdown', () => {
+        this.achievementTier = tier.id;
+        this.openModal('achievements');
+      });
+    });
+    const tier = TIERS.find((t) => t.id === this.achievementTier)!;
+    add(this.add.text(W / 2, 114, `${tier.reward} Dungeoneering tokens each`, { ...FONT, fontSize: '12px', color: '#c8c8c8' }).setOrigin(0.5, 0));
+
+    const list = ACHIEVEMENTS.filter((a) => a.tier === tier.id);
     const colW = Math.min(480, (W - 50) / 2);
-    const rowH = 26;
-    const columns: Array<typeof TIERS> = [TIERS.slice(0, 2), TIERS.slice(2)];
-    columns.forEach((tiers, col) => {
-      const x = W / 2 + (col === 0 ? -colW - 8 : 8);
-      let y = 86;
-      for (const tier of tiers) {
-        const list = ACHIEVEMENTS.filter((a) => a.tier === tier.id);
-        const done = list.filter((a) => meta.achievements.includes(a.id)).length;
-        add(this.add.text(x, y, `${tier.name}  (${done}/${list.length}, ${tier.reward} tokens each)`, {
-          ...FONT, fontSize: '13px', color: Phaser.Display.Color.IntegerToColor(tier.color).rgba,
-        }));
-        y += 20;
-        for (const a of list) {
-          const complete = meta.achievements.includes(a.id);
-          add(this.add.rectangle(x, y, colW, rowH - 2, complete ? 0x2a3a22 : 0x2a241c).setOrigin(0));
-          add(this.add.text(x + 6, y + 1, `${complete ? '[x]' : '[ ]'} ${a.name}`, {
-            ...FONT, fontSize: '12px', color: complete ? '#80ff80' : '#ffffff',
-          }));
-          add(this.add.text(x + 6, y + 13, a.desc, { ...FONT, fontSize: '10px', color: '#b8b0a0' }));
-          const prog = this.dungeon.achievementProgress(a);
-          if (prog && !complete) {
-            const [cur, target] = prog;
-            add(this.add.rectangle(x + colW - 86, y + 9, 80, 6, 0x1c1812).setOrigin(0));
-            add(this.add.rectangle(x + colW - 86, y + 9, 80 * (cur / target), 6, tier.color).setOrigin(0));
-            add(this.add.text(x + colW - 90, y + 6, `${cur}/${target}`, { ...FONT, fontSize: '10px', color: '#c8c8c8' }).setOrigin(1, 0));
-          }
-          y += rowH;
-        }
-        y += 8;
+    const rowH = 30;
+    const perCol = Math.ceil(list.length / 2);
+    list.forEach((a, i) => {
+      const x = W / 2 + (i < perCol ? -colW - 8 : 8);
+      const y = 140 + (i % perCol) * rowH;
+      const complete = meta.achievements.includes(a.id);
+      add(this.add.rectangle(x, y, colW, rowH - 3, complete ? 0x2a3a22 : 0x2a241c).setOrigin(0));
+      add(this.add.text(x + 6, y + 2, `${complete ? '[x]' : '[ ]'} ${a.name}`, {
+        ...FONT, fontSize: '12px', color: complete ? '#80ff80' : '#ffffff',
+      }));
+      add(this.add.text(x + 6, y + 15, a.desc, { ...FONT, fontSize: '10px', color: '#b8b0a0' }));
+      const prog = this.dungeon.achievementProgress(a);
+      if (prog && !complete) {
+        const [cur, target] = prog;
+        add(this.add.rectangle(x + colW - 86, y + 10, 80, 6, 0x1c1812).setOrigin(0));
+        add(this.add.rectangle(x + colW - 86, y + 10, 80 * (cur / target), 6, tier.color).setOrigin(0));
+        add(this.add.text(x + colW - 90, y + 7, `${cur}/${target}`, { ...FONT, fontSize: '10px', color: '#c8c8c8' }).setOrigin(1, 0));
       }
     });
+  }
+
+  /** Slayer master: your task, and getting or skipping one. */
+  private buildSlayer(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const d = this.dungeon;
+    const W = this.panelX;
+    const task = d.meta.slayerTask;
+    const lines = task
+      ? [
+        `Your task: ${SLAYER_BY_ID[task.category].name}`,
+        `${task.remaining} of ${task.total} left to kill.`,
+        `Reward on completion: ${SLAYER_BY_ID[task.category].tokensPerKill * task.total} tokens, plus Slayer XP per kill.`,
+        `Monsters: ${SLAYER_BY_ID[task.category].npcIds.map((id) => NPCS[id]?.name ?? id).join(', ')}`,
+      ]
+      : ["You don't have a Slayer task. Want one?"];
+    lines.push('', 'Tasks carry across runs until they are done.',
+      'On task, your Slayer level boosts accuracy and max hit (+0.5% per level).');
+    add(this.add.text(W / 2, 110, lines.join('\n'), { ...FONT, fontSize: '14px', color: '#ffffff', align: 'center', lineSpacing: 6 }).setOrigin(0.5, 0));
+    const button = (x: number, label: string, enabled: boolean, onClick: () => void) => {
+      const b = add(this.add.text(x, 330, label, {
+        ...FONT, fontSize: '15px', color: enabled ? '#ffffff' : '#7a7a7a', backgroundColor: enabled ? '#3e3529' : '#241f18', padding: { x: 12, y: 6 },
+      }).setOrigin(0.5));
+      if (!enabled) return;
+      b.setInteractive({ useHandCursor: true });
+      b.on('pointerover', () => b.setBackgroundColor('#5d5447'));
+      b.on('pointerout', () => b.setBackgroundColor('#3e3529'));
+      b.on('pointerdown', () => {
+        onClick();
+        this.openModal('slayer');
+      });
+    };
+    if (!task) button(W / 2, 'Get a task', true, () => d.getSlayerTask());
+    else button(W / 2, `Skip task (${SKIP_TASK_COST} tokens)`, d.meta.tokens >= SKIP_TASK_COST, () => d.skipSlayerTask());
   }
 
   /** Category list on the left, that page's slots on the right (dim = not yet obtained). */
@@ -1077,6 +1123,9 @@ export class UIScene extends Phaser.Scene {
     this.updateTooltip();
     if (this.tab === 'gear') this.updateGear();
     this.relicText.setText(g.relics.length ? `Relics: ${g.relics.map((r) => RELIC_BY_ID[r].name).join(', ')}` : '');
+    const task = g.slayerTask ?? (g.isCamp ? this.dungeon.meta.slayerTask : null);
+    this.taskText.setText(task && task.remaining > 0
+      ? `Slayer task: ${task.remaining}/${task.total} ${SLAYER_BY_ID[task.category].name.toLowerCase()} left` : '');
     this.soundText.setText(`H: help   M: sound ${sfx.muted ? 'off' : 'on'}`);
     this.forfeitButton.setVisible(!g.isCamp && !g.over);
     this.deathTitle.setText(g.forfeited ? 'Run forfeited' : 'Oh dear, you are dead!').setColor(g.forfeited ? '#ff981f' : '#ff3030');

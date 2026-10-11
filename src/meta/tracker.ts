@@ -11,7 +11,7 @@ export type Notice =
   | { kind: 'pet'; id: string; name: string };
 
 /** Events that can move achievement progress; everything else is skipped cheaply. */
-const TRACKED = new Set<GameEvent['type']>(['kill', 'obtain', 'stat', 'pet', 'floor', 'levelup', 'death']);
+const TRACKED = new Set<GameEvent['type']>(['kill', 'obtain', 'stat', 'pet', 'floor', 'levelup', 'death', 'made']);
 
 /**
  * Turns game events into lifetime progress: kill counts, the collection log,
@@ -65,6 +65,10 @@ export class ProgressTracker {
         break;
       case 'stat':
         bump(e.key, e.amount);
+        break;
+      case 'made':
+        m.made[e.item] = (m.made[e.item] ?? 0) + 1;
+        this.dirty = true;
         break;
       case 'pet': {
         const pet = petForBoss(e.bossId);

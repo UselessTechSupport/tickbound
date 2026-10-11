@@ -17,6 +17,8 @@ import { sfx } from '../audio/sfx';
 import { Notice, ProgressTracker } from '../meta/tracker';
 import { PET_BY_ID } from '../data/collectionLog';
 import type { AchievementDef } from '../data/achievements';
+import { SKIP_TASK_COST, SLAYER_BY_ID, assignTask } from '../data/slayer';
+import { themeForDepth } from '../data/themes';
 import { bodyLayer, ensureItemTexture, generateSprites, npcSprite, preloadSprites, shieldLayer, weaponLayer } from '../render/sprites';
 import type { UIScene } from './UIScene';
 
@@ -154,7 +156,15 @@ export class DungeonScene extends Phaser.Scene {
 
   /** Start a fresh dungeon run with every unlock and perk applied. */
   startRun(): void {
-    this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), { tools: this.meta.tools, perks: this.meta.perks }));
+    this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
+      tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
+    }));
+    const task = this.meta.slayerTask;
+    if (task) {
+      this.state.message(`Slayer task: kill ${task.remaining} more ${SLAYER_BY_ID[task.category].name.toLowerCase()}.`);
+    } else {
+      this.state.message('Tip: the Slayer master at camp hands out tasks that pay bonus tokens.');
+    }
   }
 
   /** Run toggle, remembered across runs and sessions. */
@@ -200,6 +210,11 @@ export class DungeonScene extends Phaser.Scene {
     if (e.type === 'death') this.bankRun();
     // Swap to the run after the current tick finishes rather than mid-tick.
     if (e.type === 'enterDungeon') this.startPending = true;
+    if (e.type === 'slayerDone') {
+      this.meta.tokens += e.tokens;
+      this.meta.slayerTask = null;
+      saveMeta(this.meta);
+    }
     this.bus.emit(e.type, e);
     if (this.state) this.announce(this.tracker.handle(e, this.state));
   }
@@ -248,6 +263,25 @@ export class DungeonScene extends Phaser.Scene {
     return this.tracker.progress(a);
   }
 
+  /** Slayer master: hand out a task if you don't have one. */
+  getSlayerTask(): void {
+    if (this.meta.slayerTask) return;
+    this.meta.slayerTask = assignTask(this.meta.bestDepth, Math.random);
+    saveMeta(this.meta);
+    sfx.play('buy');
+  }
+
+  /** Slayer master: swap your task for another, for tokens. */
+  skipSlayerTask(): boolean {
+    const task = this.meta.slayerTask;
+    if (!task || this.meta.tokens < SKIP_TASK_COST) return false;
+    this.meta.tokens -= SKIP_TASK_COST;
+    this.meta.slayerTask = assignTask(this.meta.bestDepth, Math.random, task.category);
+    saveMeta(this.meta);
+    sfx.play('buy');
+    return true;
+  }
+
   /** Pick which owned pet follows you (null = none). */
   setActivePet(id: string | null): void {
     this.meta.activePet = id;
@@ -290,7 +324,9 @@ export class DungeonScene extends Phaser.Scene {
       const label = (x: number, y: number, text: string) => this.labels.push(this.add.text(x * TILE + TILE / 2, y * TILE - 4, text, {
         fontFamily: 'monospace', fontSize: '12px', color: '#ffff00', stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5, 1).setDepth(6));
-      for (const n of this.state.nodes) if (n.kind === 'mentor' || n.kind === 'toolsmith') label(n.pos.x, n.pos.y - 0.4, n.name);
+      for (const n of this.state.nodes) {
+        if (n.kind === 'mentor' || n.kind === 'toolsmith' || n.kind === 'slayer_master') label(n.pos.x, n.pos.y - 0.4, n.name);
+      }
       label(map.stairs.x, map.stairs.y, 'Dungeon');
     }
   }
@@ -334,6 +370,7 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'altar') return [{ label: 'Pray-at Altar', action: () => g.prayAt(node) }];
     if (node.kind === 'mentor') return [{ label: 'Talk-to Mentor', action: () => g.talkTo(node) }];
     if (node.kind === 'toolsmith') return [{ label: 'Trade Toolsmith', action: () => g.talkTo(node) }];
+    if (node.kind === 'slayer_master') return [{ label: 'Get-task Slayer master', action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
     if (node.kind === 'chest') return node.used ? [] : [{ label: 'Open Chest', action: () => g.talkTo(node) }];
@@ -422,6 +459,7 @@ export class DungeonScene extends Phaser.Scene {
     const map = g.map;
     this.tileImages = new Array(map.width * map.height).fill(null);
     const open = (x: number, y: number) => tileAt(map, x, y) !== Tile.Wall;
+    const theme = themeForDepth(map.depth);
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         const t = tileAt(map, x, y);
@@ -429,15 +467,15 @@ export class DungeonScene extends Phaser.Scene {
         if (t === Tile.Wall) {
           const bordersFloor = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => open(x + dx, y + dy)));
           if (!bordersFloor) continue;
-          key = `wall_${variant(x, y, 4)}`;
+          key = theme.wallKeys[variant(x, y, theme.wallKeys.length)];
         } else if (t === Tile.StairsDown) {
           key = g.isCamp ? 'ladder' : 'stairs';
         } else {
-          key = g.isCamp ? `grass_${variant(x, y, 3)}` : `floor_${variant(x, y, 4)}`;
+          key = g.isCamp ? `grass_${variant(x, y, 3)}` : theme.floorKeys[variant(x, y, theme.floorKeys.length)];
         }
         const img = this.add.image(x * TILE, y * TILE, key).setOrigin(0).setDepth(0).setVisible(false);
-        // Limestone is bright; mute it to a dungeon-y tone that still reads clearly against walls.
-        if (key.startsWith('floor_')) img.setTint(0xb0a088);
+        if (theme.floorTint && theme.floorKeys.includes(key)) img.setTint(theme.floorTint);
+        if (theme.wallTint && theme.wallKeys.includes(key)) img.setTint(theme.wallTint);
         this.tileImages[y * map.width + x] = img;
       }
     }

@@ -14,7 +14,7 @@ const FIXED: Record<string, number> = {
   shortbow: 50, oak_shortbow: 120, willow_shortbow: 300, maple_shortbow: 700, yew_shortbow: 1800,
   staff: 100, staff_of_air: 400, staff_of_water: 400, staff_of_earth: 400, staff_of_fire: 400,
   mystic_air_staff: 3000, mystic_fire_staff: 3000,
-  wizard_robe: 60, mystic_robe_top: 2500, leather_body: 40, green_dhide_body: 2000, wooden_shield: 10,
+  dragon_scimitar: 6000, wizard_robe: 60, mystic_robe_top: 2500, leather_body: 40, green_dhide_body: 2000, wooden_shield: 10,
 };
 
 /** Full (buy) price of one item; 0 = worthless. */
