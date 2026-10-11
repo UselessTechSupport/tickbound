@@ -1,0 +1,4 @@
+Tiles from "Dungeon Crawl Stone Soup Full" (Dungeon Crawl 32x32 tiles),
+https://opengameart.org/content/dungeon-crawl-32x32-tiles
+License: CC0 (public domain). Thanks to the Dungeon Crawl Stone Soup artists.
+Ore, bar, log and fish icons are generated in code (src/render/sprites.ts).

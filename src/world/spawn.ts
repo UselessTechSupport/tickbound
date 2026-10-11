@@ -5,7 +5,7 @@ import { FloorMap, Tile, isWalkable, tileAt } from './tiles';
 
 /** Number of monsters on a floor; grows with depth. */
 export function monsterCount(depth: number): number {
-  return Math.min(20, 5 + Math.floor(depth * 1.5));
+  return Math.min(18, 4 + depth);
 }
 
 /** Places depth-appropriate monsters on floor tiles away from the spawn point. */

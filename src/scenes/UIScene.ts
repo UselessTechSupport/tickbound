@@ -7,6 +7,14 @@ import { GameEvent, GameState } from '../game/GameState';
 import { MAX_LEVEL, xpForLevel } from '../systems/xp';
 import { TOOL_TIERS, nextUnlocks } from '../data/tools';
 import { PRAYERS, PROTECTION_HOTKEYS } from '../data/prayers';
+import { ensureItemTexture } from '../render/sprites';
+import { sfx } from '../audio/sfx';
+
+const CONTROLS = [
+  'Controls: left-click to walk, attack, take or use. Right-click for all options.',
+  '1 / 2 / 3: Protect from Magic / Missiles / Melee.  M: mute.  Esc: close windows.',
+  'Click the minimap to walk there. Hover skills for XP details.',
+];
 import { BRANCHES, PERKS, nextRankCost, perkBlocker } from '../data/skillTree';
 import { ContextMenu, MenuOption, describeOptions } from '../ui/ContextMenu';
 import { FLOOR_HEIGHT, FLOOR_WIDTH } from '../world/dungeonGen';
@@ -31,7 +39,7 @@ const SKILL_SHORT: Record<SkillName, string> = {
 };
 
 interface SlotView {
-  icon: Phaser.GameObjects.Rectangle;
+  icon: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
   qty: Phaser.GameObjects.Text;
 }
@@ -64,6 +72,7 @@ export class UIScene extends Phaser.Scene {
   private bossName!: Phaser.GameObjects.Text;
   private bossFill!: Phaser.GameObjects.Rectangle;
   private chat!: Phaser.GameObjects.Text;
+  private soundText!: Phaser.GameObjects.Text;
   private toolText!: Phaser.GameObjects.Text;
   private modal!: Phaser.GameObjects.Container;
   private modalKind: 'mentor' | 'toolsmith' | null = null;
@@ -102,6 +111,10 @@ export class UIScene extends Phaser.Scene {
     bus.on('death', () => this.deathOverlay.setVisible(true));
     bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
     this.input.keyboard?.on('keydown-ESC', () => this.closeModal());
+    this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
+    this.input.keyboard?.on('keydown-H', () => {
+      for (const line of CONTROLS) this.state.message(line);
+    });
     bus.on('newrun', () => {
       this.deathOverlay?.setVisible(false);
       if (this.modal) this.closeModal();
@@ -230,7 +243,7 @@ export class UIScene extends Phaser.Scene {
       const sx = gridX + (i % 4) * SLOT;
       const sy = y + Math.floor(i / 4) * SLOT;
       const bg = this.add.rectangle(sx, sy, SLOT - 2, SLOT - 2, 0x2a241c).setOrigin(0).setInteractive();
-      const icon = this.add.rectangle(sx + SLOT / 2 - 1, sy + 17, 22, 22, 0xffffff).setStrokeStyle(1, 0x000000);
+      const icon = this.add.image(sx + SLOT / 2 - 1, sy + 18, 'item_coins');
       const label = this.add.text(sx + SLOT / 2 - 1, sy + SLOT - 3, '', {
         ...FONT, fontSize: '8px', color: '#ffffff', align: 'center', wordWrap: { width: SLOT - 4 }, lineSpacing: -2,
       }).setOrigin(0.5, 1);
@@ -252,6 +265,9 @@ export class UIScene extends Phaser.Scene {
     this.bossBar = this.add.container(px / 2, 52, [this.bossName, bossBg, this.bossFill]).setVisible(false);
     this.bossBar.setData('width', bw);
     root.add(this.bossBar);
+
+    this.soundText = this.add.text(W - 8, H - 4, '', { ...FONT, fontSize: '10px', color: '#a08a5a' }).setOrigin(1, 1);
+    root.add(this.soundText);
 
     // ---- Minimap (top-right of the game view) ----
     const mw = FLOOR_WIDTH * MINIMAP_SCALE;
@@ -605,10 +621,16 @@ export class UIScene extends Phaser.Scene {
       v.icon.setVisible(!!stack && this.tab === 'inventory');
       v.label.setText(stack ? item(stack.id).name : '');
       v.qty.setText(stack && stack.qty > 1 ? String(stack.qty) : '');
-      if (stack) v.icon.setFillStyle(item(stack.id).color);
+      if (stack) {
+        const ref = ensureItemTexture(this, stack.id);
+        if (v.icon.texture.key !== ref.key) v.icon.setTexture(ref.key);
+        if (ref.tint !== undefined) v.icon.setTint(ref.tint);
+        else v.icon.clearTint();
+      }
     });
 
     this.updateTooltip();
+    this.soundText.setText(`H: help   M: sound ${sfx.muted ? 'off' : 'on'}`);
     this.chat.setText(this.fitChat(g.messages));
 
     if (g.over) {

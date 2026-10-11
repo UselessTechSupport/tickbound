@@ -63,20 +63,37 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'skeleton', name: 'Skeleton', color: 0xd8d4c4, attack: 12, strength: 12, defence: 12, hitpoints: 17,
-    attackBonus: 5, strengthBonus: 5, defenceBonus: 5, attackSpeed: 4, aggroRadius: 5,
-    minDepth: 3, maxDepth: 6, weight: 4, examine: 'Could do with gaining a few pounds.',
+    id: 'giant_rat', name: 'Giant rat', color: 0x7a6a5a, attack: 3, strength: 3, defence: 2, hitpoints: 6,
+    attackBonus: 0, strengthBonus: 0, defenceBonus: 0, attackSpeed: 4, aggroRadius: 4,
+    minDepth: 1, maxDepth: 4, weight: 3, examine: 'Overgrown vermin.',
+    drops: [{ item: 'bones', chance: 1 }, { item: 'shrimps', chance: 0.2 }],
+  },
+  {
+    id: 'zombie', name: 'Zombie', color: 0x5a7a4a, attack: 6, strength: 6, defence: 5, hitpoints: 12,
+    attackBonus: 2, strengthBonus: 2, defenceBonus: 2, attackSpeed: 5, aggroRadius: 4,
+    minDepth: 3, maxDepth: 6, weight: 4, examine: 'The walking dead.',
+    drops: [
+      { item: 'bones', chance: 1 },
+      { item: 'coins', chance: 0.4, min: 3, max: 25 },
+      { item: 'trout', chance: 0.2 },
+      { item: 'iron_scimitar', chance: 0.03 },
+    ],
+  },
+  {
+    id: 'skeleton', name: 'Skeleton', color: 0xd8d4c4, attack: 10, strength: 10, defence: 10, hitpoints: 14,
+    attackBonus: 4, strengthBonus: 4, defenceBonus: 4, attackSpeed: 4, aggroRadius: 5,
+    minDepth: 4, maxDepth: 7, weight: 4, examine: 'Could do with gaining a few pounds.',
     drops: [
       { item: 'bones', chance: 1 },
       { item: 'coins', chance: 0.4, min: 5, max: 40 },
-      { item: 'trout', chance: 0.15 },
+      { item: 'trout', chance: 0.25 },
       { item: 'iron_scimitar', chance: 0.05 },
       { item: 'iron_platebody', chance: 0.04 },
     ],
   },
   {
-    id: 'giant_spider', name: 'Giant spider', color: 0x4a3a5a, attack: 22, strength: 24, defence: 18, hitpoints: 30,
-    attackBonus: 10, strengthBonus: 8, defenceBonus: 10, attackSpeed: 4, aggroRadius: 6,
+    id: 'giant_spider', name: 'Giant spider', color: 0x4a3a5a, attack: 18, strength: 18, defence: 14, hitpoints: 22,
+    attackBonus: 10, strengthBonus: 4, defenceBonus: 10, attackSpeed: 4, aggroRadius: 6,
     minDepth: 5, maxDepth: 8, weight: 3, examine: 'I think this spider has been genetically modified.',
     drops: [
       { item: 'coins', chance: 0.4, min: 10, max: 60 },
@@ -85,8 +102,8 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'hill_giant', name: 'Hill Giant', color: 0x9a7a5a, attack: 18, strength: 22, defence: 26, hitpoints: 35,
-    attackBonus: 18, strengthBonus: 16, defenceBonus: 10, attackSpeed: 6, aggroRadius: 4,
+    id: 'hill_giant', name: 'Hill Giant', color: 0x9a7a5a, attack: 16, strength: 20, defence: 18, hitpoints: 26,
+    attackBonus: 12, strengthBonus: 10, defenceBonus: 10, attackSpeed: 6, aggroRadius: 4,
     minDepth: 5, maxDepth: 9, weight: 3, examine: 'A very large foe.',
     drops: [
       { item: 'big_bones', chance: 1 },
@@ -96,7 +113,7 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'moss_giant', name: 'Moss giant', color: 0x4a7a3a, attack: 30, strength: 30, defence: 30, hitpoints: 60,
+    id: 'moss_giant', name: 'Moss giant', color: 0x4a7a3a, attack: 26, strength: 26, defence: 24, hitpoints: 40,
     attackBonus: 33, strengthBonus: 31, defenceBonus: 20, attackSpeed: 6, aggroRadius: 4,
     minDepth: 8, maxDepth: 12, weight: 3, examine: 'His beard seems to have a life of its own.',
     drops: [
@@ -108,7 +125,7 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'lesser_demon', name: 'Lesser demon', color: 0xa02020, attack: 68, strength: 70, defence: 71, hitpoints: 79,
+    id: 'lesser_demon', name: 'Lesser demon', color: 0xa02020, attack: 50, strength: 52, defence: 50, hitpoints: 58,
     attackBonus: 40, strengthBonus: 40, defenceBonus: 30, attackSpeed: 4, aggroRadius: 6,
     minDepth: 11, maxDepth: 99, weight: 3, examine: 'Lesser, but still pretty big.',
     drops: [
@@ -121,7 +138,7 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'greater_demon', name: 'Greater demon', color: 0xd03010, attack: 76, strength: 78, defence: 81, hitpoints: 87,
+    id: 'greater_demon', name: 'Greater demon', color: 0xd03010, attack: 62, strength: 64, defence: 62, hitpoints: 70,
     attackBonus: 50, strengthBonus: 50, defenceBonus: 40, attackSpeed: 4, aggroRadius: 7,
     minDepth: 14, maxDepth: 99, weight: 2, examine: 'Big, red, and incredibly evil.',
     drops: [
@@ -134,30 +151,32 @@ const list: NpcDef[] = [
 
   // ---- Ranged & magic attackers ----
   {
-    id: 'dark_wizard', name: 'Dark wizard', color: 0x5a2a8a, attack: 12, strength: 12, defence: 8, hitpoints: 14,
-    attackBonus: 15, strengthBonus: 10, defenceBonus: 0, attackSpeed: 5, aggroRadius: 6,
+    id: 'dark_wizard', name: 'Dark wizard', color: 0x5a2a8a, attack: 10, strength: 10, defence: 6, hitpoints: 12,
+    attackBonus: 15, strengthBonus: 10, defenceBonus: 0, attackSpeed: 5, aggroRadius: 4,
     attackStyle: 'magic', attackRange: 6,
-    minDepth: 2, maxDepth: 6, weight: 2, examine: 'He works evil magic.',
+    minDepth: 3, maxDepth: 7, weight: 2, examine: 'He works evil magic.',
     drops: [
       { item: 'bones', chance: 1 },
       { item: 'coins', chance: 0.5, min: 5, max: 30 },
+      { item: 'shrimps', chance: 0.25 },
       { item: 'prayer_potion', chance: 0.06 },
     ],
   },
   {
-    id: 'skeleton_archer', name: 'Skeleton archer', color: 0xc8c0a0, attack: 18, strength: 16, defence: 15, hitpoints: 22,
-    attackBonus: 15, strengthBonus: 10, defenceBonus: 5, attackSpeed: 5, aggroRadius: 7,
+    id: 'skeleton_archer', name: 'Skeleton archer', color: 0xc8c0a0, attack: 14, strength: 12, defence: 12, hitpoints: 16,
+    attackBonus: 15, strengthBonus: 10, defenceBonus: 5, attackSpeed: 5, aggroRadius: 5,
     attackStyle: 'ranged', attackRange: 7,
     minDepth: 4, maxDepth: 9, weight: 3, examine: 'It rattles as it draws its bow.',
     drops: [
       { item: 'bones', chance: 1 },
       { item: 'coins', chance: 0.4, min: 10, max: 50 },
+      { item: 'trout', chance: 0.2 },
       { item: 'prayer_potion', chance: 0.06 },
     ],
   },
   {
-    id: 'infernal_mage', name: 'Infernal mage', color: 0xc04a1a, attack: 40, strength: 40, defence: 30, hitpoints: 50,
-    attackBonus: 30, strengthBonus: 25, defenceBonus: 15, attackSpeed: 5, aggroRadius: 7,
+    id: 'infernal_mage', name: 'Infernal mage', color: 0xc04a1a, attack: 32, strength: 32, defence: 24, hitpoints: 36,
+    attackBonus: 30, strengthBonus: 25, defenceBonus: 15, attackSpeed: 5, aggroRadius: 5,
     attackStyle: 'magic', attackRange: 7,
     minDepth: 9, maxDepth: 15, weight: 2, examine: 'An evil magic user.',
     drops: [
@@ -167,8 +186,8 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'dark_archer', name: 'Dark archer', color: 0x2a4a2a, attack: 60, strength: 60, defence: 50, hitpoints: 70,
-    attackBonus: 40, strengthBonus: 35, defenceBonus: 25, attackSpeed: 5, aggroRadius: 8,
+    id: 'dark_archer', name: 'Dark archer', color: 0x2a4a2a, attack: 45, strength: 45, defence: 40, hitpoints: 50,
+    attackBonus: 40, strengthBonus: 35, defenceBonus: 25, attackSpeed: 5, aggroRadius: 6,
     attackStyle: 'ranged', attackRange: 8,
     minDepth: 12, maxDepth: 99, weight: 2, examine: 'Never far from the shadows.',
     drops: [
@@ -180,8 +199,8 @@ const list: NpcDef[] = [
 
   // ---- Bosses (one every 5 floors; never in the random pool) ----
   {
-    id: 'goblin_warlord', name: 'Goblin Warlord', color: 0x3f7a1a, attack: 25, strength: 25, defence: 20, hitpoints: 60,
-    attackBonus: 20, strengthBonus: 25, defenceBonus: 15, attackSpeed: 5, aggroRadius: 7, attackRange: 7,
+    id: 'goblin_warlord', name: 'Goblin Warlord', color: 0x3f7a1a, attack: 22, strength: 22, defence: 18, hitpoints: 40,
+    attackBonus: 20, strengthBonus: 15, defenceBonus: 15, attackSpeed: 5, aggroRadius: 7, attackRange: 7,
     minDepth: 0, maxDepth: -1, weight: 0, examine: 'The biggest, meanest goblin around. Watch his weapon.',
     boss: { styles: ['melee', 'ranged'], switchEvery: 3, floor: 5 },
     drops: [
@@ -194,7 +213,7 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'tztok_jad', name: 'TzTok-Jad', color: 0xd06020, attack: 50, strength: 50, defence: 40, hitpoints: 120,
+    id: 'tztok_jad', name: 'TzTok-Jad', color: 0xd06020, attack: 42, strength: 40, defence: 34, hitpoints: 100,
     attackBonus: 60, strengthBonus: 120, defenceBonus: 30, attackSpeed: 6, aggroRadius: 9, attackRange: 9,
     minDepth: 0, maxDepth: -1, weight: 0, examine: 'This is going to hurt...',
     boss: { styles: ['ranged', 'magic'], switchEvery: 1, floor: 10 },
@@ -208,7 +227,7 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'chaos_elemental', name: 'Chaos Elemental', color: 0x8a3ab0, attack: 70, strength: 70, defence: 60, hitpoints: 160,
+    id: 'chaos_elemental', name: 'Chaos Elemental', color: 0x8a3ab0, attack: 58, strength: 58, defence: 50, hitpoints: 130,
     attackBonus: 70, strengthBonus: 110, defenceBonus: 50, attackSpeed: 5, aggroRadius: 9, attackRange: 8,
     minDepth: 0, maxDepth: -1, weight: 0, examine: 'A shimmering mass of energy.',
     boss: { styles: ['melee', 'ranged', 'magic'], switchEvery: 2, floor: 15 },
@@ -222,7 +241,7 @@ const list: NpcDef[] = [
     ],
   },
   {
-    id: 'demonic_gorilla', name: 'Demonic gorilla', color: 0x4a1a1a, attack: 90, strength: 90, defence: 80, hitpoints: 200,
+    id: 'demonic_gorilla', name: 'Demonic gorilla', color: 0x4a1a1a, attack: 75, strength: 75, defence: 66, hitpoints: 170,
     attackBonus: 90, strengthBonus: 130, defenceBonus: 70, attackSpeed: 5, aggroRadius: 9, attackRange: 8,
     minDepth: 0, maxDepth: -1, weight: 0, examine: 'A demonic gorilla. It adapts to how you fight.',
     boss: { styles: ['melee', 'ranged', 'magic'], switchEvery: 3, floor: 20 },

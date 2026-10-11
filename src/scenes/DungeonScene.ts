@@ -13,29 +13,36 @@ import { MetaSave, loadMeta, saveMeta } from '../save/meta';
 import { nextRankCost, perkBlocker } from '../data/skillTree';
 import { AttackType } from '../data/prayers';
 import { describeOptions, type MenuOption } from '../ui/ContextMenu';
+import { sfx } from '../audio/sfx';
+import { bodyLayer, ensureItemTexture, generateSprites, npcSprite, preloadSprites, shieldLayer, weaponLayer } from '../render/sprites';
 import type { UIScene } from './UIScene';
 
-export const TILE = 24;
+export const TILE = 32;
 export const PANEL_W = 236;
 
 /** Colour coding for attack styles: projectiles, boss outlines, overhead prayers. */
 export const STYLE_COLORS: Record<AttackType, number> = { melee: 0xd03030, ranged: 0x40b040, magic: 0x4080ff };
 const OVERHEAD_LETTER: Record<AttackType, string> = { melee: 'S', ranged: 'R', magic: 'M' };
 
-const COLORS = {
-  wall: 0x2a2622,
-  floor: 0x6b5d4a,
-  stairs: 0xc9a227,
-  player: 0x3fa7ff,
-  hover: 0xffff00,
-};
+const HOVER_COLOR = 0xffff00;
 
 interface ActorView {
-  body: Phaser.GameObjects.Rectangle;
-  label?: Phaser.GameObjects.Text;
+  /** Container the camera can follow; holds the sprite layers. */
+  body: Phaser.GameObjects.Container;
+  /** Coloured frame showing a monster's current attack style. */
+  outline?: Phaser.GameObjects.Rectangle;
   hpBg: Phaser.GameObjects.Rectangle;
   hpFg: Phaser.GameObjects.Rectangle;
 }
+
+interface PaperDoll {
+  body: Phaser.GameObjects.Image;
+  shield: Phaser.GameObjects.Image;
+  weapon: Phaser.GameObjects.Image;
+}
+
+/** Stable per-tile pick among texture variants so floors don't look tiled. */
+const variant = (x: number, y: number, n: number) => (((x * 73856093) ^ (y * 19349663)) >>> 0) % n;
 
 interface Hitsplat {
   actor: Actor;
@@ -55,8 +62,12 @@ export class DungeonScene extends Phaser.Scene {
   lastEarned = 0;
 
   private ticks = new TickScheduler();
-  private mapGfx!: Phaser.GameObjects.Graphics;
-  private itemGfx!: Phaser.GameObjects.Graphics;
+  /** One image per drawable map tile, indexed y * width + x. */
+  private tileImages: (Phaser.GameObjects.Image | null)[] = [];
+  /** Node, ground-item and effect objects, rebuilt every tick. */
+  private dynamic: Phaser.GameObjects.GameObject[] = [];
+  private fx!: Phaser.GameObjects.Graphics;
+  private doll!: PaperDoll;
   private hover!: Phaser.GameObjects.Rectangle;
   private destMarker!: Phaser.GameObjects.Rectangle;
   private playerView!: ActorView;
@@ -74,12 +85,18 @@ export class DungeonScene extends Phaser.Scene {
     super('Dungeon');
   }
 
+  preload(): void {
+    preloadSprites(this);
+  }
+
   create(): void {
-    this.mapGfx = this.add.graphics();
-    this.itemGfx = this.add.graphics();
-    this.destMarker = this.add.rectangle(0, 0, TILE, TILE).setStrokeStyle(2, 0xff3333).setOrigin(0).setVisible(false);
-    this.hover = this.add.rectangle(0, 0, TILE, TILE).setStrokeStyle(1, COLORS.hover, 0.6).setOrigin(0);
-    this.playerView = this.makeActorView(COLORS.player);
+    generateSprites(this);
+    this.fx = this.add.graphics().setDepth(2);
+    this.destMarker = this.add.rectangle(0, 0, TILE, TILE).setStrokeStyle(2, 0xff3333).setOrigin(0).setVisible(false).setDepth(3);
+    this.hover = this.add.rectangle(0, 0, TILE, TILE).setStrokeStyle(1, HOVER_COLOR, 0.6).setOrigin(0).setDepth(3);
+    const base = this.add.image(0, 0, 'pd_base');
+    this.doll = { body: this.add.image(0, 0, 'pd_plate'), shield: this.add.image(0, 0, 'pd_kiteshield'), weapon: this.add.image(0, 0, 'pd_dagger') };
+    this.playerView = this.makeActorView([base, this.doll.body, this.doll.shield, this.doll.weapon]);
     this.playerView.body.setDepth(5);
     this.overheadIcon = this.add.circle(0, 0, 7, 0xffffff).setStrokeStyle(1, 0x000000);
     this.overheadText = this.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
@@ -128,10 +145,12 @@ export class DungeonScene extends Phaser.Scene {
     this.meta.tokens -= cost;
     this.meta.perks[id] = (this.meta.perks[id] ?? 0) + 1;
     saveMeta(this.meta);
+    sfx.play('buy');
     return true;
   }
 
   private onGameEvent(e: GameEvent): void {
+    this.playSoundFor(e);
     if (e.type === 'hit') this.addHitsplat(e.target, e.damage);
     if (e.type === 'projectile') this.fireProjectile(e.from, e.to, e.style, e.ticks);
     if (e.type === 'floor' && this.state) this.onFloorChanged();
@@ -139,6 +158,21 @@ export class DungeonScene extends Phaser.Scene {
     // Swap to the run after the current tick finishes rather than mid-tick.
     if (e.type === 'enterDungeon') this.startPending = true;
     this.bus.emit(e.type, e);
+  }
+
+  private playSoundFor(e: GameEvent): void {
+    switch (e.type) {
+      case 'sound': sfx.play(e.name); break;
+      case 'hit':
+        if (e.target === this.state?.player) sfx.play(e.damage > 0 ? 'hurt' : 'block');
+        else sfx.play(e.damage > 0 ? 'hit' : 'miss');
+        break;
+      case 'projectile': sfx.play(e.style === 'magic' ? 'magic' : 'arrow'); break;
+      case 'levelup': sfx.play('levelup'); break;
+      case 'death': sfx.play('death'); break;
+      case 'floor': if (e.depth > 1) sfx.play('stairs'); break;
+      case 'enterDungeon': sfx.play('stairs'); break;
+    }
   }
 
   /** Adds the finished run's tokens and stats to the persistent save. */
@@ -158,6 +192,7 @@ export class DungeonScene extends Phaser.Scene {
     this.meta.tokens -= offer.cost;
     applyUnlock(this.meta.tools, key);
     saveMeta(this.meta);
+    sfx.play('buy');
     return true;
   }
 
@@ -169,6 +204,7 @@ export class DungeonScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setBounds(-200, -200, map.width * TILE + 400, map.height * TILE + 400);
     cam.startFollow(this.playerView.body, true, 0.15, 0.15);
+    this.buildTiles();
     this.drawMap();
 
     // Name labels over camp NPCs and the ladder.
@@ -296,106 +332,127 @@ export class DungeonScene extends Phaser.Scene {
     this.bus.emit('tick');
   }
 
-  private drawMap(): void {
-    const g = this.mapGfx.clear();
-    const game = this.state;
-    const map = game.map;
+  /** Creates sprites for every floor tile and every wall that borders one. */
+  private buildTiles(): void {
+    for (const img of this.tileImages) img?.destroy();
+    const g = this.state;
+    const map = g.map;
+    this.tileImages = new Array(map.width * map.height).fill(null);
+    const open = (x: number, y: number) => tileAt(map, x, y) !== Tile.Wall;
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
-        if (!game.isExplored(x, y)) continue;
         const t = tileAt(map, x, y);
-        const lit = game.isVisible(x, y);
-        g.fillStyle(t === Tile.Wall ? COLORS.wall : t === Tile.StairsDown ? COLORS.stairs : COLORS.floor);
-        g.fillRect(x * TILE, y * TILE, TILE, TILE);
-        if (t !== Tile.Wall && lit) g.lineStyle(1, 0x000000, 0.15).strokeRect(x * TILE, y * TILE, TILE, TILE);
+        let key: string;
+        if (t === Tile.Wall) {
+          const bordersFloor = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => open(x + dx, y + dy)));
+          if (!bordersFloor) continue;
+          key = `wall_${variant(x, y, 4)}`;
+        } else if (t === Tile.StairsDown) {
+          key = g.isCamp ? 'ladder' : 'stairs';
+        } else {
+          key = g.isCamp ? `grass_${variant(x, y, 3)}` : `floor_${variant(x, y, 4)}`;
+        }
+        const img = this.add.image(x * TILE, y * TILE, key).setOrigin(0).setDepth(0).setVisible(false);
+        // Limestone is bright; mute it to a dungeon-y tone that still reads clearly against walls.
+        if (key.startsWith('floor_')) img.setTint(0xb0a088);
+        this.tileImages[y * map.width + x] = img;
       }
-    }
-
-    for (const n of game.nodes) if (game.isExplored(n.pos.x, n.pos.y)) this.drawNode(g, n);
-
-    const ig = this.itemGfx.clear();
-    const drawn = new Set<number>();
-    for (const gi of game.groundItems) {
-      const k = gi.pos.y * map.width + gi.pos.x;
-      if (drawn.has(k) || !game.isExplored(gi.pos.x, gi.pos.y)) continue;
-      drawn.add(k);
-      ig.fillStyle(item(gi.id).color, 1).lineStyle(1, 0x000000, 1);
-      ig.fillRect(gi.pos.x * TILE + 7, gi.pos.y * TILE + 7, TILE - 14, TILE - 14);
-      ig.strokeRect(gi.pos.x * TILE + 7, gi.pos.y * TILE + 7, TILE - 14, TILE - 14);
     }
   }
 
-  private drawNode(g: Phaser.GameObjects.Graphics, n: ResourceNode): void {
-    const x = n.pos.x * TILE;
-    const y = n.pos.y * TILE;
-    const cx = x + TILE / 2;
-    const cy = y + TILE / 2;
+  /** Reveals explored tiles and redraws nodes, ground items and effects. */
+  private drawMap(): void {
+    const game = this.state;
+    const map = game.map;
+    this.tileImages.forEach((img, i) => img?.setVisible(game.explored[i] === 1));
+
+    for (const o of this.dynamic) o.destroy();
+    this.dynamic = [];
+    const fx = this.fx.clear();
+    for (const n of game.nodes) if (game.isExplored(n.pos.x, n.pos.y)) this.drawNode(fx, n);
+
+    const drawn = new Set<number>();
+    for (let i = game.groundItems.length - 1; i >= 0; i--) {
+      const gi = game.groundItems[i];
+      const k = gi.pos.y * map.width + gi.pos.x;
+      if (drawn.has(k) || !game.isExplored(gi.pos.x, gi.pos.y)) continue;
+      drawn.add(k);
+      const ref = ensureItemTexture(this, gi.id);
+      const img = this.add.image(gi.pos.x * TILE + TILE / 2, gi.pos.y * TILE + TILE / 2, ref.key).setDepth(2).setScale(0.8);
+      if (ref.tint) img.setTint(ref.tint);
+      this.dynamic.push(img);
+    }
+  }
+
+  private drawNode(fx: Phaser.GameObjects.Graphics, n: ResourceNode): void {
+    const cx = n.pos.x * TILE + TILE / 2;
+    const cy = n.pos.y * TILE + TILE / 2;
+    const sprite = (key: string, tint?: number) => {
+      const img = this.add.image(cx, cy, key).setDepth(1);
+      if (tint !== undefined) img.setTint(tint);
+      this.dynamic.push(img);
+      return img;
+    };
     switch (n.kind) {
       case 'resource': {
         const def = n.def!;
         if (def.kind === 'rock') {
-          g.fillStyle(0x5a5650).fillCircle(cx, cy, 9);
-          if (!n.depleted) g.fillStyle(def.color).fillCircle(cx - 3, cy - 2, 3).fillCircle(cx + 3, cy + 3, 2.5);
-        } else if (def.kind === 'tree') {
-          if (n.depleted) {
-            g.fillStyle(0x6b4a2a).fillRect(cx - 4, cy - 1, 8, 6);
-          } else {
-            g.fillStyle(0x5a3a1a).fillRect(cx - 2, cy + 2, 4, 9);
-            g.fillStyle(def.color).fillCircle(cx, cy - 2, 9);
+          sprite('boulder', n.depleted ? 0x707070 : undefined);
+          if (!n.depleted) {
+            fx.fillStyle(def.color).fillRect(cx - 7, cy - 4, 4, 4).fillRect(cx + 3, cy + 1, 4, 4).fillRect(cx - 2, cy + 5, 3, 3);
+            fx.fillStyle(0xffffff, 0.5).fillRect(cx - 7, cy - 4, 2, 2).fillRect(cx + 3, cy + 1, 2, 2);
           }
+        } else if (def.kind === 'tree') {
+          if (n.depleted) sprite('gen_stump');
+          else sprite('tree', Phaser.Display.Color.IntegerToColor(def.color).lighten(35).color);
         } else {
-          g.fillStyle(n.depleted ? 0x1a2a3a : 0x2a5a8a).fillRect(x, y, TILE, TILE);
-          if (!n.depleted) g.lineStyle(1, 0x9ad0ff, 0.8).strokeCircle(cx, cy, 4).strokeCircle(cx, cy, 8);
+          sprite('water', n.depleted ? 0x556677 : undefined);
+          if (!n.depleted) fx.lineStyle(1, 0xd0f0ff, 0.9).strokeCircle(cx, cy, 5).strokeCircle(cx, cy, 11);
         }
         break;
       }
-      case 'fire':
-        g.fillStyle(0x5a3a1a).fillRect(cx - 7, cy + 4, 14, 4);
-        g.fillStyle(0xd04010).fillCircle(cx, cy + 1, 7);
-        g.fillStyle(0xffb020).fillCircle(cx, cy + 3, 4);
-        break;
       case 'furnace':
-        g.fillStyle(0x6a2a1a).fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
-        g.fillStyle(0xff8020).fillRect(cx - 4, cy, 8, 6);
-        break;
-      case 'mentor':
-      case 'toolsmith':
-        g.fillStyle(n.kind === 'mentor' ? 0x6a4aa0 : 0x8a5a2a).fillRect(cx - 6, cy - 1, 12, 11);
-        g.fillStyle(0xe0b090).fillCircle(cx, cy - 6, 5);
-        break;
-      case 'altar':
-        g.fillStyle(0x8a8a8a).fillRect(x + 3, y + 6, TILE - 6, TILE - 9);
-        g.fillStyle(0xf0f0f0).fillRect(x + 3, y + 6, TILE - 6, 4);
-        g.fillStyle(0xe0c040).fillRect(cx - 1, y + 2, 2, 6);
-        break;
       case 'anvil':
-        g.fillStyle(0x3a3a3a).fillRect(cx - 9, cy - 4, 18, 5).fillRect(cx - 4, cy + 1, 8, 7);
+        sprite(`gen_${n.kind}`);
         break;
+      default:
+        sprite(n.kind);
     }
   }
 
-  private makeActorView(color: number, letter?: string): ActorView {
-    const body = this.add.rectangle(0, 0, TILE - 6, TILE - 6, color).setStrokeStyle(1, 0x000000).setDepth(4);
-    const label = letter
-      ? this.add.text(0, 0, letter, { fontFamily: 'monospace', fontSize: '13px', color: '#000000' }).setOrigin(0.5).setDepth(4)
-      : undefined;
+  private makeActorView(layers: Phaser.GameObjects.GameObject[], outline = false): ActorView {
+    const frame = outline ? this.add.rectangle(0, 0, TILE - 2, TILE - 2).setStrokeStyle(2, 0xffffff) : undefined;
+    const body = this.add.container(0, 0, frame ? [frame, ...layers] : layers).setDepth(4);
     const hpBg = this.add.rectangle(0, 0, TILE - 4, 4, 0xcc0000).setOrigin(0, 0.5).setDepth(6);
     const hpFg = this.add.rectangle(0, 0, TILE - 4, 4, 0x00cc00).setOrigin(0, 0.5).setDepth(6);
-    return { body, label, hpBg, hpFg };
+    return { body, outline: frame, hpBg, hpFg };
   }
 
   private destroyView(v: ActorView): void {
     v.body.destroy();
-    v.label?.destroy();
     v.hpBg.destroy();
     v.hpFg.destroy();
+  }
+
+  /** Shows the player's equipped weapon, platebody and shield on their sprite. */
+  private updatePaperDoll(): void {
+    const eq = this.state.player.equipment;
+    const apply = (img: Phaser.GameObjects.Image, ref: { key: string; tint?: number } | null) => {
+      img.setVisible(!!ref);
+      if (!ref) return;
+      if (img.texture.key !== ref.key) img.setTexture(ref.key);
+      if (ref.tint !== undefined) img.setTint(ref.tint);
+      else img.clearTint();
+    };
+    apply(this.doll.body, bodyLayer(eq.body));
+    apply(this.doll.shield, shieldLayer(eq.shield));
+    apply(this.doll.weapon, weaponLayer(eq.weapon));
   }
 
   private placeView(v: ActorView, actor: Actor, alpha: number, visible: boolean): { x: number; y: number } {
     const x = Phaser.Math.Linear(actor.prev.x, actor.pos.x, alpha) * TILE + TILE / 2;
     const y = Phaser.Math.Linear(actor.prev.y, actor.pos.y, alpha) * TILE + TILE / 2;
     v.body.setPosition(x, y).setVisible(visible);
-    v.label?.setPosition(x, y).setVisible(visible);
     // HP bar shows for a few ticks after being hit, as in OSRS.
     const showHp = visible && this.state.tickCount - actor.lastHitTick < 8 && !actor.dead;
     v.hpBg.setPosition(x - (TILE - 4) / 2, y - TILE / 2 - 2).setVisible(showHp);
@@ -443,6 +500,7 @@ export class DungeonScene extends Phaser.Scene {
     const g = this.state;
     const a = this.ticks.alpha;
 
+    this.updatePaperDoll();
     const pv = this.placeView(this.playerView, g.player, a, !g.player.dead);
     const protect = (['melee', 'ranged', 'magic'] as AttackType[]).find((s) => g.player.isProtectedFrom(s));
     this.overhead.setVisible(!!protect && !g.player.dead).setPosition(pv.x, pv.y - TILE + 2);
@@ -460,14 +518,13 @@ export class DungeonScene extends Phaser.Scene {
     for (const npc of g.npcs) {
       let v = this.npcViews.get(npc);
       if (!v) {
-        v = this.makeActorView(npc.def.color, npc.name[0]);
-        if (npc.isBoss) v.body.setSize(TILE + 2, TILE + 2);
+        const styled = npc.isBoss || npc.attackStyle !== 'melee';
+        v = this.makeActorView([this.add.image(0, 0, npcSprite(npc.def.id))], styled);
+        if (npc.isBoss) v.body.setScale(1.3);
         this.npcViews.set(npc, v);
       }
-      // Bosses and ranged/magic monsters show their current attack style as an outline.
-      if (npc.isBoss || npc.attackStyle !== 'melee') {
-        v.body.setStrokeStyle(npc.isBoss ? 3 : 2, STYLE_COLORS[npc.attackStyle]);
-      }
+      // Bosses and ranged/magic monsters show their current attack style as a coloured frame.
+      v.outline?.setStrokeStyle(npc.isBoss ? 3 : 2, STYLE_COLORS[npc.attackStyle], 0.9);
       this.placeView(v, npc, a, g.isVisible(npc.pos.x, npc.pos.y));
     }
 
