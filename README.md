@@ -23,6 +23,7 @@ npm run dev        # then open http://localhost:5173
 | `1` `2` `3` | Protect from Magic / Missiles / Melee |
 | `Q` | Quick-prayers (choose them with "Set up quick-prayers" in the Prayer tab) |
 | `R` | Toggle run (2 tiles per tick) / walk (1 tile) |
+| Examine a monster / chest | Drop table: every drop, quantity and chance (with your bonuses), log status; chest odds and Mimic chance |
 | Hover an item | Stats tooltip: speed, range, bonuses, requirements, comparison with what you wear, value |
 | Drag an item | Move it to another inventory slot |
 | `Shift` + click item | Drop it (left-click option becomes Drop while Shift is held) |

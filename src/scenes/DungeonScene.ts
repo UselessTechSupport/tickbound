@@ -478,7 +478,13 @@ export class DungeonScene extends Phaser.Scene {
       const name = `${npc.name} (level-${npc.level})`;
       opts.push({ label: `Attack ${name}`, action: () => { g.attack(npc); this.destMarker.setVisible(false); } });
       const weak = npc.def.weakness ? ` It looks weak to ${npc.def.weakness === 'melee' ? 'melee' : npc.def.weakness}.` : '';
-      examines.push({ label: `Examine ${npc.name}`, action: () => g.message(npc.def.examine + weak) });
+      examines.push({
+        label: `Examine ${npc.name}`,
+        action: () => {
+          g.message(npc.def.examine + weak);
+          this.ui.openDrops({ kind: 'npc', npc });
+        },
+      });
     }
     const pile = g.itemsAt(t.x, t.y);
     if (pile.length > 1) {
@@ -505,7 +511,13 @@ export class DungeonScene extends Phaser.Scene {
     const node = g.nodeAt(t.x, t.y);
     if (node) {
       opts.push(...this.nodeOptions(node));
-      examines.push({ label: `Examine ${node.name}`, action: () => g.message(node.examine) });
+      examines.push({
+        label: `Examine ${node.name}`,
+        action: () => {
+          g.message(node.examine);
+          if (node.kind === 'chest' && !node.used) this.ui.openDrops({ kind: 'chest', depth: g.depth });
+        },
+      });
     }
     const tile = tileAt(g.map, t.x, t.y);
     if (tile === Tile.StairsDown) {

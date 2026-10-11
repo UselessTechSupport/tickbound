@@ -15,7 +15,7 @@ import { AttackType, DRAIN_RESISTANCE, PRAYER_BY_ID, PrayerGroup, potionRestore 
 import { SPELLS, SPELL_BY_ID, SpellDef } from '../data/spells';
 import { WEAKNESS_PENALTY } from '../data/npcs';
 import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
-import { MIMIC_CHANCE, mimicFor } from '../data/npcs';
+import { Drop, MIMIC_CHANCE, mimicFor } from '../data/npcs';
 import { chestLoot } from '../data/loot';
 import { PET_CHANCE } from '../data/collectionLog';
 import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer';
@@ -417,6 +417,22 @@ export class GameState {
     this.pendingRelics = null;
     this.message('You forfeit the run and retreat to camp.');
     this.emit({ type: 'death' });
+  }
+
+  /** A drop's chance with your perks and relics (rare drops under 10% get boosted). */
+  dropChance(d: Drop): number {
+    if (d.chance >= 0.1) return d.chance;
+    const wealth = this.hasRelic('ring_of_wealth') ? 1.25 : 1;
+    return Math.min(1, d.chance * this.mods.rareDropMult * wealth);
+  }
+
+  /** A drop's quantity range with your coin bonuses applied. */
+  dropQuantity(d: Drop): [number, number] {
+    const lo = d.min ?? 1;
+    const hi = d.max ?? lo;
+    if (d.item !== 'coins') return [lo, hi];
+    const mult = this.mods.coinMult * (this.hasRelic('ring_of_wealth') ? 2 : 1);
+    return [Math.floor(lo * mult), Math.floor(hi * mult)];
   }
 
   hasRelic(id: string): boolean {
@@ -1116,13 +1132,10 @@ export class GameState {
       this.offerRelics();
     }
     this.player.intent = null;
-    const wealth = this.hasRelic('ring_of_wealth');
     for (const d of npc.def.drops) {
-      const rareMult = this.mods.rareDropMult * (wealth ? 1.25 : 1);
-      const chance = d.chance < 0.1 ? d.chance * rareMult : d.chance;
-      if (rand() >= chance) continue;
-      let qty = d.min !== undefined ? d.min + Math.floor(rand() * ((d.max ?? d.min) - d.min + 1)) : 1;
-      if (d.item === 'coins') qty = Math.floor(qty * this.mods.coinMult * (wealth ? 2 : 1));
+      if (rand() >= this.dropChance(d)) continue;
+      const [lo, hi] = this.dropQuantity(d);
+      const qty = lo + Math.floor(rand() * (hi - lo + 1));
       const buryXp = item(d.item).buryXp;
       if (buryXp && this.hasRelic('bonecrusher')) {
         this.giveXp('prayer', buryXp * qty);
