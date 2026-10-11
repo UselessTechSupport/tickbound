@@ -58,6 +58,7 @@ export function gatherRoll(g: GameState, node: ResourceNode): boolean {
 
   p.inventory.add(def.product);
   g.sound(def.kind === 'rock' ? 'mine' : def.kind === 'tree' ? 'chop' : 'fish');
+  g.stat('gathers');
   if (RNG.getUniform() < g.mods.doubleResourceChance && p.inventory.canAdd(def.product)) {
     p.inventory.add(def.product);
     g.message('Rich Veins: you gather an extra one!');
@@ -115,6 +116,8 @@ export function processStep(g: GameState, recipe: Recipe): void {
   }
   p.inventory.add(recipe.output);
   g.sound(recipe.station === 'fire' ? 'cook' : 'smith');
+  if (recipe.station === 'fire') g.stat('cooks');
+  if (recipe.station === 'anvil') g.stat('smiths');
   if (recipe.station === 'anvil' && RNG.getUniform() < g.mods.saveBarChance) {
     p.inventory.add(recipe.inputs[0].item);
     g.message('Master Smith: you save a bar!');

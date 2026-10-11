@@ -5,7 +5,7 @@ import { item } from '../data/items';
 import { GameEvent, GameState } from '../game/GameState';
 import { Actor } from '../entities/Actor';
 import { Npc } from '../entities/Npc';
-import { Point, Tile, tileAt } from '../world/tiles';
+import { Point, Tile, isWalkable, tileAt } from '../world/tiles';
 import { recipesFor } from '../data/recipes';
 import { UnlockKey, applyUnlock, nextUnlocks } from '../data/tools';
 import { ResourceNode } from '../entities/ResourceNode';
@@ -14,6 +14,9 @@ import { nextRankCost, perkBlocker } from '../data/skillTree';
 import { AttackType } from '../data/prayers';
 import { describeOptions, type MenuOption } from '../ui/ContextMenu';
 import { sfx } from '../audio/sfx';
+import { Notice, ProgressTracker } from '../meta/tracker';
+import { PET_BY_ID } from '../data/collectionLog';
+import type { AchievementDef } from '../data/achievements';
 import { bodyLayer, ensureItemTexture, generateSprites, npcSprite, preloadSprites, shieldLayer, weaponLayer } from '../render/sprites';
 import type { UIScene } from './UIScene';
 
@@ -98,6 +101,10 @@ export class DungeonScene extends Phaser.Scene {
   private hoverTile = { x: -1, y: -1 };
   private lastFrameAt?: number;
   private startPending = false;
+  private tracker = new ProgressTracker(this.meta);
+  private pet?: Phaser.GameObjects.Image;
+  /** The pet trails one step behind the player. */
+  private petTile = { prev: { x: 0, y: 0 }, pos: { x: 0, y: 0 } };
   private runPref = loadRunPref();
   private labels: Phaser.GameObjects.Text[] = [];
 
@@ -194,6 +201,22 @@ export class DungeonScene extends Phaser.Scene {
     // Swap to the run after the current tick finishes rather than mid-tick.
     if (e.type === 'enterDungeon') this.startPending = true;
     this.bus.emit(e.type, e);
+    if (this.state) this.announce(this.tracker.handle(e, this.state));
+  }
+
+  /** Chat lines and toasts for achievements, new collection log slots and pets. */
+  private announce(notices: Notice[]): void {
+    if (!notices.length) return;
+    for (const n of notices) {
+      if (n.kind === 'collection') this.state.message(`New item added to your collection log: ${n.name}`);
+      if (n.kind === 'achievement') {
+        this.state.message(`Achievement completed: ${n.name} (+${n.reward} Dungeoneering tokens)`);
+        sfx.play('levelup');
+      }
+      if (n.kind === 'pet') sfx.play('levelup');
+      this.bus.emit('notice', n);
+    }
+    saveMeta(this.meta);
   }
 
   private playSoundFor(e: GameEvent): void {
@@ -221,6 +244,18 @@ export class DungeonScene extends Phaser.Scene {
     saveMeta(this.meta);
   }
 
+  achievementProgress(a: AchievementDef): [number, number] | null {
+    return this.tracker.progress(a);
+  }
+
+  /** Pick which owned pet follows you (null = none). */
+  setActivePet(id: string | null): void {
+    this.meta.activePet = id;
+    saveMeta(this.meta);
+    this.pet?.destroy();
+    this.pet = undefined;
+  }
+
   /** Spends tokens on a tool unlock; returns false if unaffordable. */
   buyUnlock(key: UnlockKey): boolean {
     const offer = nextUnlocks(this.meta.tools).find((o) => o.key === key);
@@ -241,6 +276,11 @@ export class DungeonScene extends Phaser.Scene {
     cam.setBounds(-200, -200, map.width * TILE + 400, map.height * TILE + 400);
     cam.startFollow(this.playerView.body, true, 0.15, 0.15);
     this.buildTiles();
+    // The pet starts beside you rather than hidden under you.
+    const { x, y } = this.state.player.pos;
+    const beside = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: x + dx, y: y + dy }))
+      .find((t) => isWalkable(this.state.map, t.x, t.y)) ?? { x, y };
+    this.petTile = { prev: { ...beside }, pos: { ...beside } };
     this.drawMap();
 
     // Name labels over camp NPCs and the ladder.
@@ -370,6 +410,9 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.state.player.path.length) this.destMarker.setVisible(false);
     this.drawMap();
     this.bus.emit('tick');
+    // Counters change constantly; persist them at most once per tick.
+    if (this.tracker.takeDirty()) saveMeta(this.meta);
+    this.stepPet();
   }
 
   /** Creates sprites for every floor tile and every wall that borders one. */
@@ -482,6 +525,31 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Shows the player's equipped weapon, platebody and shield on their sprite. */
+  private stepPet(): void {
+    const p = this.state.player;
+    this.petTile.prev = { ...this.petTile.pos };
+    // Follow to where the player stood at the start of this tick.
+    if (p.prev.x !== p.pos.x || p.prev.y !== p.pos.y) this.petTile.pos = { ...(p.via ?? p.prev) };
+  }
+
+  private drawPet(alpha: number): void {
+    const petId = this.meta.activePet;
+    if (!petId || this.state.over) {
+      this.pet?.setVisible(false);
+      return;
+    }
+    if (!this.pet) {
+      const bossId = PET_BY_ID[petId]?.bossId;
+      if (!bossId) return;
+      this.pet = this.add.image(0, 0, npcSprite(bossId)).setScale(0.6).setDepth(4);
+    }
+    const { prev, pos } = this.petTile;
+    this.pet.setVisible(true).setPosition(
+      Phaser.Math.Linear(prev.x, pos.x, alpha) * TILE + TILE / 2,
+      Phaser.Math.Linear(prev.y, pos.y, alpha) * TILE + TILE / 2 + 6,
+    );
+  }
+
   private updatePaperDoll(): void {
     const eq = this.state.player.equipment;
     const apply = (img: Phaser.GameObjects.Image, ref: { key: string; tint?: number } | null) => {
@@ -550,6 +618,7 @@ export class DungeonScene extends Phaser.Scene {
 
     this.updatePaperDoll();
     const pv = this.placeView(this.playerView, g.player, a, !g.player.dead);
+    this.drawPet(a);
     const protect = (['melee', 'ranged', 'magic'] as AttackType[]).find((s) => g.player.isProtectedFrom(s));
     this.overhead.setVisible(!!protect && !g.player.dead).setPosition(pv.x, pv.y - TILE + 2);
     if (protect) {
