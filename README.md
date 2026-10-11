@@ -42,6 +42,8 @@ npm run dev        # then open http://localhost:5173
   hammer, tinderbox). Climb down the ladder to start a run. A new save has no tools.
 - **Armourer** (camp, unlocked by the Mentor's Veteran's Kit perk): permanent starting-gear tiers for melee, ranged (with arrows), magic (with runes), body and
   shield. Pick a starting style; gear above your level starts in your pack until you can wield it.
+- **Enchanter** (camp, arrives after your first TzTok-Jad kill): one enchantment per Armourer gear line, ranks I-III.
+  Weapons: Keen, Brutal, Leeching, Flaming, Slayer's. Armour: Fortified, Thorns, Renewal, Blessed. Switching costs a fee.
 - **Starting a run**: the ladder offers floor 1, a skip to the floor after any boss you've beaten (with catch-up
   levels and supplies), or autoplay to your best floor (the bot plays fast, then hands over; it can die). Skipped or
   autoplayed floors pay half tokens and don't count toward run challenges. Autoplay can be turned off in Settings.

@@ -4,7 +4,7 @@ import { Point } from '../world/tiles';
 import type { StockEntry } from '../data/loot';
 
 /** Non-resource node kinds: crafting stations, altars, and camp NPCs. */
-export type FixtureKind = Exclude<Station, 'mix'> | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer';
+export type FixtureKind = Exclude<Station, 'mix'> | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer' | 'enchanter';
 export type NodeKind = 'resource' | FixtureKind;
 
 /** A blocking world object the player interacts with: a resource or a crafting station. */
@@ -33,7 +33,7 @@ export class ResourceNode {
       if (!this.depleted) return this.def.name;
       return { rock: 'Rocks', tree: 'Tree stump', fishing: 'Still water', herb: 'Picked patch' }[this.def.kind];
     }
-    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest', slayer_master: 'Slayer master', armourer: 'Armourer' }[this.kind as FixtureKind];
+    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest', slayer_master: 'Slayer master', armourer: 'Armourer', enchanter: 'Enchanter' }[this.kind as FixtureKind];
   }
 
   get examine(): string {
@@ -55,6 +55,7 @@ export class ResourceNode {
       merchant: 'Sells supplies to brave (or foolish) dungeoneers. Buys loot, too.',
       slayer_master: 'A master of the Slayer skill. Hands out monster-hunting tasks.',
       armourer: 'Sells better starting gear for every future run.',
+      enchanter: 'She can weave lasting magic into your Armourer gear.',
       chest: this.used ? "It's empty." : 'I wonder what is inside.',
     }[this.kind as FixtureKind];
   }

@@ -6,11 +6,13 @@ export const CAMP_HEIGHT = 16;
 
 /** The hand-made hub between runs: Mentor, Toolsmith, Slayer master, a campfire, and the ladder down. */
 /** NPCs that only show up once unlocked, at fixed spots. */
-export function campNpc(kind: 'armourer' | 'slayer_master'): ResourceNode {
-  return new ResourceNode(kind === 'armourer' ? { x: 7, y: 10 } : { x: 19, y: 10 }, kind);
+const NPC_SPOTS = { armourer: { x: 7, y: 10 }, slayer_master: { x: 19, y: 10 }, enchanter: { x: 19, y: 13 } };
+
+export function campNpc(kind: keyof typeof NPC_SPOTS): ResourceNode {
+  return new ResourceNode({ ...NPC_SPOTS[kind] }, kind);
 }
 
-export function generateCamp(slayerUnlocked = false, armourerUnlocked = false): { map: FloorMap; nodes: ResourceNode[] } {
+export function generateCamp(slayerUnlocked = false, armourerUnlocked = false, enchanterUnlocked = false): { map: FloorMap; nodes: ResourceNode[] } {
   const tiles = new Uint8Array(CAMP_WIDTH * CAMP_HEIGHT);
   const map: FloorMap = {
     width: CAMP_WIDTH, height: CAMP_HEIGHT, tiles, depth: 0, rooms: [],
@@ -29,6 +31,7 @@ export function generateCamp(slayerUnlocked = false, armourerUnlocked = false): 
     // The Armourer and Slayer master only show up once unlocked.
     ...(armourerUnlocked ? [campNpc('armourer')] : []),
     ...(slayerUnlocked ? [campNpc('slayer_master')] : []),
+    ...(enchanterUnlocked ? [campNpc('enchanter')] : []),
     new ResourceNode({ x: 13, y: 12 }, 'fire'),
   ];
   for (const n of nodes) setTile(map, n.pos.x, n.pos.y, Tile.Object);
