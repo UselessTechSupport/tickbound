@@ -1,5 +1,6 @@
 import { ITEMS } from './items';
 import { NPCS } from './npcs';
+import { SPECIALS } from './specials';
 
 /** Boss pets: very rare cosmetic followers. */
 export const PET_CHANCE = 1 / 50;
@@ -57,6 +58,7 @@ export const LOG_CATEGORIES: LogCategory[] = [
     slots: ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune'].flatMap((m) => [`${m}_scimitar`, `${m}_kiteshield`, `${m}_platebody`]),
     killCountOf: 'mimic',
   },
+  { id: 'specials', name: 'Special weapons', slots: SPECIALS.map((s) => s.weapon) },
   { id: 'pets', name: 'All pets', slots: PETS.map((p) => p.id) },
 ];
 

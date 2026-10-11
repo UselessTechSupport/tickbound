@@ -14,6 +14,8 @@ export class Npc extends Actor {
   /** Index into def.boss.styles for the style it's currently using. */
   styleIndex = 0;
   attacksSinceSwitch = 0;
+  /** Defence lowered by special attacks (fraction, 0-0.9). */
+  defenceDrain = 0;
   /** Successful pickpockets so far (each monster's pockets run out). */
   picked = 0;
 
