@@ -14,6 +14,7 @@ import { itemInfo, speedText } from '../ui/itemInfo';
 import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/achievements';
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
+import { ARMOURY, ARMOURY_LINES, StartStyle, nextArmouryTier } from '../data/armoury';
 import { recipesFor } from '../data/recipes';
 import { herbForDepth } from '../data/resources';
 import { HERB_DROP_CHANCE } from '../game/GameState';
@@ -50,7 +51,8 @@ const PANEL_BG = 0x3e3529;
 const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
-type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops';
+type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops'
+  | 'armoury' | 'startRun';
 
 /** What the drop-table window is showing. */
 export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
@@ -141,6 +143,7 @@ export class UIScene extends Phaser.Scene {
   private modalKind: ModalKind | null = null;
   private logCategory = LOG_CATEGORIES[0].id;
   private dropsSubject: DropsSubject | null = null;
+  private autoplayOverlay?: Phaser.GameObjects.Container;
   private achievementTier: Tier = 'easy';
   private taskText!: Phaser.GameObjects.Text;
   /** Toasts currently on screen, and the ones waiting for a free spot. */
@@ -186,6 +189,7 @@ export class UIScene extends Phaser.Scene {
     bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
     bus.on('relicChoice', () => this.showRelicChoice());
     bus.on('notice', (n: Notice) => this.toast(n));
+    bus.on('autoplay', (a: { target: number; floor: number } | null) => this.updateAutoplayOverlay(a));
     this.input.keyboard?.on('keydown-ESC', () => {
       if (this.forfeitConfirm) this.closeForfeitConfirm();
       else this.closeModal();
@@ -567,6 +571,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
+      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon',
       drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
@@ -580,6 +585,8 @@ export class UIScene extends Phaser.Scene {
       toolsmith: `Dungeoneering tokens: ${meta.tokens}`,
       slayer: `Dungeoneering tokens: ${meta.tokens}   Tasks completed: ${meta.lifetime.tasks ?? 0}`,
       settings: 'Saved in this browser',
+      armoury: `Dungeoneering tokens: ${meta.tokens}`,
+      startRun: `Best floor: ${meta.bestDepth}   Deepest boss beaten: ${meta.deepestBoss ? `floor ${meta.deepestBoss}` : 'none yet'}`,
       drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
     }[kind];
     add(this.add.text(W / 2, 54, currency, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
@@ -593,6 +600,8 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'slayer') this.buildSlayer(add);
     else if (kind === 'settings') this.buildSettings(add);
     else if (kind === 'drops') this.buildDrops(add);
+    else if (kind === 'armoury') this.buildArmoury(add);
+    else if (kind === 'startRun') this.buildStartRun(add);
     else this.buildToolsmith(add);
   }
 
@@ -643,6 +652,100 @@ export class UIScene extends Phaser.Scene {
         add(this.add.text(x + colW - 90, y + 7, `${cur}/${target}`, { ...FONT, fontSize: '10px', color: '#c8c8c8' }).setOrigin(1, 0));
       }
     });
+  }
+
+  /** Armourer: buy the next tier per gear line, and choose which weapon style to start wielding. */
+  private buildArmoury(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const d = this.dungeon;
+    const meta = d.meta;
+    const W = this.panelX;
+    const x0 = W / 2 - 330;
+    add(this.add.text(W / 2, 88, 'Gear you buy is yours at the start of every run. Anything above your level\n'
+      + 'starts in your pack, and you are told when you can wield it.', {
+      ...FONT, fontSize: '12px', color: '#c8c8c8', align: 'center',
+    }).setOrigin(0.5, 0));
+    let y = 130;
+    for (const line of ARMOURY_LINES) {
+      const { name, tiers } = ARMOURY[line];
+      const rank = meta.armoury[line];
+      const current = rank ? tiers[rank - 1].label : 'nothing';
+      const next = nextArmouryTier(meta.armoury, line);
+      add(this.add.text(x0, y + 4, `${name.padEnd(14)} ${rank}/${tiers.length}`, { ...FONT, fontSize: '13px', color: '#ff981f' }));
+      add(this.add.text(x0 + 170, y + 4, `Have: ${current}`, { ...FONT, fontSize: '12px', color: '#ffffff' }));
+      if (next) {
+        const affordable = meta.tokens >= next.cost;
+        const b = add(this.add.text(x0 + 660, y, `Buy ${next.label} (${next.cost})`, {
+          ...FONT, fontSize: '12px', color: affordable ? '#ffffff' : '#7a7a7a',
+          backgroundColor: affordable ? '#3e3529' : '#241f18', padding: { x: 8, y: 4 },
+        }).setOrigin(1, 0));
+        if (affordable) {
+          b.setInteractive({ useHandCursor: true });
+          b.on('pointerover', () => b.setBackgroundColor('#5d5447'));
+          b.on('pointerout', () => b.setBackgroundColor('#3e3529'));
+          b.on('pointerdown', () => d.buyArmoury(line) && this.openModal('armoury'));
+        }
+      } else {
+        add(this.add.text(x0 + 660, y + 4, 'Maxed', { ...FONT, fontSize: '12px', color: '#60ff60' }).setOrigin(1, 0));
+      }
+      y += 36;
+    }
+    y += 10;
+    add(this.add.text(x0, y + 4, 'Start wielding:', { ...FONT, fontSize: '13px', color: '#ff981f' }));
+    (['melee', 'ranged', 'magic'] as StartStyle[]).forEach((style, i) => {
+      const on = meta.startStyle === style;
+      const b = add(this.add.text(x0 + 170 + i * 110, y, style[0].toUpperCase() + style.slice(1), {
+        ...FONT, fontSize: '13px', color: on ? '#ffffff' : '#a08a5a', backgroundColor: on ? '#5d5447' : '#2a241c',
+        padding: { x: 12, y: 4 },
+      }).setInteractive({ useHandCursor: true }));
+      b.on('pointerdown', () => {
+        d.setStartStyle(style);
+        this.openModal('armoury');
+      });
+    });
+    add(this.add.text(x0, y + 32, 'Your other bought weapons start in your pack, so you can switch mid-run.', {
+      ...FONT, fontSize: '11px', color: '#c8c8c8',
+    }));
+  }
+
+  /** Taking the ladder: floor 1, skip past a beaten boss, or autoplay to your best floor. */
+  private buildStartRun(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const W = this.panelX;
+    let y = 100;
+    for (const opt of this.dungeon.runStartOptions()) {
+      const b = add(this.add.text(W / 2, y, opt.label, {
+        ...FONT, fontSize: '16px', color: '#ffffff', backgroundColor: '#3e3529', padding: { x: 14, y: 6 }, fixedWidth: 360, align: 'center',
+      }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true }));
+      b.on('pointerover', () => b.setBackgroundColor('#5d5447'));
+      b.on('pointerout', () => b.setBackgroundColor('#3e3529'));
+      b.on('pointerdown', () => {
+        this.closeModal();
+        opt.start();
+      });
+      add(this.add.text(W / 2, y + 34, opt.detail, { ...FONT, fontSize: '11px', color: '#c8c8c8', align: 'center', wordWrap: { width: 600 } }).setOrigin(0.5, 0));
+      y += 76;
+    }
+  }
+
+  /** Autoplay: "fast-forwarding" banner with a button to take control early. */
+  private updateAutoplayOverlay(a: { target: number; floor: number } | null): void {
+    this.autoplayOverlay?.destroy(true);
+    this.autoplayOverlay = undefined;
+    if (!a) return;
+    const W = this.panelX;
+    const H = this.scale.height;
+    const dim = this.add.rectangle(0, 0, W, H, 0x000000, 0.7).setOrigin(0).setInteractive();
+    const text = this.add.text(W / 2, H / 2 - 30, `Autoplaying... floor ${this.state.depth} of ${a.target}`, {
+      ...FONT, fontSize: '22px', color: '#ff981f',
+    }).setOrigin(0.5);
+    const sub = this.add.text(W / 2, H / 2 + 5, `Combat ${this.state.player.combatLevel}   HP ${this.state.player.hp}/${this.state.player.maxHp}   Kills ${this.state.kills}`, {
+      ...FONT, fontSize: '14px', color: '#ffffff',
+    }).setOrigin(0.5);
+    const take = this.add.text(W / 2, H / 2 + 50, '[ Take control now ]', {
+      ...FONT, fontSize: '16px', backgroundColor: '#3e3529', padding: { x: 12, y: 6 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    take.on('pointerdown', () => this.dungeon.finishAutoplay());
+    this.autoplayOverlay = this.add.container(0, 0, [dim, text, sub, take]).setDepth(38);
+    this.root.add(this.autoplayOverlay);
   }
 
   /** Examine: a monster's stats and drop table, or a chest's loot table, with live chances. */
@@ -767,6 +870,7 @@ export class UIScene extends Phaser.Scene {
     toggle('Low-HP warning', () => settings.lowHpWarning, (v) => (settings.lowHpWarning = v));
     toggle('Ground item labels', () => settings.groundLabels, (v) => (settings.groundLabels = v));
     toggle('Unlock toasts', () => settings.showToasts, (v) => (settings.showToasts = v));
+    toggle('Offer autoplay at the ladder', () => settings.allowAutoplay, (v) => (settings.allowAutoplay = v));
     toggle('Auto-pickup coins', () => settings.autoPickup.coins, (v) => (settings.autoPickup.coins = v));
     toggle('Auto-pickup arrows', () => settings.autoPickup.arrows, (v) => (settings.autoPickup.arrows = v));
     toggle('Auto-pickup runes', () => settings.autoPickup.runes, (v) => (settings.autoPickup.runes = v));
