@@ -15,6 +15,7 @@ import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/ac
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
+import { QUESTS, describeReward, isQuestPosted, questProgress } from '../data/quests';
 import { PET_BUFFS, PET_MAX_LEVEL, STRUCTURES, TROPHY_BONUS, TROPHY_MOUNTS, nextStructureLevel, petBonus, petLevel } from '../data/construction';
 import { ARMOURY, ARMOURY_LINES, ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { ENCHANTS, ENCHANT_COSTS, ENCHANT_SWITCH_FEE, ROMAN, describeEnchant, enchantCost, lineKind } from '../data/enchants';
@@ -57,7 +58,7 @@ const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops'
-  | 'armoury' | 'startRun' | 'enchanter' | 'builder';
+  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests';
 
 /** What the drop-table window is showing. */
 export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
@@ -595,7 +596,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
-      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures',
+      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board',
       drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
@@ -612,6 +613,7 @@ export class UIScene extends Phaser.Scene {
       armoury: `Dungeoneering tokens: ${meta.tokens}`,
       enchanter: `Dungeoneering tokens: ${meta.tokens}`,
       builder: `Tokens: ${meta.tokens}   Timber: ${meta.materials.timber}   Metal: ${meta.materials.metal}`,
+      quests: `Quests complete: ${meta.questsDone.length}/${QUESTS.length}`,
       startRun: `Best floor: ${meta.bestDepth}   Deepest boss beaten: ${meta.deepestBoss ? `floor ${meta.deepestBoss}` : 'none yet'}`,
       drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
     }[kind];
@@ -629,6 +631,7 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'armoury') this.buildArmoury(add);
     else if (kind === 'enchanter') this.buildEnchanter(add);
     else if (kind === 'builder') this.buildBuilder(add);
+    else if (kind === 'quests') this.buildQuests(add);
     else if (kind === 'startRun') this.buildStartRun(add);
     else this.buildToolsmith(add);
   }
@@ -796,6 +799,36 @@ export class UIScene extends Phaser.Scene {
       }
       y += 34;
     }
+  }
+
+  /** Quest board: every posted quest with its giver, progress and reward; claim finished ones. */
+  private buildQuests(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const d = this.dungeon;
+    const m = d.meta;
+    const x0 = this.panelX / 2 - 340;
+    let y = 92;
+    const posted = QUESTS.filter((q) => isQuestPosted(q, m));
+    for (const q of posted) {
+      const done = m.questsDone.includes(q.id);
+      const [have, need] = questProgress(q, m);
+      const relicName = q.reward.relic ? RELIC_BY_ID[q.reward.relic].name : undefined;
+      add(this.add.text(x0, y, `${q.name}`, { ...FONT, fontSize: '13px', color: done ? '#60ff60' : '#ff981f' }));
+      add(this.add.text(x0 + 200, y + 1, `${q.giver}: ${q.desc}`, { ...FONT, fontSize: '11px', color: done ? '#8a8a8a' : '#ffffff' }));
+      add(this.add.text(x0 + 200, y + 15, `Reward: ${describeReward(q.reward, relicName)}`, { ...FONT, fontSize: '11px', color: '#c8c8c8' }));
+      if (done) {
+        add(this.add.text(x0 + 680, y + 4, 'Done', { ...FONT, fontSize: '11px', color: '#60ff60' }).setOrigin(1, 0));
+      } else if (have >= need) {
+        const b = add(this.add.text(x0 + 680, y + 1, 'Claim reward', {
+          ...FONT, fontSize: '12px', color: '#000000', backgroundColor: '#ffd040', padding: { x: 8, y: 4 },
+        }).setOrigin(1, 0).setInteractive({ useHandCursor: true }));
+        b.on('pointerdown', () => d.claimQuestReward(q.id) && this.openModal('quests'));
+      } else {
+        add(this.add.text(x0 + 680, y + 4, `${have}/${need}`, { ...FONT, fontSize: '12px', color: '#ffff00' }).setOrigin(1, 0));
+      }
+      y += 36;
+    }
+    const hidden = QUESTS.length - posted.length;
+    if (hidden) add(this.add.text(x0, y + 4, `${hidden} more quest${hidden > 1 ? 's' : ''} will be posted as new folk arrive at camp.`, { ...FONT, fontSize: '11px', color: '#8a8a8a' }));
   }
 
   /** Builder: build and upgrade camp structures; also where you set the altar's relic and see the bank and pet. */

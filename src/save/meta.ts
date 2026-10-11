@@ -50,6 +50,10 @@ export interface MetaSave {
   startRelic: string | null;
   /** Floors each pet has come along for (pet levels). */
   petFloors: Record<string, number>;
+  /** Quests: claimed quest ids, best carried count for "bring" quests, and relics they unlocked. */
+  questsDone: string[];
+  questCarry: Record<string, number>;
+  questRelics: string[];
 }
 
 const KEY = 'tickbound.meta';
@@ -63,6 +67,7 @@ export function freshMeta(): MetaSave {
     slayerUnlocked: false, armoury: { ...NO_ARMOURY }, startStyle: 'melee', deepestBoss: 0,
     enchanterUnlocked: false, enchants: {},
     structures: {}, materials: { timber: 0, metal: 0 }, bank: [], relicsFound: [], startRelic: null, petFloors: {},
+    questsDone: [], questCarry: {}, questRelics: [],
   };
 }
 
@@ -92,6 +97,7 @@ export function loadMeta(): MetaSave {
       structures: { ...parsed.structures },
       materials: { timber: 0, metal: 0, ...parsed.materials },
       petFloors: { ...parsed.petFloors },
+      questCarry: { ...parsed.questCarry },
       enchanterUnlocked: parsed.enchanterUnlocked ?? (parsed.killCounts?.tztok_jad ?? 0) > 0,
       // Older saves: credit boss floors already beaten, from the kill counts.
       deepestBoss: parsed.deepestBoss ?? Math.max(0, ...Object.entries(BOSS_FLOORS)

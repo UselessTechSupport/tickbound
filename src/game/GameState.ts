@@ -63,7 +63,7 @@ export type GameEvent =
   | { type: 'made'; item: string }
   | { type: 'slayerDone'; tokens: number }
   | { type: 'sound'; name: SoundName }
-  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' | 'armoury' | 'enchanter' | 'builder' }
+  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' | 'armoury' | 'enchanter' | 'builder' | 'quests' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
 /** What the player's next attack would look like; see GameState.combatPreview. */
@@ -127,6 +127,8 @@ export interface RunSetup {
   /** Enchanter: enchantments on Armourer gear lines. */
   enchants?: Enchantments;
   enchanterUnlocked?: boolean;
+  /** Relics unlocked by quests. */
+  questRelics?: string[];
   /** Camp structures and pets (see data/construction.ts). */
   campSetup?: CampSetup;
   /** Skip ahead: start on this floor with catch-up levels and supplies (half rewards). */
@@ -194,6 +196,8 @@ export class GameState {
   autoPickup = { coins: false, arrows: false, runes: false };
   /** The merchant whose shop window is open. */
   activeMerchant: ResourceNode | null = null;
+  /** Quest relics unlocked so far (they join the relic pool). */
+  questRelics: string[] = [];
   /** Bonuses from camp structures and your pet for this run. */
   campBonus: CampBonuses = { trophy: 0, workbench: 0, pet: null };
   /** Enchanted Armourer gear by item id. */
@@ -214,6 +218,7 @@ export class GameState {
     }
     this.enchanted = enchantedItems(setup.armoury ?? NO_ARMOURY, setup.enchants ?? {});
     this.campBonus = { trophy: 0, workbench: 0, pet: null, ...setup.campSetup };
+    this.questRelics = [...(setup.questRelics ?? [])];
     const startDepth = Math.max(1, setup.startDepth ?? 1);
     this.applyStartingKit(setup, startDepth);
     this.loadFloor(startDepth);
@@ -524,7 +529,7 @@ export class GameState {
       return;
     }
     this.message(`You attempt to pick the ${npc.name.toLowerCase()}'s pocket.`);
-    if (rand() >= thievingChance(level, def.level)) {
+    if (rand() >= thievingChance(level, def.level) + this.thievingBonus()) {
       this.message(`You fail to pick the ${npc.name.toLowerCase()}'s pocket. "What do you think you're doing?!"`);
       this.message("You've been stunned!");
       p.stunnedUntil = this.tickCount + STUN_TICKS;
@@ -548,6 +553,11 @@ export class GameState {
     this.giveXp('thieving', def.xp * XP_RATE);
   }
 
+  /** Thieves' Gloves relic. */
+  private thievingBonus(): number {
+    return this.hasRelic('thieves_gloves') ? 0.15 : 0;
+  }
+
   private crossShortcut(node: ResourceNode): void {
     const p = this.player;
     const sc = node.shortcut!;
@@ -557,7 +567,8 @@ export class GameState {
       this.message(`You need an Agility level of ${sc.level} to use this shortcut.`);
       return;
     }
-    if (rand() >= shortcutChance(level, sc.level)) {
+    const boots = this.hasRelic('boots_of_lightness');
+    if (!boots && rand() >= shortcutChance(level, sc.level)) {
       this.message(`You slip trying to ${kind.verb.toLowerCase().replace('-', ' ')} the ${kind.name.toLowerCase()}.`);
       this.sound('hurt');
       this.hurtPlayer(1 + Math.floor(rand() * (1 + Math.ceil(this.depth / 3))), `a ${kind.name.toLowerCase()}`);
@@ -573,7 +584,7 @@ export class GameState {
     this.message(`You ${kind.verb.toLowerCase().replace('-', ' ')} the ${kind.name.toLowerCase()}.`);
     this.sound('stairs');
     this.stat('shortcuts');
-    this.giveXp('agility', shortcutXp(sc.level) * XP_RATE);
+    this.giveXp('agility', shortcutXp(sc.level) * XP_RATE * (boots ? 2 : 1));
   }
 
   /** Walk to an item and pick it up; `all` takes the whole pile on that tile. */
@@ -655,7 +666,7 @@ export class GameState {
         this.message(`This chest is locked. You need a Thieving level of ${locked} to pick it.`);
         return;
       }
-      if (rand() >= thievingChance(level, locked, 0.5)) {
+      if (rand() >= thievingChance(level, locked, 0.5) + this.thievingBonus()) {
         this.message('You set off a trap! A dart shoots out of the lock.');
         this.sound('hurt');
         this.hurtPlayer(1 + Math.floor(rand() * (2 + Math.ceil(this.depth / 2))), 'a chest trap');
@@ -746,7 +757,7 @@ export class GameState {
 
   /** Offers RELIC_CHOICES random relics the player doesn't have yet. */
   offerRelics(): void {
-    const pool = RELICS.filter((r) => !this.hasRelic(r.id)).map((r) => r.id);
+    const pool = RELICS.filter((r) => !this.hasRelic(r.id) && (!r.quest || this.questRelics.includes(r.id))).map((r) => r.id);
     if (!pool.length) return;
     this.pendingRelics = RNG.shuffle(pool).slice(0, RELIC_CHOICES);
     this.emit({ type: 'relicChoice', options: this.pendingRelics });
@@ -1231,7 +1242,8 @@ export class GameState {
         } else {
           const menu = node.kind === 'slayer_master' ? 'slayer' : node.kind === 'armourer' ? 'armoury'
             : node.kind === 'enchanter' ? 'enchanter'
-              : node.kind === 'builder' || node.kind in STRUCTURE_BY_ID ? 'builder' : node.kind as 'mentor' | 'toolsmith';
+              : node.kind === 'builder' || node.kind in STRUCTURE_BY_ID ? 'builder'
+                : node.kind === 'quest_board' ? 'quests' : node.kind as 'mentor' | 'toolsmith';
           this.emit({ type: 'campMenu', kind: menu });
         }
         return;
@@ -1344,11 +1356,12 @@ export class GameState {
     const onTask = !!target && this.isOnTask(target);
     const slayer = (onTask ? 1 + SLAYER_BONUS_PER_LEVEL * s.level('slayer') : 1) * (onTask ? 1 + this.enchantPower('slayers') : 1);
     const keen = 1 + this.enchantPower('keen');
+    const fireCape = target?.isBoss && this.hasRelic('fire_cape') ? 1.1 : 1;
     const brutal = 1 + this.enchantPower('brutal');
     return {
       mode,
       attackRoll: Math.floor(this.mods.combatMult * glory * slayer * keen * attackRoll),
-      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * brutal * this.campMaxHitMult(mode) * max),
+      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * brutal * fireCape * this.campMaxHitMult(mode) * max),
       speed,
       range: p.attackRange,
       spell,

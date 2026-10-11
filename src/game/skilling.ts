@@ -127,7 +127,9 @@ export function processStep(g: GameState, recipe: Recipe): void {
     g.message(`You accidentally burn the ${what}.`);
     return;
   }
-  const qty = recipe.outputQty ?? 1;
+  // Fletcher's Kit relic: half as many arrows again.
+  const kit = recipe.station === 'fletch' && (recipe.outputQty ?? 1) > 1 && g.hasRelic('fletchers_kit') ? 1.5 : 1;
+  const qty = Math.floor((recipe.outputQty ?? 1) * kit);
   if (!p.inventory.add(recipe.output, qty)) g.dropHere(recipe.output, qty);
   g.sound(recipe.station === 'fire' ? 'cook' : 'smith');
   if (recipe.station === 'fletch') g.stat('fletches');

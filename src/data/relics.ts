@@ -4,6 +4,8 @@ export interface RelicDef {
   name: string;
   desc: string;
   color: number;
+  /** Only offered once unlocked by a quest. */
+  quest?: boolean;
 }
 
 export const RELICS: RelicDef[] = [
@@ -23,6 +25,11 @@ export const RELICS: RelicDef[] = [
   { id: 'lucky_charm', name: 'Lucky Charm', desc: '+25% Dungeoneering tokens from this run.', color: 0x40e080 },
   { id: 'graceful', name: 'Graceful Outfit', desc: 'Monsters notice you from 2 tiles closer.', color: 0x40c0a0 },
   { id: 'packed_supplies', name: 'Packed Supplies', desc: 'Find a cooked fish in your pack on every new floor.', color: 0xc08a50 },
+  // Quest rewards: join the pool once their quest is done.
+  { id: 'fire_cape', name: 'Fire Cape', desc: '+10% max hit against bosses.', color: 0xff7020, quest: true },
+  { id: 'thieves_gloves', name: "Thieves' Gloves", desc: '+15% chance to pick pockets and locks.', color: 0x6a5a8a, quest: true },
+  { id: 'boots_of_lightness', name: 'Boots of Lightness', desc: 'Agility shortcuts never fail and give double XP.', color: 0x8ad0a0, quest: true },
+  { id: 'fletchers_kit', name: "Fletcher's Kit", desc: 'Fletching makes 50% more arrows.', color: 0xa07040, quest: true },
 ];
 
 export const RELIC_BY_ID: Record<string, RelicDef> = Object.fromEntries(RELICS.map((r) => [r.id, r]));

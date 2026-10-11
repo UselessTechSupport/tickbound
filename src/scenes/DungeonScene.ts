@@ -26,7 +26,9 @@ import { catchUpFor } from '../data/catchup';
 import { enchantCost } from '../data/enchants';
 import { PICKPOCKET } from '../data/thieving';
 import { Materials, STRUCTURES, STRUCTURE_BY_ID, StructureId, nextStructureLevel } from '../data/construction';
-import { campSetupFor, settleRun } from '../meta/camp';
+import { campSetupFor, claimQuest, claimableQuests, settleRun } from '../meta/camp';
+import { QUEST_BY_ID, describeReward } from '../data/quests';
+import { RELIC_BY_ID } from '../data/relics';
 import { SHORTCUT_KINDS } from '../data/agility';
 import { clearRun, loadRun, saveRun } from '../save/runSave';
 
@@ -210,6 +212,8 @@ export class DungeonScene extends Phaser.Scene {
       armourerUnlocked: (this.meta.perks[ARMOURER_PERK] ?? 0) > 0, enchanterUnlocked: this.meta.enchanterUnlocked,
       built: STRUCTURES.filter((s) => (this.meta.structures[s.id] ?? 0) > 0).map((s) => s.id),
     }));
+    const claimable = claimableQuests(this.meta);
+    if (claimable) this.state.message(`You have ${claimable} quest reward${claimable > 1 ? 's' : ''} to claim at the quest board.`);
   }
 
   /** Start a fresh dungeon run with every unlock and perk applied. */
@@ -221,7 +225,7 @@ export class DungeonScene extends Phaser.Scene {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
       tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
       armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth, enchants: this.meta.enchants,
-      campSetup: this.campSetup(),
+      campSetup: this.campSetup(), questRelics: this.meta.questRelics,
     }));
     if (opts.autoplayTo && opts.autoplayTo > 1) {
       this.autoplay = { target: opts.autoplayTo, memo: newBotMemory(), floorTicks: 0, floor: 1 };
@@ -373,6 +377,16 @@ export class DungeonScene extends Phaser.Scene {
       this.state.addCampNpc(id);
       this.onFloorChanged();
     }
+    return true;
+  }
+
+  /** Quest board: claim a finished quest's reward. */
+  claimQuestReward(id: string): boolean {
+    if (!claimQuest(this.meta, id)) return false;
+    saveMeta(this.meta);
+    sfx.play('levelup');
+    const q = QUEST_BY_ID[id];
+    this.state.message(`Quest complete: ${q.name}! You receive ${describeReward(q.reward, q.reward.relic ? RELIC_BY_ID[q.reward.relic].name : undefined)}.`);
     return true;
   }
 
@@ -563,7 +577,7 @@ export class DungeonScene extends Phaser.Scene {
         fontFamily: 'monospace', fontSize: '12px', color: '#ffff00', stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5, 1).setDepth(6));
       for (const n of this.state.nodes) {
-        if ((['mentor', 'toolsmith', 'slayer_master', 'armourer', 'enchanter', 'builder'].includes(n.kind) || n.kind in STRUCTURE_BY_ID)) label(n.pos.x, n.pos.y - 0.4, n.name);
+        if ((['mentor', 'toolsmith', 'slayer_master', 'armourer', 'enchanter', 'builder', 'quest_board'].includes(n.kind) || n.kind in STRUCTURE_BY_ID)) label(n.pos.x, n.pos.y - 0.4, n.name);
       }
       label(map.stairs.x, map.stairs.y, 'Dungeon');
     }
@@ -652,6 +666,7 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'armourer') return [{ label: 'Trade Armourer', action: () => g.talkTo(node) }];
     if (node.kind === 'enchanter') return [{ label: 'Enchant Enchanter', action: () => g.talkTo(node) }];
     if (node.kind === 'builder') return [{ label: 'Build Builder', action: () => g.talkTo(node) }];
+    if (node.kind === 'quest_board') return [{ label: 'Read Quest board', action: () => g.talkTo(node) }];
     if (node.kind in STRUCTURE_BY_ID) return [{ label: `Use ${node.name}`, action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
@@ -869,6 +884,19 @@ export class DungeonScene extends Phaser.Scene {
       case 'chest':
         sprite(n.used ? 'chest_open' : n.lockLevel ? 'chest_locked' : 'chest');
         break;
+      case 'quest_board': {
+        // A wooden notice board with pinned notes; a gold "!" when a reward is waiting.
+        fx.fillStyle(0x4a3018, 1).fillRect(cx - 2, cy + 4, 4, 12);
+        fx.fillStyle(0x7a5228, 1).fillRect(cx - 13, cy - 12, 26, 18);
+        fx.lineStyle(2, 0x3a2410, 1).strokeRect(cx - 13, cy - 12, 26, 18);
+        fx.fillStyle(0xe8e0c8, 1).fillRect(cx - 10, cy - 9, 8, 6).fillRect(cx + 1, cy - 8, 9, 5).fillRect(cx - 6, cy - 1, 10, 5);
+        if (claimableQuests(this.meta) > 0) {
+          const bang = this.add.text(cx + 12, cy - 20, '!', { fontFamily: 'monospace', fontSize: '16px', color: '#ffd040', stroke: '#000000', strokeThickness: 3 })
+            .setOrigin(0.5).setDepth(7);
+          this.dynamic.push(bang);
+        }
+        break;
+      }
       case 'herb_garden':
         sprite('herb_patch');
         break;

@@ -3,6 +3,7 @@ import {
   WORKBENCH_XP, materialsFrom, petBonus,
 } from '../data/construction';
 import { NPCS } from '../data/npcs';
+import { QUESTS, QUEST_BY_ID, questClaimable } from '../data/quests';
 import { priceOf } from '../data/prices';
 import type { CampSetup, GameState } from '../game/GameState';
 import type { MetaSave } from '../save/meta';
@@ -43,6 +44,29 @@ export function settleRun(m: MetaSave, g: GameState): Materials {
       .map((s) => ({ ...s }));
   }
   for (const r of g.relics) if (!m.relicsFound.includes(r)) m.relicsFound.push(r);
+  // "Bring back" quests remember your best haul.
+  for (const q of QUESTS) {
+    if (q.goal.kind !== 'carry' || m.questsDone.includes(q.id)) continue;
+    const items = q.goal.items;
+    const carried = pack.filter((s) => items.includes(s.id)).reduce((n, s) => n + s.qty, 0);
+    m.questCarry[q.id] = Math.max(m.questCarry[q.id] ?? 0, carried);
+  }
   if (m.activePet) m.petFloors[m.activePet] = (m.petFloors[m.activePet] ?? 0) + Math.max(0, g.depth - 1);
   return mats;
+}
+
+/** Claim a finished quest's reward; returns false if it isn't ready. */
+export function claimQuest(m: MetaSave, id: string): boolean {
+  const q = QUEST_BY_ID[id];
+  if (!q || !questClaimable(q, m)) return false;
+  m.questsDone.push(id);
+  m.tokens += q.reward.tokens ?? 0;
+  m.materials.timber += q.reward.timber ?? 0;
+  m.materials.metal += q.reward.metal ?? 0;
+  if (q.reward.relic && !m.questRelics.includes(q.reward.relic)) m.questRelics.push(q.reward.relic);
+  return true;
+}
+
+export function claimableQuests(m: MetaSave): number {
+  return QUESTS.filter((q) => questClaimable(q, m)).length;
 }
