@@ -24,6 +24,7 @@ import { themeForDepth } from '../data/themes';
 import { ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
 import { enchantCost } from '../data/enchants';
+import { clearRun, loadRun, saveRun } from '../save/runSave';
 
 /** Your first kill of this boss brings the Enchanter to camp. */
 const ENCHANTER_UNLOCK_BOSS = 'tztok_jad';
@@ -41,6 +42,8 @@ const OVERHEAD_LETTER: Record<AttackType, string> = { melee: 'S', ranged: 'R', m
 const HOVER_COLOR = 0xffff00;
 /** Safety cap so autoplay always hands over eventually. */
 const AUTOPLAY_MAX_TICKS = 40_000;
+/** Back up the run every ~12 seconds, in case the browser closes without warning. */
+const RUN_SAVE_TICKS = 20;
 /** Hold this long on a touch screen to open the right-click menu. */
 export const LONG_PRESS_MS = 450;
 
@@ -175,7 +178,17 @@ export class DungeonScene extends Phaser.Scene {
 
     this.fitCamera();
     this.scale.on('resize', () => this.fitCamera());
-    this.toCamp();
+    // Pick up a run left by a refresh or closed tab, otherwise start at camp.
+    const resumed = loadRun((e) => this.onGameEvent(e));
+    if (resumed) {
+      this.setState(resumed);
+      resumed.message('Welcome back! Your run has been restored.');
+    } else {
+      this.toCamp();
+    }
+    const saveNow = () => this.saveRunNow();
+    window.addEventListener('beforeunload', saveNow);
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && saveNow());
     this.scene.launch('UI');
   }
 
@@ -267,7 +280,11 @@ export class DungeonScene extends Phaser.Scene {
     this.playSoundFor(e);
     if (e.type === 'hit') this.addHitsplat(e.target, e.damage);
     if (e.type === 'projectile') this.fireProjectile(e.from, e.to, e.style, e.ticks);
-    if (e.type === 'floor' && this.state) this.onFloorChanged();
+    if (e.type === 'floor' && this.state) {
+      this.onFloorChanged();
+      // Saved after the tick that changed floor, once the new floor is fully set up.
+      this.time.delayedCall(0, () => this.saveRunNow());
+    }
     if (e.type === 'death') this.bankRun();
     // Swap to the run after the current tick finishes rather than mid-tick.
     if (e.type === 'enterDungeon') this.startPending = true;
@@ -314,7 +331,15 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Adds the finished run's tokens and stats to the persistent save. */
+  /** Keep the run in progress safe across refreshes (nothing to save at camp or after it ends). */
+  private saveRunNow(): void {
+    const g = this.state;
+    if (!g || g.isCamp || g.over || this.autoplay) return;
+    saveRun(g);
+  }
+
   private bankRun(): void {
+    clearRun();
     const g = this.state;
     this.lastEarned = g.tokensEarned;
     this.meta.tokens += this.lastEarned;
@@ -669,6 +694,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private onTick(): void {
     this.state.tick();
+    if (this.state.tickCount % RUN_SAVE_TICKS === 0) this.saveRunNow();
     if (this.startPending) {
       this.startPending = false;
       // With skip-ahead or autoplay available, let the player choose how to start.

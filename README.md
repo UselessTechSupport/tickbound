@@ -44,6 +44,8 @@ npm run dev        # then open http://localhost:5173
   shield. Pick a starting style; gear above your level starts in your pack until you can wield it.
 - **Enchanter** (camp, arrives after your first TzTok-Jad kill): one enchantment per Armourer gear line, ranks I-III.
   Weapons: Keen, Brutal, Leeching, Flaming, Slayer's. Armour: Fortified, Thorns, Renewal, Blessed. Switching costs a fee.
+- **Resume**: a run in progress is saved in your browser (every few seconds and when you close the tab), so a
+  refresh or closed tab picks up where you left off.
 - **Starting a run**: the ladder offers floor 1, a skip to the floor after any boss you've beaten (with catch-up
   levels and supplies), or autoplay to your best floor (the bot plays fast, then hands over; it can die). Skipped or
   autoplayed floors pay half tokens and don't count toward run challenges. Autoplay can be turned off in Settings.
