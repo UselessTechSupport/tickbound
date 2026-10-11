@@ -6,7 +6,7 @@ const TILE_KEYS = [
   'floor_0', 'floor_1', 'floor_2', 'floor_3', 'wall_0', 'wall_1', 'wall_2', 'wall_3',
   'grass_0', 'grass_1', 'grass_2', 'stairs', 'ladder', 'water', 'boulder', 'tree', 'fire', 'altar',
   'mentor', 'toolsmith',
-  'npc_rat', 'npc_goblin', 'npc_skeleton', 'npc_giant_spider', 'npc_hill_giant', 'npc_moss_giant',
+  'npc_rat', 'npc_goblin', 'npc_giant_rat', 'npc_zombie', 'npc_skeleton', 'npc_giant_spider', 'npc_hill_giant', 'npc_moss_giant',
   'npc_lesser_demon', 'npc_greater_demon', 'npc_dark_wizard', 'npc_skeleton_archer', 'npc_infernal_mage',
   'npc_dark_archer', 'npc_goblin_warlord', 'npc_tztok_jad', 'npc_chaos_elemental', 'npc_demonic_gorilla',
   'pd_base', 'pd_plate', 'pd_dagger', 'pd_sword', 'pd_scimitar', 'pd_wooden_shield', 'pd_kiteshield',
