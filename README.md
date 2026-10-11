@@ -27,6 +27,10 @@ npm run dev        # then open http://localhost:5173
 | Drag an item | Move it to another inventory slot |
 | `Shift` + click item | Drop it (left-click option becomes Drop while Shift is held) |
 | `A` / `L` | Achievements / Collection log (also buttons at the bottom of the side panel) |
+| Mouse wheel | Zoom |
+| `G` | Walk to the stairs once found (also a button under the minimap) |
+| `O` | Settings: volume, toggles (auto-pickup, labels, warnings, toasts), zoom, keybinds |
+| Touch | Tap = left-click, long-press = right-click menu; small screens scale the layout to fit |
 | `M` | Mute sound |
 | `H` | Show controls in chat |
 | `Esc` | Close windows |

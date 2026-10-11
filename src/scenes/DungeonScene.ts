@@ -32,6 +32,8 @@ export const STYLE_COLORS: Record<AttackType, number> = { melee: 0xd03030, range
 const OVERHEAD_LETTER: Record<AttackType, string> = { melee: 'S', ranged: 'R', magic: 'M' };
 
 const HOVER_COLOR = 0xffff00;
+/** Hold this long on a touch screen to open the right-click menu. */
+export const LONG_PRESS_MS = 450;
 
 
 interface ActorView {
@@ -117,6 +119,9 @@ export class DungeonScene extends Phaser.Scene {
   private hoverTile = { x: -1, y: -1 };
   private lastFrameAt?: number;
   private startPending = false;
+  private touchHold?: number;
+  /** The current touch already opened a menu, so its release does nothing. */
+  private touchConsumed = false;
   private tracker = new ProgressTracker(this.meta);
   private pet?: Phaser.GameObjects.Image;
   /** The pet trails one step behind the player. */
@@ -149,6 +154,12 @@ export class DungeonScene extends Phaser.Scene {
       this.hover.setPosition(this.hoverTile.x * TILE, this.hoverTile.y * TILE);
     });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onClick(p));
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onTouchRelease(p));
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _objs: unknown, _dx: number, dy: number) => {
+      if (!this.ui.isOverUi(p.x, p.y)) this.setZoom(settings.zoom + (dy > 0 ? -0.25 : 0.25));
+    });
+    this.input.keyboard?.on('keydown-G', () => this.goToStairs());
+    this.cameras.main.setZoom(settings.zoom);
     this.ticks.onTick(() => this.onTick());
 
     this.fitCamera();
@@ -359,9 +370,49 @@ export class DungeonScene extends Phaser.Scene {
   private onClick(p: Phaser.Input.Pointer): void {
     const ui = this.ui;
     if (!ui.isOverUi || ui.isOverUi(p.x, p.y)) return;
+    if (p.wasTouch) {
+      // Touch: a quick tap acts on release; holding opens the menu, like a right-click.
+      this.hoverTile = this.pointerTile(p);
+      window.clearTimeout(this.touchHold);
+      // Wall-clock timer: Phaser's scene clock runs slow at low frame rates (common on phones).
+      this.touchHold = window.setTimeout(() => {
+        this.touchHold = undefined;
+        this.touchConsumed = true;
+        ui.openMenu(p.x, p.y, this.optionsAt(this.pointerTile(p)));
+      }, LONG_PRESS_MS);
+      this.touchConsumed = false;
+      return;
+    }
     const options = this.optionsAt(this.pointerTile(p));
     if (p.rightButtonDown()) ui.openMenu(p.x, p.y, options);
     else options[0]?.action();
+  }
+
+  private onTouchRelease(p: Phaser.Input.Pointer): void {
+    if (!p.wasTouch || this.touchConsumed) return;
+    if (this.touchHold !== undefined) {
+      window.clearTimeout(this.touchHold);
+      this.touchHold = undefined;
+      this.optionsAt(this.pointerTile(p))[0]?.action();
+    }
+  }
+
+  /** Camera zoom, clamped to sensible steps and remembered. */
+  setZoom(z: number): void {
+    settings.zoom = Phaser.Math.Clamp(Math.round(z * 4) / 4, 0.5, 2);
+    saveSettings();
+    this.cameras.main.setZoom(settings.zoom);
+  }
+
+  /** Walk to the stairs (or ladder) once you've found them. */
+  goToStairs(): void {
+    const { stairs } = this.state.map;
+    if (this.state.over) return;
+    if (!this.state.isExplored(stairs.x, stairs.y)) {
+      this.state.message("You haven't found the way down yet.");
+      return;
+    }
+    this.walkTo(stairs);
   }
 
   /** Walks to a tile and shows the red destination marker, as in OSRS. */
