@@ -42,6 +42,7 @@ export function generateCamp(
     ...(enchanterUnlocked ? [campNpc('enchanter')] : []),
     new ResourceNode({ x: 13, y: 12 }, 'fire'),
     new ResourceNode({ x: 10, y: 4 }, 'builder'),
+    new ResourceNode({ x: 16, y: 2 }, 'quest_board'),
     ...built.map(campStructure),
   ];
   for (const n of nodes) setTile(map, n.pos.x, n.pos.y, Tile.Object);

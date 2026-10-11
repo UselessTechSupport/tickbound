@@ -38,7 +38,8 @@ describe('relics', () => {
 
   it('never offers a relic you already have', () => {
     const g = new GameState(92);
-    g.relics = RELICS.slice(0, RELICS.length - 2).map((r) => r.id);
+    const regular = RELICS.filter((r) => !r.quest);
+    g.relics = regular.slice(0, regular.length - 2).map((r) => r.id);
     g.offerRelics();
     expect(g.pendingRelics).toHaveLength(2);
     for (const id of g.pendingRelics!) expect(g.relics).not.toContain(id);
