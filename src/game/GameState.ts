@@ -3,7 +3,7 @@ import { EAT_DELAY, FOV_RADIUS, XP_RATE } from '../data/balance';
 import { PerkRanks, RunMods, computeMods } from '../data/skillTree';
 import { xpForLevel } from '../systems/xp';
 import type { SoundName } from '../audio/sfx';
-import { generateCamp } from '../world/camp';
+import { campNpc, generateCamp } from '../world/camp';
 import { item } from '../data/items';
 import { Recipe } from '../data/recipes';
 import { NO_TOOLS, Toolbelt } from '../data/tools';
@@ -95,8 +95,9 @@ export interface RunSetup {
   tools?: Toolbelt;
   perks?: PerkRanks;
   camp?: boolean;
-  /** Camp only: whether the Slayer master is around. */
+  /** Camp only: whether the Slayer master and Armourer are around. */
   slayerUnlocked?: boolean;
+  armourerUnlocked?: boolean;
   /** Armourer starting gear and which weapon style to equip. */
   armoury?: ArmouryRanks;
   startStyle?: StartStyle;
@@ -174,7 +175,7 @@ export class GameState {
     this.player = new Player({ x: 0, y: 0 });
     this.player.tools = { ...(setup.tools ?? NO_TOOLS) };
     if (setup.camp) {
-      this.loadCamp(setup.slayerUnlocked);
+      this.loadCamp(setup.slayerUnlocked, setup.armourerUnlocked);
       return;
     }
     const startDepth = Math.max(1, setup.startDepth ?? 1);
@@ -213,8 +214,7 @@ export class GameState {
     for (const [skill, level] of Object.entries(levels) as Array<[SkillName, number]>) {
       p.skills.xp[skill] = Math.max(p.skills.xp[skill], xpForLevel(level));
     }
-    p.equipment = { weapon: m.startWeapon ?? 'bronze_dagger', shield: 'wooden_shield' };
-    if (m.startBody) p.equipment.body = m.startBody;
+    p.equipment = { weapon: 'bronze_dagger', shield: 'wooden_shield' };
     p.inventory.add('shrimps', 4);
     for (const it of [...m.startItems, ...(catchUp?.items ?? [])]) p.inventory.add(it.id, it.qty);
 
@@ -251,6 +251,14 @@ export class GameState {
     p.prayerPoints = p.maxPrayer;
   }
 
+  /** Camp: a newly unlocked NPC sets up shop without restarting the camp. */
+  addCampNpc(kind: 'armourer'): void {
+    if (!this.isCamp || this.nodes.some((n) => n.kind === kind)) return;
+    const node = campNpc(kind);
+    setTile(this.map, node.pos.x, node.pos.y, Tile.Object);
+    this.nodes.push(node);
+  }
+
   /** Autoplay handover: everything earned so far counts half from here on. */
   endAutoplay(): void {
     this.assisted = true;
@@ -258,8 +266,8 @@ export class GameState {
     this.message(`Autoplay hands over on floor ${this.depth}. Autoplayed floors pay half tokens. Good luck!`);
   }
 
-  private loadCamp(slayerUnlocked = false): void {
-    const { map, nodes } = generateCamp(slayerUnlocked);
+  private loadCamp(slayerUnlocked = false, armourerUnlocked = false): void {
+    const { map, nodes } = generateCamp(slayerUnlocked, armourerUnlocked);
     this.map = map;
     this.nodes = nodes;
     // The camp is safe and small: show all of it.

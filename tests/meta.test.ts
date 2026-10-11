@@ -28,8 +28,6 @@ describe('skill tree data', () => {
   it('starting items and gear are real items', () => {
     const m = computeMods(Object.fromEntries(PERKS.map((p) => [p.id, p.costs.length])));
     for (const it of m.startItems) expect(ITEMS[it.id]).toBeDefined();
-    expect(ITEMS[m.startWeapon!]).toBeDefined();
-    expect(ITEMS[m.startBody!]).toBeDefined();
   });
 });
 
@@ -43,7 +41,7 @@ describe('perks applied to a run', () => {
 
   it('applies starting levels, gear and supplies', () => {
     const g = new GameState(2, () => {}, {
-      perks: { basic_training: 2, iron_will: 1, veterans_kit: 2, packed_lunch: 1, blessed: 1, pilgrim: 1, holy_supplies: 1 },
+      perks: { basic_training: 2, iron_will: 1, veterans_kit: 1, packed_lunch: 1, blessed: 1, pilgrim: 1, holy_supplies: 1 },
     });
     const p = g.player;
     expect(p.skills.level('attack')).toBe(7);
@@ -51,8 +49,7 @@ describe('perks applied to a run', () => {
     expect(p.hp).toBe(12);
     expect(p.skills.level('prayer')).toBe(5);
     expect(p.prayerPoints).toBe(5);
-    expect(p.equipment.weapon).toBe('iron_scimitar');
-    expect(p.equipment.body).toBe('iron_platebody');
+    expect(p.equipment.weapon).toBe('bronze_dagger'); // Veteran's Kit no longer gives gear
     expect(p.inventory.count('trout')).toBe(2);
     expect(p.inventory.count('prayer_potion')).toBe(1);
   });

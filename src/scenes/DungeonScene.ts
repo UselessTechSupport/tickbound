@@ -10,7 +10,7 @@ import { recipesFor } from '../data/recipes';
 import { UnlockKey, applyUnlock, nextUnlocks } from '../data/tools';
 import { ResourceNode } from '../entities/ResourceNode';
 import { MetaSave, loadMeta, saveMeta } from '../save/meta';
-import { nextRankCost, perkBlocker } from '../data/skillTree';
+import { ARMOURER_PERK, nextRankCost, perkBlocker } from '../data/skillTree';
 import { AttackType } from '../data/prayers';
 import { describeOptions, type MenuOption } from '../ui/ContextMenu';
 import { sfx } from '../audio/sfx';
@@ -184,6 +184,7 @@ export class DungeonScene extends Phaser.Scene {
   toCamp(): void {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
       camp: true, tools: this.meta.tools, slayerUnlocked: this.meta.slayerUnlocked,
+      armourerUnlocked: (this.meta.perks[ARMOURER_PERK] ?? 0) > 0,
     }));
   }
 
@@ -238,6 +239,12 @@ export class DungeonScene extends Phaser.Scene {
     this.meta.perks[id] = (this.meta.perks[id] ?? 0) + 1;
     saveMeta(this.meta);
     sfx.play('buy');
+    if (id === ARMOURER_PERK) {
+      this.state.addCampNpc('armourer');
+      this.onFloorChanged(); // redraw the camp and its name labels
+      this.state.message('The Armourer has set up shop at camp!');
+      this.bus.emit('notice', { kind: 'unlock', name: 'The Armourer has set up shop at camp!' });
+    }
     return true;
   }
 
