@@ -8,6 +8,7 @@ import { MAX_LEVEL, xpForLevel } from '../systems/xp';
 import { TOOL_TIERS, nextUnlocks } from '../data/tools';
 import { PRAYERS, PROTECTION_HOTKEYS } from '../data/prayers';
 import { SPELLS, SPELL_BY_ID } from '../data/spells';
+import { RELIC_BY_ID } from '../data/relics';
 import { ensureItemTexture } from '../render/sprites';
 import { sfx } from '../audio/sfx';
 
@@ -89,6 +90,8 @@ export class UIScene extends Phaser.Scene {
   private soundText!: Phaser.GameObjects.Text;
   private toolText!: Phaser.GameObjects.Text;
   private modal!: Phaser.GameObjects.Container;
+  private relicPanel!: Phaser.GameObjects.Container;
+  private relicText!: Phaser.GameObjects.Text;
   private modalKind: 'mentor' | 'toolsmith' | null = null;
   private minimap!: Phaser.GameObjects.Graphics;
   private minimapRect = new Phaser.Geom.Rectangle();
@@ -124,6 +127,7 @@ export class UIScene extends Phaser.Scene {
     bus.on('levelup', () => this.cameras.main.flash(250, 255, 255, 160));
     bus.on('death', () => this.deathOverlay.setVisible(true));
     bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
+    bus.on('relicChoice', () => this.showRelicChoice());
     this.input.keyboard?.on('keydown-ESC', () => this.closeModal());
     this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
     this.input.keyboard?.on('keydown-R', () => this.dungeon.setRunning(!this.dungeon.running));
@@ -132,6 +136,7 @@ export class UIScene extends Phaser.Scene {
     });
     bus.on('newrun', () => {
       this.deathOverlay?.setVisible(false);
+      this.relicPanel?.setVisible(false);
       if (this.modal) this.closeModal();
       this.drawMinimap();
     });
@@ -150,7 +155,7 @@ export class UIScene extends Phaser.Scene {
     if (x >= this.panelX) return true;
     if (x < CHAT_W && y > this.scale.height - CHAT_H) return true;
     if (this.minimapRect.contains(x, y)) return true;
-    return (this.deathOverlay?.visible ?? false) || this.modal?.visible;
+    return (this.deathOverlay?.visible ?? false) || this.modal?.visible || this.relicPanel?.visible;
   }
 
   openMenu(x: number, y: number, options: MenuOption[]): void {
@@ -335,10 +340,50 @@ export class UIScene extends Phaser.Scene {
     this.deathOverlay.setData('stats', stats);
     root.add(this.deathOverlay);
 
+    // ---- Relics owned (under the hover text) and the relic choice window ----
+    this.relicText = this.add.text(8, 24, '', { ...FONT, fontSize: '11px', color: '#ffd040', stroke: '#000000', strokeThickness: 3 });
+    root.add(this.relicText);
+    this.relicPanel = this.add.container(0, 0).setDepth(35).setVisible(false);
+    root.add(this.relicPanel);
+    if (this.state?.pendingRelics) this.showRelicChoice();
+
     // ---- Camp windows (Toolsmith shop, Mentor skill tree) ----
     this.modal = this.add.container(0, 0).setDepth(30).setVisible(false);
     root.add(this.modal);
     if (this.modalKind) this.openModal(this.modalKind);
+  }
+
+  /** Pick 1 of 3 relics; the game is paused until you choose. */
+  private showRelicChoice(): void {
+    const options = this.state.pendingRelics;
+    this.relicPanel.removeAll(true);
+    if (!options) {
+      this.relicPanel.setVisible(false);
+      return;
+    }
+    this.relicPanel.setVisible(true);
+    const W = this.panelX;
+    const H = this.scale.height;
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.relicPanel.add(o), o);
+    add(this.add.rectangle(0, 0, W, H, 0x000000, 0.75).setOrigin(0).setInteractive());
+    add(this.add.text(W / 2, H / 2 - 150, 'Choose a relic', { ...FONT, fontSize: '24px', color: '#ff981f' }).setOrigin(0.5));
+    add(this.add.text(W / 2, H / 2 - 120, 'It lasts for the rest of this run. The game is paused.', { ...FONT, color: '#c8c8c8' }).setOrigin(0.5));
+    const cardW = Math.min(240, (W - 60) / options.length - 16);
+    options.forEach((id, i) => {
+      const r = RELIC_BY_ID[id];
+      const x = W / 2 + (i - (options.length - 1) / 2) * (cardW + 16);
+      const card = add(this.add.rectangle(x, H / 2, cardW, 170, 0x2e271e).setStrokeStyle(2, r.color).setInteractive({ useHandCursor: true }));
+      add(this.add.text(x, H / 2 - 60, r.name, { ...FONT, fontSize: '15px', color: Phaser.Display.Color.IntegerToColor(r.color).rgba }).setOrigin(0.5));
+      add(this.add.text(x, H / 2 + 5, r.desc, {
+        ...FONT, color: '#ffffff', align: 'center', wordWrap: { width: cardW - 20 },
+      }).setOrigin(0.5));
+      card.on('pointerover', () => card.setFillStyle(0x4a3f2a));
+      card.on('pointerout', () => card.setFillStyle(0x2e271e));
+      card.on('pointerdown', () => {
+        this.state.chooseRelic(id);
+        this.showRelicChoice();
+      });
+    });
   }
 
   openModal(kind: 'mentor' | 'toolsmith'): void {
@@ -702,6 +747,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     this.updateTooltip();
+    this.relicText.setText(g.relics.length ? `Relics: ${g.relics.map((r) => RELIC_BY_ID[r].name).join(', ')}` : '');
     this.soundText.setText(`H: help   M: sound ${sfx.muted ? 'off' : 'on'}`);
     this.chat.setText(this.fitChat(g.messages));
 

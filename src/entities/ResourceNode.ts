@@ -3,7 +3,7 @@ import { Station } from '../data/recipes';
 import { Point } from '../world/tiles';
 
 /** Non-resource node kinds: crafting stations, altars, and camp NPCs. */
-export type FixtureKind = Station | 'altar' | 'mentor' | 'toolsmith';
+export type FixtureKind = Station | 'altar' | 'mentor' | 'toolsmith' | 'shrine';
 export type NodeKind = 'resource' | FixtureKind;
 
 /** A blocking world object the player interacts with: a resource or a crafting station. */
@@ -12,6 +12,8 @@ export class ResourceNode {
   remaining = 0;
   /** Tick at which a player-lit fire burns out; undefined = permanent. */
   expiresAt?: number;
+  /** Relic shrines work once. */
+  used = false;
 
   constructor(
     public pos: Point,
@@ -28,7 +30,7 @@ export class ResourceNode {
       if (!this.depleted) return this.def.name;
       return this.def.kind === 'rock' ? 'Rocks' : this.def.kind === 'tree' ? 'Tree stump' : 'Still water';
     }
-    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith' }[this.kind as FixtureKind];
+    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine' }[this.kind as FixtureKind];
   }
 
   get examine(): string {
@@ -44,6 +46,7 @@ export class ResourceNode {
       altar: 'An altar to the gods. Pray here to recharge your Prayer.',
       mentor: 'A grizzled dungeoneer. Maybe they can teach me a thing or two.',
       toolsmith: 'Makes and sells tools for the dungeon.',
+      shrine: this.used ? 'Its power is spent.' : 'Something ancient and powerful slumbers here.',
     }[this.kind as FixtureKind];
   }
 }
