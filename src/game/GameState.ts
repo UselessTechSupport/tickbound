@@ -2,6 +2,7 @@ import { RNG } from 'rot-js';
 import { EAT_DELAY, FOV_RADIUS, XP_RATE } from '../data/balance';
 import { PerkRanks, RunMods, computeMods } from '../data/skillTree';
 import { xpForLevel } from '../systems/xp';
+import type { SoundName } from '../audio/sfx';
 import { generateCamp } from '../world/camp';
 import { item } from '../data/items';
 import { Recipe } from '../data/recipes';
@@ -29,6 +30,7 @@ export type GameEvent =
   | { type: 'floor'; depth: number }
   | { type: 'death' }
   | { type: 'enterDungeon' }
+  | { type: 'sound'; name: SoundName }
   | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
@@ -131,7 +133,7 @@ export class GameState {
     p.prev = { ...map.spawn };
     this.updateFov();
     this.message('You are at camp. Talk to the Mentor to learn perks, or the Toolsmith for tools.');
-    this.message('Climb down the ladder when you are ready to enter the dungeon.');
+    this.message('Climb down the ladder when you are ready to enter the dungeon. Press H for controls.');
     this.emit({ type: 'floor', depth: 0 });
   }
 
@@ -165,6 +167,11 @@ export class GameState {
     const boss = this.npcs.find((n) => n.isBoss);
     if (boss) this.message(`You sense a powerful presence guarding the stairs: ${boss.name}.`);
     this.emit({ type: 'floor', depth });
+  }
+
+  /** Asks the renderer to play a sound effect (the rules stay audio-free). */
+  sound(name: SoundName): void {
+    this.emit({ type: 'sound', name });
   }
 
   message(text: string): void {
@@ -244,7 +251,10 @@ export class GameState {
     if (this.over) return;
     const p = this.player;
     const def = PRAYER_BY_ID[id];
-    if (p.activePrayers.delete(id)) return;
+    if (p.activePrayers.delete(id)) {
+      this.sound('prayerOff');
+      return;
+    }
     if (p.skills.level('prayer') < def.level) {
       this.message(`You need a Prayer level of ${def.level} to use ${def.name}.`);
       return;
@@ -257,6 +267,7 @@ export class GameState {
       if (PRAYER_BY_ID[other].group === def.group) p.activePrayers.delete(other);
     }
     p.activePrayers.add(id);
+    this.sound('prayerOn');
   }
 
   setStyle(style: AttackStyle): void {
@@ -279,6 +290,7 @@ export class GameState {
       p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + potionRestore(p.maxPrayer));
       p.eatCooldown = EAT_DELAY;
       this.message('You drink the prayer potion.');
+      this.sound('eat');
     } else if (def.heal) {
       if (p.eatCooldown > 0) return;
       p.inventory.take(slot, 1);
@@ -286,9 +298,11 @@ export class GameState {
       p.eatCooldown = EAT_DELAY;
       p.attackCooldown += EAT_DELAY;
       this.message(`You eat the ${def.name.toLowerCase()}. It heals some health.`);
+      this.sound('eat');
     } else if (def.buryXp) {
       p.inventory.take(slot, 1);
       this.message('You bury the bones.');
+      this.sound('bury');
       this.giveXp('prayer', def.buryXp);
     } else if (def.equip) {
       const req = def.equip.req;
@@ -382,6 +396,7 @@ export class GameState {
       p.activePrayers.clear();
       p.prayerDrain = 0;
       this.message('You have run out of prayer points, you can recharge at an altar.');
+      this.sound('prayerOff');
     }
   }
 
@@ -573,6 +588,7 @@ export class GameState {
       return;
     }
     this.groundItems.splice(this.groundItems.indexOf(g), 1);
+    this.sound('pickup');
   }
 
   private playerAttack(npc: Npc): void {

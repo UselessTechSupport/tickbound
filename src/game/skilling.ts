@@ -57,6 +57,7 @@ export function gatherRoll(g: GameState, node: ResourceNode): boolean {
   if (RNG.getUniform() >= gatherChance(p.skills.level(def.skill), def, toolTier(p, def), g.mods.gatherBonus)) return true;
 
   p.inventory.add(def.product);
+  g.sound(def.kind === 'rock' ? 'mine' : def.kind === 'tree' ? 'chop' : 'fish');
   if (RNG.getUniform() < g.mods.doubleResourceChance && p.inventory.canAdd(def.product)) {
     p.inventory.add(def.product);
     g.message('Rich Veins: you gather an extra one!');
@@ -108,10 +109,12 @@ export function processStep(g: GameState, recipe: Recipe): void {
 
   if (recipe.station === 'fire' && RNG.getUniform() < burnChance(p.skills.level('cooking'), recipe) * g.mods.burnMult) {
     p.inventory.add('burnt_fish');
+    g.sound('burn');
     g.message(`You accidentally burn the ${what}.`);
     return;
   }
   p.inventory.add(recipe.output);
+  g.sound(recipe.station === 'fire' ? 'cook' : 'smith');
   if (recipe.station === 'anvil' && RNG.getUniform() < g.mods.saveBarChance) {
     p.inventory.add(recipe.inputs[0].item);
     g.message('Master Smith: you save a bar!');
