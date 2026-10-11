@@ -44,6 +44,8 @@ npm run dev        # then open http://localhost:5173
   (lifesteal, recoil, auto-burying bones, bonus XP and more). The game pauses while you choose.
 - **Merchants & chests**: some floors have a wandering merchant (buy supplies and gear, sell loot; the game pauses
   while trading) and treasure chests. Careful: about 1 in 10 chests from floor 3 down is a Mimic.
+- **Forfeit** any time with the [Forfeit run] button (bottom of the side panel); it asks first and banks tokens the
+  same as dying.
 - **Death** ends the run and banks tokens: 15 per floor, 1 per kill, 25 per boss, plus carried coins.
 
 ## Development

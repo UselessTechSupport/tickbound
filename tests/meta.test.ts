@@ -102,3 +102,23 @@ describe('camp', () => {
     expect(events.some((e) => e.type === 'enterDungeon')).toBe(true);
   });
 });
+
+describe('forfeit', () => {
+  it('ends the run and banks tokens like a death, but not in camp', () => {
+    const events: GameEvent[] = [];
+    const camp = new GameState(7, (e) => events.push(e), { camp: true });
+    camp.forfeit();
+    expect(camp.over).toBe(false);
+
+    const g = new GameState(8, (e) => events.push(e));
+    g.kills = 12;
+    const tokens = g.tokensEarned;
+    g.forfeit();
+    expect(g.over).toBe(true);
+    expect(g.forfeited).toBe(true);
+    expect(g.tokensEarned).toBe(tokens);
+    expect(events.some((e) => e.type === 'death')).toBe(true);
+    g.tick(); // nothing happens after the run ends
+    expect(g.tickCount).toBe(0);
+  });
+});

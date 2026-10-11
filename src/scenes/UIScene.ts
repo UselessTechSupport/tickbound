@@ -95,6 +95,9 @@ export class UIScene extends Phaser.Scene {
   private chat!: Phaser.GameObjects.Text;
   private runButton!: Phaser.GameObjects.Text;
   private soundText!: Phaser.GameObjects.Text;
+  private forfeitButton!: Phaser.GameObjects.Text;
+  private forfeitConfirm?: Phaser.GameObjects.Container;
+  private deathTitle!: Phaser.GameObjects.Text;
   private shiftKey?: Phaser.Input.Keyboard.Key;
   private toolText!: Phaser.GameObjects.Text;
   private modal!: Phaser.GameObjects.Container;
@@ -136,7 +139,10 @@ export class UIScene extends Phaser.Scene {
     bus.on('death', () => this.deathOverlay.setVisible(true));
     bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
     bus.on('relicChoice', () => this.showRelicChoice());
-    this.input.keyboard?.on('keydown-ESC', () => this.closeModal());
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.forfeitConfirm) this.closeForfeitConfirm();
+      else this.closeModal();
+    });
     this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
@@ -165,7 +171,7 @@ export class UIScene extends Phaser.Scene {
     if (x >= this.panelX) return true;
     if (x < CHAT_W && y > this.scale.height - CHAT_H) return true;
     if (this.minimapRect.contains(x, y)) return true;
-    return (this.deathOverlay?.visible ?? false) || this.modal?.visible || this.relicPanel?.visible;
+    return (this.deathOverlay?.visible ?? false) || this.modal?.visible || this.relicPanel?.visible || !!this.forfeitConfirm;
   }
 
   openMenu(x: number, y: number, options: MenuOption[]): void {
@@ -174,6 +180,8 @@ export class UIScene extends Phaser.Scene {
 
   private build(): void {
     this.menu?.close();
+    // Rebuilding destroys every UI object; a dialog left open on resize just closes.
+    this.forfeitConfirm = undefined;
     this.root?.destroy(true);
     this.styleButtons.clear();
     this.skillViews.clear();
@@ -310,6 +318,11 @@ export class UIScene extends Phaser.Scene {
     root.add(this.bossBar);
 
     this.soundText = this.add.text(W - 8, H - 4, '', { ...FONT, fontSize: '10px', color: '#a08a5a' }).setOrigin(1, 1);
+    this.forfeitButton = this.add.text(px + 8, H - 4, '[Forfeit run]', { ...FONT, fontSize: '10px', color: '#d06060' })
+      .setOrigin(0, 1).setInteractive({ useHandCursor: true });
+    this.forfeitButton.on('pointerdown', () => this.showForfeitConfirm());
+    this.hoverable(this.forfeitButton, () => 'End this run now and bank your tokens');
+    root.add(this.forfeitButton);
     root.add(this.soundText);
 
     // ---- Minimap (top-right of the game view) ----
@@ -345,6 +358,7 @@ export class UIScene extends Phaser.Scene {
     const gameW = this.panelX;
     const dim = this.add.rectangle(0, 0, gameW, H, 0x000000, 0.75).setOrigin(0).setInteractive();
     const title = this.add.text(gameW / 2, H / 2 - 80, 'Oh dear, you are dead!', { ...FONT, fontSize: '28px', color: '#ff3030' }).setOrigin(0.5);
+    this.deathTitle = title;
     const stats = this.add.text(gameW / 2, H / 2 - 20, '', { ...FONT, fontSize: '15px', color: '#ffffff', align: 'center', lineSpacing: 4 }).setOrigin(0.5);
     const back = this.add.text(gameW / 2, H / 2 + 50, '[ Return to camp ]', {
       ...FONT, fontSize: '18px', backgroundColor: '#2a241c', padding: { x: 14, y: 8 },
@@ -402,7 +416,43 @@ export class UIScene extends Phaser.Scene {
 
   /** True while a window is open that should pause the game. */
   get pausesGame(): boolean {
-    return !!this.modalKind;
+    return !!this.modalKind || !!this.forfeitConfirm;
+  }
+
+  /** Confirmation before forfeiting, so a stray click can't end a run. Pauses the game. */
+  private showForfeitConfirm(): void {
+    const g = this.state;
+    if (g.over || g.isCamp) return;
+    this.forfeitConfirm?.destroy(true);
+    const W = this.panelX;
+    const H = this.scale.height;
+    const dim = this.add.rectangle(0, 0, W, H, 0x000000, 0.7).setOrigin(0).setInteractive();
+    const box = this.add.rectangle(W / 2, H / 2, 420, 170, 0x2e271e).setStrokeStyle(2, 0xd06060);
+    const title = this.add.text(W / 2, H / 2 - 52, 'Forfeit this run?', { ...FONT, fontSize: '20px', color: '#ff6060' }).setOrigin(0.5);
+    const info = this.add.text(W / 2, H / 2 - 12, `You'll bank ${g.tokensEarned} Dungeoneering tokens,\nthe same as dying here.`, {
+      ...FONT, color: '#ffffff', align: 'center',
+    }).setOrigin(0.5);
+    const button = (x: number, label: string, color: string, onClick: () => void) => {
+      const b = this.add.text(x, H / 2 + 45, label, { ...FONT, fontSize: '15px', color, backgroundColor: '#3e3529', padding: { x: 12, y: 6 } })
+        .setOrigin(0.5).setInteractive({ useHandCursor: true });
+      b.on('pointerover', () => b.setBackgroundColor('#5d5447'));
+      b.on('pointerout', () => b.setBackgroundColor('#3e3529'));
+      b.on('pointerdown', onClick);
+      return b;
+    };
+    const close = () => this.closeForfeitConfirm();
+    const yes = button(W / 2 - 80, 'Forfeit', '#ff6060', () => {
+      close();
+      this.state.forfeit();
+    });
+    const no = button(W / 2 + 80, 'Keep playing', '#ffffff', close);
+    this.forfeitConfirm = this.add.container(0, 0, [dim, box, title, info, yes, no]).setDepth(40);
+    this.root.add(this.forfeitConfirm);
+  }
+
+  private closeForfeitConfirm(): void {
+    this.forfeitConfirm?.destroy(true);
+    this.forfeitConfirm = undefined;
   }
 
   openModal(kind: ModalKind): void {
@@ -880,6 +930,8 @@ export class UIScene extends Phaser.Scene {
     if (this.tab === 'gear') this.updateGear();
     this.relicText.setText(g.relics.length ? `Relics: ${g.relics.map((r) => RELIC_BY_ID[r].name).join(', ')}` : '');
     this.soundText.setText(`H: help   M: sound ${sfx.muted ? 'off' : 'on'}`);
+    this.forfeitButton.setVisible(!g.isCamp && !g.over);
+    this.deathTitle.setText(g.forfeited ? 'Run forfeited' : 'Oh dear, you are dead!').setColor(g.forfeited ? '#ff981f' : '#ff3030');
     this.chat.setText(this.fitChat(g.messages));
 
     if (g.over) {
