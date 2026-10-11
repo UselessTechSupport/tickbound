@@ -1,12 +1,22 @@
 import { SkillName } from './skills';
 
-export type EquipSlot = 'weapon' | 'body' | 'shield';
+export type EquipSlot = 'weapon' | 'body' | 'shield' | 'ammo';
 
 export interface EquipStats {
   slot: EquipSlot;
   attackBonus: number;
   strengthBonus: number;
   defenceBonus: number;
+  rangedBonus?: number;
+  /** Arrows: adds to ranged max hit. */
+  rangedStrength?: number;
+  magicBonus?: number;
+  /** Bows fire arrows; staffs cast spells. Anything else is melee. */
+  combatStyle?: 'ranged' | 'magic';
+  /** Tiles; ranged and magic weapons only. */
+  attackRange?: number;
+  /** Elemental staffs supply unlimited runes of this type. */
+  providesRune?: string;
   /** Weapon attack interval in ticks. */
   attackSpeed?: number;
   req?: { skill: SkillName; level: number };
@@ -30,14 +40,35 @@ const weapon = (attackBonus: number, strengthBonus: number, level: number): Equi
   slot: 'weapon', attackBonus, strengthBonus, defenceBonus: 0, attackSpeed: 4,
   req: level > 1 ? { skill: 'attack', level } : undefined,
 });
+/** Plate and metal shields hamper spellcasting and archery, as in OSRS. */
 const body = (defenceBonus: number, level: number): EquipStats => ({
-  slot: 'body', attackBonus: 0, strengthBonus: 0, defenceBonus,
+  slot: 'body', attackBonus: 0, strengthBonus: 0, defenceBonus, magicBonus: -20, rangedBonus: -8,
   req: level > 1 ? { skill: 'defence', level } : undefined,
 });
 
 const shield = (defenceBonus: number, level: number): EquipStats => ({
-  slot: 'shield', attackBonus: 0, strengthBonus: 0, defenceBonus,
+  slot: 'shield', attackBonus: 0, strengthBonus: 0, defenceBonus, magicBonus: -8, rangedBonus: -2,
   req: level > 1 ? { skill: 'defence', level } : undefined,
+});
+
+const bow = (rangedBonus: number, level: number): EquipStats => ({
+  slot: 'weapon', attackBonus: 0, strengthBonus: 0, defenceBonus: 0, rangedBonus, combatStyle: 'ranged',
+  attackSpeed: 4, attackRange: 7, req: level > 1 ? { skill: 'ranged', level } : undefined,
+});
+
+const arrows = (rangedStrength: number, level: number): EquipStats => ({
+  slot: 'ammo', attackBonus: 0, strengthBonus: 0, defenceBonus: 0, rangedStrength,
+  req: level > 1 ? { skill: 'ranged', level } : undefined,
+});
+
+const staff = (magicBonus: number, level: number, providesRune?: string): EquipStats => ({
+  slot: 'weapon', attackBonus: 2, strengthBonus: 2, defenceBonus: 2, magicBonus, combatStyle: 'magic',
+  attackSpeed: 5, attackRange: 8, providesRune, req: level > 1 ? { skill: 'magic', level } : undefined,
+});
+
+const robe = (magicBonus: number, rangedBonus: number, defenceBonus: number, skill: SkillName, level: number): EquipStats => ({
+  slot: 'body', attackBonus: 0, strengthBonus: 0, defenceBonus, magicBonus, rangedBonus,
+  req: level > 1 ? { skill, level } : undefined,
 });
 
 const BRONZE = 0x9c6b3c, IRON = 0x7d7d7d, STEEL = 0xa8a8b0, MITHRIL = 0x4a5a9c, ADAMANT = 0x4a7c4a, RUNE = 0x4fb3c4;
@@ -73,7 +104,40 @@ const list: ItemDef[] = [
   { id: 'mithril_kiteshield', name: 'Mithril kiteshield', color: MITHRIL, equip: shield(22, 20), examine: 'A large metal shield.' },
   { id: 'adamant_kiteshield', name: 'Adamant kiteshield', color: ADAMANT, equip: shield(31, 30), examine: 'A large metal shield.' },
   { id: 'rune_kiteshield', name: 'Rune kiteshield', color: RUNE, equip: shield(44, 40), examine: 'A large metal shield.' },
-  { id: 'wooden_shield', name: 'Wooden shield', color: 0x7a5230, equip: shield(5, 1), examine: 'A solid wooden shield.' },
+  { id: 'wooden_shield', name: 'Wooden shield', color: 0x7a5230, equip: { ...shield(5, 1), magicBonus: 0, rangedBonus: 0 }, examine: 'A solid wooden shield.' },
+
+  // Ranged
+  { id: 'shortbow', name: 'Shortbow', color: 0xc89858, equip: bow(8, 1), examine: 'A nice sturdy bow.' },
+  { id: 'oak_shortbow', name: 'Oak shortbow', color: 0xd0a060, equip: bow(14, 5), examine: 'A shortbow made out of oak.' },
+  { id: 'willow_shortbow', name: 'Willow shortbow', color: 0xc8c070, equip: bow(20, 20), examine: 'A shortbow made out of willow.' },
+  { id: 'maple_shortbow', name: 'Maple shortbow', color: 0xe08850, equip: bow(29, 30), examine: 'A shortbow made out of maple.' },
+  { id: 'yew_shortbow', name: 'Yew shortbow', color: 0xb07050, equip: bow(47, 40), examine: 'A shortbow made out of yew.' },
+  { id: 'bronze_arrow', name: 'Bronze arrow', color: BRONZE, stackable: true, equip: arrows(7, 1), examine: 'Arrows with bronze heads.' },
+  { id: 'iron_arrow', name: 'Iron arrow', color: IRON, stackable: true, equip: arrows(10, 1), examine: 'Arrows with iron heads.' },
+  { id: 'steel_arrow', name: 'Steel arrow', color: STEEL, stackable: true, equip: arrows(16, 5), examine: 'Arrows with steel heads.' },
+  { id: 'mithril_arrow', name: 'Mithril arrow', color: MITHRIL, stackable: true, equip: arrows(22, 20), examine: 'Arrows with mithril heads.' },
+  { id: 'adamant_arrow', name: 'Adamant arrow', color: ADAMANT, stackable: true, equip: arrows(31, 30), examine: 'Arrows with adamant heads.' },
+  { id: 'rune_arrow', name: 'Rune arrow', color: RUNE, stackable: true, equip: arrows(49, 40), examine: 'Arrows with rune heads.' },
+  { id: 'leather_body', name: 'Leather body', color: 0x8a5a2a, equip: robe(0, 2, 8, 'defence', 1), examine: 'Better than no armour!' },
+  { id: 'green_dhide_body', name: "Green d'hide body", color: 0x3a8a3a, equip: robe(-15, 15, 30, 'ranged', 40), examine: 'Made from 100% real dragonhide.' },
+
+  // Magic
+  { id: 'staff', name: 'Staff', color: 0x6a4a2a, equip: staff(6, 1), examine: "It's a slightly magical stick." },
+  { id: 'staff_of_air', name: 'Staff of air', color: 0xe0e0f0, equip: staff(10, 1, 'air_rune'), examine: 'A magical staff that provides unlimited air runes.' },
+  { id: 'staff_of_water', name: 'Staff of water', color: 0x5080ff, equip: staff(10, 1, 'water_rune'), examine: 'A magical staff that provides unlimited water runes.' },
+  { id: 'staff_of_earth', name: 'Staff of earth', color: 0x9a7a4a, equip: staff(10, 1, 'earth_rune'), examine: 'A magical staff that provides unlimited earth runes.' },
+  { id: 'staff_of_fire', name: 'Staff of fire', color: 0xff6030, equip: staff(10, 1, 'fire_rune'), examine: 'A magical staff that provides unlimited fire runes.' },
+  { id: 'mystic_air_staff', name: 'Mystic air staff', color: 0xe8e8ff, equip: staff(18, 40, 'air_rune'), examine: 'It is a slightly magical stick of air.' },
+  { id: 'mystic_fire_staff', name: 'Mystic fire staff', color: 0xff7040, equip: staff(18, 40, 'fire_rune'), examine: 'It is a slightly magical stick of fire.' },
+  { id: 'wizard_robe', name: 'Wizard robe', color: 0x3a4aa0, equip: robe(5, 0, 2, 'magic', 1), examine: 'I can do magic better in this.' },
+  { id: 'mystic_robe_top', name: 'Mystic robe top', color: 0x5a5ad0, equip: robe(20, 0, 14, 'magic', 30), examine: 'The upper half of a magical robe.' },
+  { id: 'air_rune', name: 'Air rune', color: 0xe0e0f0, stackable: true, examine: 'One of the 4 basic elemental runes.' },
+  { id: 'water_rune', name: 'Water rune', color: 0x4070ff, stackable: true, examine: 'One of the 4 basic elemental runes.' },
+  { id: 'earth_rune', name: 'Earth rune', color: 0x8a6a3a, stackable: true, examine: 'One of the 4 basic elemental runes.' },
+  { id: 'fire_rune', name: 'Fire rune', color: 0xff5020, stackable: true, examine: 'One of the 4 basic elemental runes.' },
+  { id: 'mind_rune', name: 'Mind rune', color: 0xe08030, stackable: true, examine: 'Used for basic level missile spells.' },
+  { id: 'chaos_rune', name: 'Chaos rune', color: 0xe0c030, stackable: true, examine: 'Used for medium level missile spells.' },
+  { id: 'death_rune', name: 'Death rune', color: 0xd0d0d0, stackable: true, examine: 'Used for high level missile spells.' },
 
   { id: 'prayer_potion', name: 'Prayer potion', color: 0x40c0b0, restoresPrayer: true, examine: 'A potion that restores prayer points.' },
 

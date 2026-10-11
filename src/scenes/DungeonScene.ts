@@ -325,7 +325,8 @@ export class DungeonScene extends Phaser.Scene {
     if (npc && g.isVisible(t.x, t.y)) {
       const name = `${npc.name} (level-${npc.level})`;
       opts.push({ label: `Attack ${name}`, action: () => { g.attack(npc); this.destMarker.setVisible(false); } });
-      examines.push({ label: `Examine ${npc.name}`, action: () => g.message(npc.def.examine) });
+      const weak = npc.def.weakness ? ` It looks weak to ${npc.def.weakness === 'melee' ? 'melee' : npc.def.weakness}.` : '';
+      examines.push({ label: `Examine ${npc.name}`, action: () => g.message(npc.def.examine + weak) });
     }
     for (const gi of [...g.itemsAt(t.x, t.y)].reverse()) {
       const def = item(gi.id);

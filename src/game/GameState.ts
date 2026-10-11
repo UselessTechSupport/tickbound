@@ -11,7 +11,9 @@ import { ResourceNode } from '../entities/ResourceNode';
 import { gatherBlocker, gatherRoll, gatherStartMessage, processBlocker, processStep, PROCESS_TICKS } from './skilling';
 import { placeResources } from '../world/resources';
 import { SKILL_LABELS, SkillName } from '../data/skills';
-import { AttackType, DRAIN_RESISTANCE, PRAYER_BY_ID, potionRestore } from '../data/prayers';
+import { AttackType, DRAIN_RESISTANCE, PRAYER_BY_ID, PrayerGroup, potionRestore } from '../data/prayers';
+import { SPELLS, SPELL_BY_ID, SpellDef } from '../data/spells';
+import { WEAKNESS_PENALTY } from '../data/npcs';
 import { Actor } from '../entities/Actor';
 import { GroundItem } from '../entities/GroundItem';
 import { Npc } from '../entities/Npc';
@@ -311,11 +313,30 @@ export class GameState {
         this.message(`You need a ${SKILL_LABELS[req.skill]} level of ${req.level} to wield this.`);
         return;
       }
+      if (def.equip.slot === 'ammo') {
+        this.equipAmmo(slot);
+        return;
+      }
       p.inventory.take(slot);
       const old = p.equipment[def.equip.slot];
       p.equipment[def.equip.slot] = def.id;
       if (old) p.inventory.slots[slot] = { id: old, qty: 1 };
     }
+  }
+
+  /** Moves a whole arrow stack into the quiver, swapping out different arrows. */
+  private equipAmmo(slot: number): void {
+    const p = this.player;
+    const stack = p.inventory.take(slot)!;
+    if (p.equipment.ammo === stack.id) {
+      p.ammo += stack.qty;
+      return;
+    }
+    const old = p.equipment.ammo;
+    const oldQty = p.ammo;
+    p.equipment.ammo = stack.id;
+    p.ammo = stack.qty;
+    if (old) p.inventory.add(old, oldQty);
   }
 
   private lightFire(slot: number): void {
@@ -344,11 +365,12 @@ export class GameState {
     const p = this.player;
     const id = p.equipment[slot];
     if (!id) return;
-    if (!p.inventory.add(id)) {
+    if (!p.inventory.add(id, slot === 'ammo' ? p.ammo : 1)) {
       this.message("You don't have enough inventory space to do that.");
       return;
     }
     delete p.equipment[slot];
+    if (slot === 'ammo') p.ammo = 0;
   }
 
   dropItem(slot: number): void {
@@ -443,18 +465,28 @@ export class GameState {
     this.player.running = on;
   }
 
-  /** Moves the player toward a tile cardinally adjacent to `target`. */
-  private approach(target: Point): 'adjacent' | 'moving' | 'unreachable' {
+  /**
+   * Moves the player toward a tile cardinally adjacent to `target`.
+   * `stopWhen` lets ranged attackers halt mid-run once they're in range.
+   */
+  private approach(target: Point, stopWhen?: () => boolean): 'adjacent' | 'moving' | 'unreachable' {
     const p = this.player;
     if (cardinalAdjacent(p.pos, target)) return 'adjacent';
     p.path = this.pathToAdjacent(target);
     if (!p.path.length) return 'unreachable';
     p.step();
-    if (p.running && p.path.length && !cardinalAdjacent(p.pos, target)) {
+    if (stopWhen) this.updateFov();
+    if (p.running && p.path.length && !cardinalAdjacent(p.pos, target) && !stopWhen?.()) {
       p.via = { ...p.pos };
       p.step();
     }
     return cardinalAdjacent(p.pos, target) ? 'adjacent' : 'moving';
+  }
+
+  /** In range of the player's weapon and in line of sight. */
+  private inAttackRange(npc: Npc): boolean {
+    const p = this.player;
+    return chebyshev(p.pos, npc.pos) <= p.attackRange && this.isVisible(npc.pos.x, npc.pos.y);
   }
 
   private processPlayer(): void {
@@ -468,6 +500,19 @@ export class GameState {
         const npc = intent.npc;
         if (npc.dead || !this.npcs.includes(npc)) {
           p.intent = null;
+          return;
+        }
+        if (p.attackRange > 1) {
+          // Bows and staffs: close in only until the target is in range and in sight.
+          if (!this.inAttackRange(npc)) {
+            const a = this.approach(npc.pos, () => this.inAttackRange(npc));
+            if (a === 'unreachable') {
+              this.message("I can't reach that!");
+              p.intent = null;
+              return;
+            }
+          }
+          if (this.inAttackRange(npc) && p.attackCooldown === 0) this.playerAttack(npc);
           return;
         }
         const a = this.approach(npc.pos);
@@ -614,22 +659,124 @@ export class GameState {
     const p = this.player;
     const b = p.bonuses();
     const s = p.skills;
-    const boosted = (skill: SkillName, group: 'attack' | 'strength' | 'defence') =>
+    const boosted = (skill: SkillName, group: PrayerGroup) =>
       Math.floor(s.level(skill) * (1 + p.prayerBoost(group)));
     const mult = this.mods.combatMult;
-    const attRoll = Math.floor(mult * roll(effectiveLevel(boosted('attack', 'attack'), p.style === 'accurate' ? 3 : 0), b.attack));
-    const defRoll = roll(npc.def.defence + 9, npc.def.defenceBonus);
-    const max = Math.floor(mult * maxHit(effectiveLevel(boosted('strength', 'strength'), p.style === 'aggressive' ? 3 : 0), b.strength));
+    const mode = p.weaponType;
+    const weakness = npc.def.weakness === mode ? WEAKNESS_PENALTY : 0;
+    const defRoll = roll(npc.def.defence + 9, Math.max(-63, npc.def.defenceBonus - weakness));
+    let attRoll: number;
+    let max: number;
+    let speed = b.speed;
+    let spell: SpellDef | undefined;
+
+    if (mode === 'ranged') {
+      if (!p.equipment.ammo || p.ammo <= 0) {
+        this.message('There is no ammo left in your quiver.');
+        p.intent = null;
+        return;
+      }
+      const eff = effectiveLevel(boosted('ranged', 'ranged'), p.style === 'accurate' ? 3 : 0);
+      attRoll = roll(eff, b.ranged);
+      max = maxHit(eff, b.rangedStrength);
+      if (p.style === 'aggressive') speed -= 1; // Rapid
+    } else if (mode === 'magic') {
+      const pick = this.pickSpell();
+      if (typeof pick === 'string') {
+        this.message(pick);
+        p.intent = null;
+        return;
+      }
+      spell = pick;
+      attRoll = roll(effectiveLevel(boosted('magic', 'magic'), 1), b.magic);
+      max = spell.maxHit;
+    } else {
+      attRoll = roll(effectiveLevel(boosted('attack', 'attack'), p.style === 'accurate' ? 3 : 0), b.attack);
+      max = maxHit(effectiveLevel(boosted('strength', 'strength'), p.style === 'aggressive' ? 3 : 0), b.strength);
+    }
+    attRoll = Math.floor(mult * attRoll);
+    max = Math.floor(mult * max);
     const dmg = Math.min(npc.hp, rollDamage(hitChance(attRoll, defRoll), max, rand));
 
-    p.attackCooldown = b.speed;
+    p.attackCooldown = speed;
+    if (mode === 'ranged') this.fireArrow(npc);
+    if (spell) this.castSpell(spell);
+    if (mode !== 'melee') this.emit({ type: 'projectile', from: { ...p.pos }, to: { ...npc.pos }, style: mode, ticks: 1 });
     this.applyHit(npc, dmg);
     npc.target = p;
-    if (dmg > 0) {
-      this.giveXp(STYLE_SKILL[p.style], 4 * dmg * XP_RATE);
-      this.giveXp('hitpoints', (4 / 3) * dmg * XP_RATE);
-    }
+    this.giveCombatXp(mode, dmg, spell);
     if (npc.dead) this.killNpc(npc);
+  }
+
+  private giveCombatXp(mode: 'melee' | 'ranged' | 'magic', dmg: number, spell?: SpellDef): void {
+    const p = this.player;
+    const defensive = p.style === 'defensive';
+    if (mode === 'melee') {
+      if (dmg > 0) this.giveXp(STYLE_SKILL[p.style], 4 * dmg * XP_RATE);
+    } else if (mode === 'ranged') {
+      if (dmg > 0) this.giveXp('ranged', (defensive ? 2 : 4) * dmg * XP_RATE);
+      if (dmg > 0 && defensive) this.giveXp('defence', 2 * dmg * XP_RATE);
+    } else {
+      // Spells give XP for the cast even on a splash, as in OSRS.
+      this.giveXp('magic', (spell!.baseXp + (defensive ? 1.33 : 2) * dmg) * XP_RATE);
+      if (dmg > 0 && defensive) this.giveXp('defence', dmg * XP_RATE);
+    }
+    if (dmg > 0) this.giveXp('hitpoints', (4 / 3) * dmg * XP_RATE);
+  }
+
+  /** Uses one arrow; it may land under the target to be picked up again. */
+  private fireArrow(npc: Npc): void {
+    const p = this.player;
+    const id = p.equipment.ammo!;
+    p.ammo--;
+    if (p.ammo <= 0) {
+      delete p.equipment.ammo;
+      this.message('You have run out of arrows.');
+    }
+    if (rand() < this.mods.arrowRecovery) this.dropOnTile(id, 1, npc.pos);
+  }
+
+  /** Adds to an existing stack on the tile when possible, so recovered arrows don't clutter. */
+  private dropOnTile(id: string, qty: number, pos: Point): void {
+    const existing = item(id).stackable && this.itemsAt(pos.x, pos.y).find((g) => g.id === id);
+    if (existing) existing.qty += qty;
+    else this.groundItems.push(new GroundItem(id, qty, { ...pos }));
+  }
+
+  /** Runes available for a spell: inventory plus unlimited from an elemental staff. */
+  runesFor(rune: string): number {
+    const w = this.player.equipment.weapon;
+    if (w && item(w).equip?.providesRune === rune) return Infinity;
+    return this.player.inventory.count(rune);
+  }
+
+  canCast(spell: SpellDef): string | null {
+    if (this.player.skills.level('magic') < spell.level) return `You need a Magic level of ${spell.level} to cast ${spell.name}.`;
+    if (Object.entries(spell.runes).some(([r, n]) => this.runesFor(r) < n)) return 'You do not have enough runes to cast this spell.';
+    return null;
+  }
+
+  /** The autocast spell, or the strongest castable one; a message string if none can be cast. */
+  private pickSpell(): SpellDef | string {
+    const p = this.player;
+    if (p.autocast) {
+      const chosen = SPELL_BY_ID[p.autocast];
+      return this.canCast(chosen) ?? chosen;
+    }
+    const best = [...SPELLS].reverse().find((s) => !this.canCast(s));
+    return best ?? 'You do not have enough runes to cast any combat spell.';
+  }
+
+  private castSpell(spell: SpellDef): void {
+    if (rand() < this.mods.runeSaveChance) return; // Arcane Thrift
+    for (const [rune, n] of Object.entries(spell.runes)) {
+      if (this.runesFor(rune) !== Infinity) this.player.inventory.remove(rune, n);
+    }
+  }
+
+  /** Choose the spell a staff autocasts; null = always the strongest available. */
+  setAutocast(spellId: string | null): void {
+    this.player.autocast = spellId;
   }
 
   private applyHit(target: Actor, dmg: number): void {
@@ -669,7 +816,8 @@ export class GameState {
       const level = p.skills.level(skill);
       if (skill === 'hitpoints') p.hp += p.maxHp - hpBefore;
       if (skill === 'prayer') p.prayerPoints += p.maxPrayer - prayerBefore;
-      this.message(`Congratulations, you just advanced a ${SKILL_LABELS[skill]} level. You are now level ${level}.`);
+      const label = SKILL_LABELS[skill];
+      this.message(`Congratulations, you just advanced ${/^[AEIOU]/.test(label) ? 'an' : 'a'} ${label} level. You are now level ${level}.`);
       this.emit({ type: 'levelup', skill, level });
     }
   }

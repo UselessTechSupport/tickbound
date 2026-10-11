@@ -25,8 +25,11 @@ export function rollDamage(chance: number, max: number, rand: () => number): num
   return Math.floor(rand() * (max + 1));
 }
 
-export function combatLevel(attack: number, strength: number, defence: number, hitpoints: number, prayer = 1): number {
+/** OSRS combat level: defensive base plus the best of melee, ranged or magic. */
+export function combatLevel(attack: number, strength: number, defence: number, hitpoints: number, prayer = 1, ranged = 1, magic = 1): number {
   const base = 0.25 * (defence + hitpoints + Math.floor(prayer / 2));
   const melee = 0.325 * (attack + strength);
-  return Math.floor(base + melee);
+  const range = 0.325 * Math.floor(ranged * 1.5);
+  const mage = 0.325 * Math.floor(magic * 1.5);
+  return Math.floor(base + Math.max(melee, range, mage));
 }

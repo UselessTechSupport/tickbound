@@ -36,6 +36,8 @@ npm run dev        # then open http://localhost:5173
   checked when the projectile *lands*, so you can switch in time. Bosses show their current style as a
   coloured outline (red melee, green ranged, blue magic). Recharge at altars, with potions, or partly on
   each descent.
+- **Combat styles**: melee, ranged (bows + arrows, which you can pick back up) or magic (staffs + runes, autocast from
+  the Magic tab). Monsters have weaknesses (examine them); plate armour hurts magic and ranged accuracy.
 - **Death** ends the run and banks tokens: 15 per floor, 1 per kill, 25 per boss, plus carried coins.
 
 ## Development

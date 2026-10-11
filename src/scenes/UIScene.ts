@@ -7,6 +7,7 @@ import { GameEvent, GameState } from '../game/GameState';
 import { MAX_LEVEL, xpForLevel } from '../systems/xp';
 import { TOOL_TIERS, nextUnlocks } from '../data/tools';
 import { PRAYERS, PROTECTION_HOTKEYS } from '../data/prayers';
+import { SPELLS, SPELL_BY_ID } from '../data/spells';
 import { ensureItemTexture } from '../render/sprites';
 import { sfx } from '../audio/sfx';
 
@@ -21,20 +22,30 @@ import { FLOOR_HEIGHT, FLOOR_WIDTH } from '../world/dungeonGen';
 import { Tile, tileAt } from '../world/tiles';
 import { PANEL_W, type DungeonScene } from './DungeonScene';
 
-const SLOT = 50;
+const SLOT = 48;
 const CHAT_W = 520;
 const CHAT_H = 132;
 const CHAT_LINES = 7;
 const MINIMAP_SCALE = 3;
 const SKILL_COL_W = 112;
-const SKILL_ROW_H = 21;
+const SKILL_ROW_H = 18;
 
 const FONT = { fontFamily: 'monospace', fontSize: '13px', color: '#ffff00' };
 const PANEL_BG = 0x3e3529;
 const PANEL_EDGE = 0x1c1812;
 
+type Tab = 'inventory' | 'prayer' | 'magic';
+const TABS: Array<[Tab, string]> = [['inventory', 'Inventory'], ['prayer', 'Prayer'], ['magic', 'Magic']];
+
+/** Style button labels and what each trains, per weapon type. */
+const STYLE_INFO: Record<'melee' | 'ranged' | 'magic', Array<[string, string]>> = {
+  melee: [['Accurate', 'Attack'], ['Aggressive', 'Strength'], ['Defensive', 'Defence']],
+  ranged: [['Accurate', 'Ranged, +accuracy'], ['Rapid', 'Ranged, attacks faster'], ['Longrange', 'Ranged + Defence, +2 range']],
+  magic: [['Autocast', 'Magic'], ['Autocast', 'Magic'], ['Def. cast', 'Magic + Defence']],
+};
+
 const SKILL_SHORT: Record<SkillName, string> = {
-  attack: 'Atk', strength: 'Str', defence: 'Def', hitpoints: 'HP', prayer: 'Pray',
+  attack: 'Atk', strength: 'Str', defence: 'Def', hitpoints: 'HP', ranged: 'Rng', magic: 'Mage', prayer: 'Pray',
   mining: 'Mine', woodcutting: 'WC', fishing: 'Fish', cooking: 'Cook', smithing: 'Smith',
 };
 
@@ -64,9 +75,11 @@ export class UIScene extends Phaser.Scene {
   private slots: SlotView[] = [];
   private prayerText!: Phaser.GameObjects.Text;
   private prayerBar!: Phaser.GameObjects.Rectangle;
-  private tab: 'inventory' | 'prayer' = 'inventory';
-  private tabButtons = new Map<'inventory' | 'prayer', Phaser.GameObjects.Text>();
-  private tabObjects: Record<'inventory' | 'prayer', Phaser.GameObjects.GameObject[]> = { inventory: [], prayer: [] };
+  private tab: Tab = 'inventory';
+  private tabButtons = new Map<Tab, Phaser.GameObjects.Text>();
+  private tabObjects: Record<Tab, Phaser.GameObjects.GameObject[]> = { inventory: [], prayer: [], magic: [] };
+  private spellCells = new Map<string, { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text }>();
+  private autocastText!: Phaser.GameObjects.Text;
   private prayerCells = new Map<string, { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text }>();
   private bossBar!: Phaser.GameObjects.Container;
   private bossName!: Phaser.GameObjects.Text;
@@ -191,14 +204,16 @@ export class UIScene extends Phaser.Scene {
     root.add(this.prayerBar);
     y += 16;
 
-    const styles: Array<[AttackStyle, SkillName]> = [['accurate', 'attack'], ['aggressive', 'strength'], ['defensive', 'defence']];
-    styles.forEach(([s, skill], i) => {
-      const label = s[0].toUpperCase() + s.slice(1);
-      const b = this.add.text(px + 10 + i * 73, y, label, {
+    const styles: AttackStyle[] = ['accurate', 'aggressive', 'defensive'];
+    styles.forEach((s, i) => {
+      const b = this.add.text(px + 10 + i * 73, y, '', {
         ...FONT, fontSize: '11px', backgroundColor: '#2a241c', padding: { x: 4, y: 3 }, fixedWidth: 68, align: 'center',
       }).setInteractive({ useHandCursor: true });
       b.on('pointerdown', (p: Phaser.Input.Pointer) => p.leftButtonDown() && this.state.setStyle(s));
-      this.hoverable(b, () => `Select ${label} (trains ${SKILL_LABELS[skill]})`);
+      this.hoverable(b, () => {
+        const [label, trains] = STYLE_INFO[this.state.player.weaponType][i];
+        return `Select ${label} (${trains})`;
+      });
       this.styleButtons.set(s, b);
       root.add(b);
     });
@@ -208,44 +223,45 @@ export class UIScene extends Phaser.Scene {
       const sx = px + 10 + (i % 2) * SKILL_COL_W;
       const sy = y + Math.floor(i / 2) * SKILL_ROW_H;
       const text = this.add.text(sx, sy, '', { ...FONT, fontSize: '12px', color: '#ffffff' });
-      const track = this.add.rectangle(sx, sy + 15, SKILL_COL_W - 14, 3, 0x1c1812).setOrigin(0);
-      const bar = this.add.rectangle(sx, sy + 15, 0, 3, 0x00b000).setOrigin(0);
+      const track = this.add.rectangle(sx, sy + 14, SKILL_COL_W - 14, 2, 0x1c1812).setOrigin(0);
+      const bar = this.add.rectangle(sx, sy + 14, 0, 2, 0x00b000).setOrigin(0);
       const hit = this.add.rectangle(sx, sy, SKILL_COL_W - 14, SKILL_ROW_H - 2, 0, 0).setOrigin(0).setInteractive();
       hit.on('pointerover', () => (this.hoveredSkill = s));
       hit.on('pointerout', () => this.hoveredSkill === s && (this.hoveredSkill = null));
       this.skillViews.set(s, { text, bar });
       root.add([text, track, bar, hit]);
     });
-    y += 5 * SKILL_ROW_H + 6;
+    y += Math.ceil(SKILLS.length / 2) * SKILL_ROW_H + 4;
 
-    (['weapon', 'body', 'shield'] as EquipSlot[]).forEach((slot, i) => {
-      const t = this.add.text(px + 10, y + i * 16, '', { ...FONT, fontSize: '12px', color: '#c8c8c8' })
+    (['weapon', 'ammo', 'body', 'shield'] as EquipSlot[]).forEach((slot, i) => {
+      const t = this.add.text(px + 10, y + i * 15, '', { ...FONT, fontSize: '12px', color: '#c8c8c8' })
         .setInteractive({ useHandCursor: true });
       t.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPanelClick(p, this.equipmentOptions(slot)));
       this.hoverable(t, () => this.describe(this.equipmentOptions(slot)));
       this.equipTexts.set(slot, t);
       root.add(t);
     });
-    y += 3 * 16 + 4;
+    y += 4 * 15 + 4;
 
     this.toolText = this.add.text(px + 10, y, '', { ...FONT, fontSize: '12px', color: '#9fd0ff', lineSpacing: 2 });
     root.add(this.toolText);
     y += 2 * 16 + 4;
 
-    this.tabObjects = { inventory: [], prayer: [] };
+    this.tabObjects = { inventory: [], prayer: [], magic: [] };
     this.tabButtons.clear();
-    (['inventory', 'prayer'] as const).forEach((tab, i) => {
-      const b = this.add.text(px + 10 + i * 108, y, tab === 'inventory' ? 'Inventory' : 'Prayer', {
-        ...FONT, fontSize: '12px', backgroundColor: '#2a241c', padding: { x: 4, y: 3 }, fixedWidth: 104, align: 'center',
+    TABS.forEach(([tab, label], i) => {
+      const b = this.add.text(px + 10 + i * 73, y, label, {
+        ...FONT, fontSize: '12px', backgroundColor: '#2a241c', padding: { x: 4, y: 3 }, fixedWidth: 68, align: 'center',
       }).setInteractive({ useHandCursor: true });
       b.on('pointerdown', () => this.setTab(tab));
-      this.hoverable(b, () => `Open ${tab === 'inventory' ? 'Inventory' : 'Prayer'}`);
+      this.hoverable(b, () => `Open ${label}`);
       this.tabButtons.set(tab, b);
       root.add(b);
     });
     y += 24;
 
     this.buildPrayerBook(px, y);
+    this.buildSpellbook(px, y);
     const gridX = px + (PANEL_W - SLOT * 4) / 2;
     for (let i = 0; i < INVENTORY_SIZE; i++) {
       const sx = gridX + (i % 4) * SLOT;
@@ -262,7 +278,7 @@ export class UIScene extends Phaser.Scene {
       root.add([bg, icon, label, qty]);
       this.tabObjects.inventory.push(bg, icon, label, qty);
     }
-    for (const o of this.tabObjects.prayer) root.add(o);
+    for (const o of [...this.tabObjects.prayer, ...this.tabObjects.magic]) root.add(o);
     this.setTab(this.tab);
 
     // ---- Boss HP bar (top centre of the game view) ----
@@ -424,7 +440,7 @@ export class UIScene extends Phaser.Scene {
   private buildPrayerBook(px: number, y: number): void {
     this.prayerCells.clear();
     const cw = 72;
-    const ch = 50;
+    const ch = 48;
     const x0 = px + (PANEL_W - cw * 3) / 2;
     PRAYERS.forEach((pr, i) => {
       const cx = x0 + (i % 3) * cw;
@@ -442,15 +458,46 @@ export class UIScene extends Phaser.Scene {
       this.prayerCells.set(pr.id, { bg, text });
       this.tabObjects.prayer.push(bg, text);
     });
-    const hint = this.add.text(px + PANEL_W / 2, y + 4 * ch + 8, 'Hotkeys: 1 Magic  2 Missiles  3 Melee', {
+    const hint = this.add.text(px + PANEL_W / 2, y + Math.ceil(PRAYERS.length / 3) * ch + 4, 'Hotkeys: 1 Magic  2 Missiles  3 Melee', {
       ...FONT, fontSize: '10px', color: '#c8c8c8',
     }).setOrigin(0.5, 0);
     this.tabObjects.prayer.push(hint);
   }
 
-  private setTab(tab: 'inventory' | 'prayer'): void {
+  /** Combat spells; click one to autocast it with a staff, click again for "strongest available". */
+  private buildSpellbook(px: number, y: number): void {
+    this.spellCells.clear();
+    const cw = 72;
+    const ch = 48;
+    const x0 = px + (PANEL_W - cw * 3) / 2;
+    SPELLS.forEach((sp, i) => {
+      const cx = x0 + (i % 3) * cw;
+      const cy = y + Math.floor(i / 3) * ch;
+      const bg = this.add.rectangle(cx, cy, cw - 2, ch - 2, 0x2a241c).setOrigin(0).setInteractive({ useHandCursor: true });
+      const text = this.add.text(cx + cw / 2 - 1, cy + ch / 2 - 1, `${sp.name.replace(' ', '\n')}\nlvl ${sp.level}`, {
+        ...FONT, fontSize: '9px', align: 'center', lineSpacing: -1,
+      }).setOrigin(0.5);
+      bg.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        if (!p.leftButtonDown()) return;
+        const g = this.state;
+        g.setAutocast(g.player.autocast === sp.id ? null : sp.id);
+      });
+      this.hoverable(bg, () => {
+        const runes = Object.entries(sp.runes).map(([r, n]) => `${n} ${item(r).name.replace(' rune', '')}`).join(', ');
+        return `Autocast ${sp.name}: max hit ${sp.maxHit}, needs ${runes}`;
+      });
+      this.spellCells.set(sp.id, { bg, text });
+      this.tabObjects.magic.push(bg, text);
+    });
+    this.autocastText = this.add.text(px + PANEL_W / 2, y + Math.ceil(SPELLS.length / 3) * ch + 6, '', {
+      ...FONT, fontSize: '11px', color: '#c8c8c8', align: 'center', wordWrap: { width: PANEL_W - 16 },
+    }).setOrigin(0.5, 0);
+    this.tabObjects.magic.push(this.autocastText);
+  }
+
+  private setTab(tab: Tab): void {
     this.tab = tab;
-    for (const t of ['inventory', 'prayer'] as const) {
+    for (const [t] of TABS) {
       for (const o of this.tabObjects[t]) {
         (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(t === tab);
         if (o.input) o.input.enabled = t === tab;
@@ -482,7 +529,7 @@ export class UIScene extends Phaser.Scene {
     if (!stack) return [];
     const def = item(stack.id);
     const opts: MenuOption[] = [];
-    const verb = def.burnTicks ? 'Light' : def.restoresPrayer ? 'Drink' : def.heal ? 'Eat' : def.buryXp ? 'Bury' : def.equip ? (def.equip.slot === 'weapon' ? 'Wield' : 'Wear') : null;
+    const verb = def.burnTicks ? 'Light' : def.restoresPrayer ? 'Drink' : def.heal ? 'Eat' : def.buryXp ? 'Bury' : def.equip ? (def.equip.slot === 'weapon' || def.equip.slot === 'ammo' ? 'Wield' : 'Wear') : null;
     // Items without a use get a harmless Examine as their left-click, never Drop.
     const examine = { label: `Examine ${def.name}`, action: () => g.message(def.examine + (stack.qty > 1 ? ` (${stack.qty.toLocaleString()})` : '')) };
     if (verb) opts.push({ label: `${verb} ${def.name}`, action: () => g.useItem(slot) });
@@ -498,7 +545,9 @@ export class UIScene extends Phaser.Scene {
     if (!id) return [];
     const def = item(id);
     const e = def.equip!;
-    const stats = `Att +${e.attackBonus}, Str +${e.strengthBonus}, Def +${e.defenceBonus}.`;
+    const fmt = (label: string, v = 0) => (v ? `${label} ${v > 0 ? '+' : ''}${v}` : '');
+    const stats = [fmt('Att', e.attackBonus), fmt('Str', e.strengthBonus), fmt('Def', e.defenceBonus), fmt('Rng', e.rangedBonus),
+      fmt('Rng str', e.rangedStrength), fmt('Mage', e.magicBonus)].filter(Boolean).join(', ') + '.';
     return [
       { label: `Remove ${def.name}`, action: () => g.unequip(slot) },
       { label: `Examine ${def.name}`, action: () => g.message(`${def.examine} ${stats}`) },
@@ -606,7 +655,19 @@ export class UIScene extends Phaser.Scene {
       this.bossFill.width = (this.bossBar.getData('width') as number) * Phaser.Math.Clamp(boss.hp / boss.maxHp, 0, 1);
     }
 
-    for (const [s, b] of this.styleButtons) b.setColor(p.style === s ? '#ffffff' : '#a08a5a');
+    const styleInfo = STYLE_INFO[p.weaponType];
+    [...this.styleButtons.entries()].forEach(([s, b], i) => {
+      b.setText(styleInfo[i][0]).setColor(p.style === s ? '#ffffff' : '#a08a5a');
+    });
+    const magicLevel = p.skills.level('magic');
+    for (const sp of SPELLS) {
+      const cell = this.spellCells.get(sp.id)!;
+      const chosen = p.autocast === sp.id;
+      cell.bg.setFillStyle(chosen ? 0x2a4a7a : 0x2a241c);
+      cell.text.setColor(magicLevel < sp.level ? '#6a6a6a' : g.canCast(sp) ? '#d08040' : chosen ? '#ffffff' : '#ffff00');
+    }
+    const auto = p.autocast ? SPELL_BY_ID[p.autocast].name : 'strongest available';
+    this.autocastText.setText(`Autocast: ${auto}${p.weaponType === 'magic' ? '' : '\n(wield a staff to cast)'}`);
     for (const [s, v] of this.skillViews) {
       const level = p.skills.level(s);
       v.text.setText(`${SKILL_SHORT[s].padEnd(5)} ${level}`);
@@ -616,7 +677,8 @@ export class UIScene extends Phaser.Scene {
     }
     for (const [slot, t] of this.equipTexts) {
       const id = p.equipment[slot];
-      t.setText(`${slot.padEnd(6)}: ${id ? item(id).name : '-'}`);
+      const qty = slot === 'ammo' && id ? ` x${p.ammo}` : '';
+      t.setText(`${slot.padEnd(6)}: ${id ? item(id).name : '-'}${qty}`);
     }
 
     const t = p.tools;
