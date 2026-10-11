@@ -45,18 +45,22 @@ export function gatherStartMessage(p: Player, def: ResourceDef): string {
 }
 
 /** Chance that one gathering roll succeeds. Grows with level above the requirement and tool tier. */
-export function gatherChance(level: number, def: ResourceDef, tier: number): number {
+export function gatherChance(level: number, def: ResourceDef, tier: number, perkBonus = 0): number {
   const toolBonus = tier > 0 ? (tier - 1) * 0.06 : 0;
-  return Math.min(0.95, Math.max(0.08, 0.3 + (level - def.level) * 0.02 + toolBonus));
+  return Math.min(0.95, Math.max(0.08, 0.3 + (level - def.level) * 0.02 + toolBonus + perkBonus));
 }
 
 /** One gathering roll. Returns false when the player should stop. */
 export function gatherRoll(g: GameState, node: ResourceNode): boolean {
   const p = g.player;
   const def = node.def!;
-  if (RNG.getUniform() >= gatherChance(p.skills.level(def.skill), def, toolTier(p, def))) return true;
+  if (RNG.getUniform() >= gatherChance(p.skills.level(def.skill), def, toolTier(p, def), g.mods.gatherBonus)) return true;
 
   p.inventory.add(def.product);
+  if (RNG.getUniform() < g.mods.doubleResourceChance && p.inventory.canAdd(def.product)) {
+    p.inventory.add(def.product);
+    g.message('Rich Veins: you gather an extra one!');
+  }
   node.remaining--;
   g.message(def.kind === 'fishing' ? `You catch some ${lower(def.product).replace('raw ', '')}.` : `You get some ${lower(def.product)}.`);
   g.giveXp(def.skill, def.xp * XP_RATE);
@@ -102,12 +106,16 @@ export function processStep(g: GameState, recipe: Recipe): void {
   for (const i of recipe.inputs) p.inventory.remove(i.item, i.qty);
   const what = lower(recipe.output);
 
-  if (recipe.station === 'fire' && RNG.getUniform() < burnChance(p.skills.level('cooking'), recipe)) {
+  if (recipe.station === 'fire' && RNG.getUniform() < burnChance(p.skills.level('cooking'), recipe) * g.mods.burnMult) {
     p.inventory.add('burnt_fish');
     g.message(`You accidentally burn the ${what}.`);
     return;
   }
   p.inventory.add(recipe.output);
+  if (recipe.station === 'anvil' && RNG.getUniform() < g.mods.saveBarChance) {
+    p.inventory.add(recipe.inputs[0].item);
+    g.message('Master Smith: you save a bar!');
+  }
   g.message(
     recipe.station === 'fire' ? `You cook the ${what}.`
       : recipe.station === 'furnace' ? `You retrieve a bar of ${what.replace(' bar', '')}.`

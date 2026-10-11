@@ -1,10 +1,12 @@
 import { NO_TOOLS, Toolbelt } from '../data/tools';
+import { PerkRanks } from '../data/skillTree';
 
 /** Progress that survives between runs. */
 export interface MetaSave {
   version: 1;
   tokens: number;
   tools: Toolbelt;
+  perks: PerkRanks;
   runs: number;
   bestDepth: number;
 }
@@ -12,7 +14,7 @@ export interface MetaSave {
 const KEY = 'roguescape.meta';
 
 export function freshMeta(): MetaSave {
-  return { version: 1, tokens: 0, tools: { ...NO_TOOLS }, runs: 0, bestDepth: 0 };
+  return { version: 1, tokens: 0, tools: { ...NO_TOOLS }, perks: {}, runs: 0, bestDepth: 0 };
 }
 
 export function loadMeta(): MetaSave {
@@ -20,7 +22,7 @@ export function loadMeta(): MetaSave {
     const raw = localStorage.getItem(KEY);
     if (!raw) return freshMeta();
     const parsed = JSON.parse(raw) as Partial<MetaSave>;
-    return { ...freshMeta(), ...parsed, tools: { ...NO_TOOLS, ...parsed.tools } };
+    return { ...freshMeta(), ...parsed, tools: { ...NO_TOOLS, ...parsed.tools }, perks: { ...parsed.perks } };
   } catch {
     return freshMeta();
   }

@@ -27,6 +27,7 @@ export type Intent =
   | { kind: 'descend' }
   | { kind: 'gather'; node: ResourceNode; started: boolean }
   | { kind: 'altar'; node: ResourceNode }
+  | { kind: 'talk'; node: ResourceNode }
   | { kind: 'process'; node: ResourceNode; recipe: Recipe; repeat: boolean; started: boolean };
 
 export class Player extends Actor {

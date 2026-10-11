@@ -1,5 +1,8 @@
 import { RNG } from 'rot-js';
-import { EAT_DELAY, FOV_RADIUS, HP_REGEN_TICKS, XP_RATE } from '../data/balance';
+import { EAT_DELAY, FOV_RADIUS, XP_RATE } from '../data/balance';
+import { PerkRanks, RunMods, computeMods } from '../data/skillTree';
+import { xpForLevel } from '../systems/xp';
+import { generateCamp } from '../world/camp';
 import { item } from '../data/items';
 import { Recipe } from '../data/recipes';
 import { NO_TOOLS, Toolbelt } from '../data/tools';
@@ -25,6 +28,8 @@ export type GameEvent =
   | { type: 'levelup'; skill: SkillName; level: number }
   | { type: 'floor'; depth: number }
   | { type: 'death' }
+  | { type: 'enterDungeon' }
+  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
 /** A ranged/magic attack in flight; protection prayers are checked when it lands. */
@@ -39,8 +44,15 @@ interface PendingHit {
 const PROJECTILE_TICKS = 1;
 const BOSS_PROJECTILE_TICKS = 2;
 /** Share of max prayer restored on each descent. */
-const DESCENT_PRAYER_RESTORE = 0.25;
-const BOSS_TOKENS = 25;
+/** Sight radius in the camp: it's small and fully lit. */
+const CAMP_FOV = 40;
+
+/** What a new GameState starts as: the camp hub, or a dungeon run with unlocks applied. */
+export interface RunSetup {
+  tools?: Toolbelt;
+  perks?: PerkRanks;
+  camp?: boolean;
+}
 
 const MAX_MESSAGES = 50;
 
@@ -67,24 +79,67 @@ export class GameState {
   kills = 0;
   bossKills = 0;
   pendingHits: PendingHit[] = [];
+  /** Effects of purchased skill-tree perks. */
+  mods: RunMods;
+  /** Undying perk: whether the one cheat-death has been used this run. */
+  undyingUsed = false;
 
-  constructor(public seed: number, private emit: (e: GameEvent) => void = () => {}, tools: Toolbelt = NO_TOOLS) {
+  constructor(public seed: number, private emit: (e: GameEvent) => void = () => {}, setup: RunSetup = {}) {
+    this.mods = computeMods(setup.perks ?? {});
     this.player = new Player({ x: 0, y: 0 });
-    this.player.tools = { ...tools };
-    this.player.equipment = { weapon: 'bronze_dagger', shield: 'wooden_shield' };
-    this.player.inventory.add('shrimps', 4);
+    this.player.tools = { ...(setup.tools ?? NO_TOOLS) };
+    if (setup.camp) {
+      this.loadCamp();
+      return;
+    }
+    this.applyStartingKit();
     this.loadFloor(1);
     this.message('Welcome to RogueScape. Find the stairs and go deeper.');
     const t = this.player.tools;
     if (!t.pickaxe && !t.axe && !t.fishing) {
-      this.message('You have no tools yet. Earn Dungeoneering tokens to unlock them between runs.');
+      this.message('You have no tools yet. Earn Dungeoneering tokens and buy them from the Toolsmith at camp.');
     }
   }
 
-  /** Dungeoneering tokens this run is worth: depth reached, kills, and carried coins. */
+  get isCamp(): boolean {
+    return this.map.depth === 0;
+  }
+
+  /** Starting levels, gear and supplies, including skill-tree perks. */
+  private applyStartingKit(): void {
+    const p = this.player;
+    const m = this.mods;
+    for (const [skill, level] of Object.entries(m.startLevels) as Array<[SkillName, number]>) {
+      p.skills.xp[skill] = Math.max(p.skills.xp[skill], xpForLevel(level));
+    }
+    p.equipment = { weapon: m.startWeapon ?? 'bronze_dagger', shield: 'wooden_shield' };
+    if (m.startBody) p.equipment.body = m.startBody;
+    p.inventory.add('shrimps', 4);
+    for (const it of m.startItems) p.inventory.add(it.id, it.qty);
+    p.hp = p.maxHp;
+    p.prayerPoints = p.maxPrayer;
+  }
+
+  private loadCamp(): void {
+    const { map, nodes } = generateCamp();
+    this.map = map;
+    this.nodes = nodes;
+    // The camp is safe and small: show all of it.
+    this.explored = new Uint8Array(map.width * map.height).fill(1);
+    const p = this.player;
+    p.pos = { ...map.spawn };
+    p.prev = { ...map.spawn };
+    this.updateFov();
+    this.message('You are at camp. Talk to the Mentor to learn perks, or the Toolsmith for tools.');
+    this.message('Climb down the ladder when you are ready to enter the dungeon.');
+    this.emit({ type: 'floor', depth: 0 });
+  }
+
+  /** Dungeoneering tokens this run is worth: depth reached, kills, bosses and carried coins. */
   get tokensEarned(): number {
-    return 15 * (this.depth - 1) + this.kills + BOSS_TOKENS * this.bossKills
+    const base = 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills
       + Math.floor(this.player.inventory.count('coins') / 20);
+    return Math.floor(base * this.mods.tokenMult);
   }
 
   get depth(): number {
@@ -100,7 +155,7 @@ export class GameState {
     this.groundItems = [];
     this.pendingHits = [];
     const p = this.player;
-    if (depth > 1) p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + Math.ceil(p.maxPrayer * DESCENT_PRAYER_RESTORE));
+    if (depth > 1) p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + Math.ceil(p.maxPrayer * this.mods.descentPrayerRestore));
     p.pos = { ...this.map.spawn };
     p.prev = { ...this.map.spawn };
     p.path = [];
@@ -173,6 +228,12 @@ export class GameState {
     this.player.path = [];
   }
 
+  /** Walk to a camp NPC and open its menu. */
+  talkTo(node: ResourceNode): void {
+    this.player.intent = { kind: 'talk', node };
+    this.player.path = [];
+  }
+
   prayAt(node: ResourceNode): void {
     if (this.over) return;
     this.player.intent = { kind: 'altar', node };
@@ -221,7 +282,7 @@ export class GameState {
     } else if (def.heal) {
       if (p.eatCooldown > 0) return;
       p.inventory.take(slot, 1);
-      p.hp = Math.min(p.maxHp, p.hp + def.heal);
+      p.hp = Math.min(p.maxHp, p.hp + def.heal + this.mods.foodHealBonus);
       p.eatCooldown = EAT_DELAY;
       p.attackCooldown += EAT_DELAY;
       this.message(`You eat the ${def.name.toLowerCase()}. It heals some health.`);
@@ -298,13 +359,13 @@ export class GameState {
     this.drainPrayer();
 
     const p = this.player;
-    if (this.tickCount % HP_REGEN_TICKS === 0 && p.hp < p.maxHp) p.hp++;
+    if (this.tickCount % this.mods.hpRegenTicks === 0 && p.hp < p.maxHp) p.hp++;
     this.updateFov();
   }
 
   private updateFov(): void {
     const { x, y } = this.player.pos;
-    this.visible = computeVisible(this.map, x, y, FOV_RADIUS);
+    this.visible = computeVisible(this.map, x, y, this.isCamp ? CAMP_FOV : FOV_RADIUS);
     for (const i of this.visible) this.explored[i] = 1;
   }
 
@@ -312,8 +373,9 @@ export class GameState {
     const p = this.player;
     if (!p.activePrayers.size) return;
     for (const id of p.activePrayers) p.prayerDrain += PRAYER_BY_ID[id].drain;
-    while (p.prayerDrain >= DRAIN_RESISTANCE) {
-      p.prayerDrain -= DRAIN_RESISTANCE;
+    const resistance = DRAIN_RESISTANCE * this.mods.drainResistMult;
+    while (p.prayerDrain >= resistance) {
+      p.prayerDrain -= resistance;
       p.prayerPoints = Math.max(0, p.prayerPoints - 1);
     }
     if (p.prayerPoints === 0) {
@@ -464,9 +526,17 @@ export class GameState {
           if (tileAt(this.map, p.pos.x, p.pos.y) !== Tile.StairsDown) return;
           const boss = this.npcs.find((n) => n.isBoss);
           if (boss) this.message(`The way down is sealed while ${boss.name} lives.`);
+          else if (this.isCamp) this.emit({ type: 'enterDungeon' });
           else this.loadFloor(this.depth + 1);
         }
         return;
+      case 'talk': {
+        const a = this.approach(intent.node.pos);
+        if (a === 'moving') return;
+        p.intent = null;
+        if (a === 'adjacent') this.emit({ type: 'campMenu', kind: intent.node.kind as 'mentor' | 'toolsmith' });
+        return;
+      }
       case 'altar': {
         const a = this.approach(intent.node.pos);
         if (a === 'moving') return;
@@ -511,9 +581,10 @@ export class GameState {
     const s = p.skills;
     const boosted = (skill: SkillName, group: 'attack' | 'strength' | 'defence') =>
       Math.floor(s.level(skill) * (1 + p.prayerBoost(group)));
-    const attRoll = roll(effectiveLevel(boosted('attack', 'attack'), p.style === 'accurate' ? 3 : 0), b.attack);
+    const mult = this.mods.combatMult;
+    const attRoll = Math.floor(mult * roll(effectiveLevel(boosted('attack', 'attack'), p.style === 'accurate' ? 3 : 0), b.attack));
     const defRoll = roll(npc.def.defence + 9, npc.def.defenceBonus);
-    const max = maxHit(effectiveLevel(boosted('strength', 'strength'), p.style === 'aggressive' ? 3 : 0), b.strength);
+    const max = Math.floor(mult * maxHit(effectiveLevel(boosted('strength', 'strength'), p.style === 'aggressive' ? 3 : 0), b.strength));
     const dmg = Math.min(npc.hp, rollDamage(hitChance(attRoll, defRoll), max, rand));
 
     p.attackCooldown = b.speed;
@@ -541,8 +612,10 @@ export class GameState {
     }
     this.player.intent = null;
     for (const d of npc.def.drops) {
-      if (rand() >= d.chance) continue;
-      const qty = d.min !== undefined ? d.min + Math.floor(rand() * ((d.max ?? d.min) - d.min + 1)) : 1;
+      const chance = d.chance < 0.1 ? d.chance * this.mods.rareDropMult : d.chance;
+      if (rand() >= chance) continue;
+      let qty = d.min !== undefined ? d.min + Math.floor(rand() * ((d.max ?? d.min) - d.min + 1)) : 1;
+      if (d.item === 'coins') qty = Math.floor(qty * this.mods.coinMult);
       if (item(d.item).stackable) {
         this.groundItems.push(new GroundItem(d.item, qty, { ...npc.pos }));
       } else {
@@ -619,7 +692,12 @@ export class GameState {
   /** Applies an NPC hit to the player, blocked entirely by the matching protection prayer. */
   private landHit(npc: Npc, style: AttackType, damage: number): void {
     const p = this.player;
-    const dmg = p.isProtectedFrom(style) ? 0 : Math.min(p.hp, damage);
+    let dmg = p.isProtectedFrom(style) ? 0 : Math.min(p.hp, damage);
+    if (dmg >= p.hp && this.mods.undying && !this.undyingUsed) {
+      this.undyingUsed = true;
+      dmg = p.hp - 1;
+      this.message('You narrowly cheat death! (Undying)');
+    }
     this.applyHit(p, dmg);
     // Auto-retaliate when idle or skilling.
     const busy = p.intent?.kind;
