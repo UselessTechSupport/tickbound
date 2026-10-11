@@ -53,6 +53,10 @@ export class Player extends Actor {
   activePrayers = new Set<string>();
   /** OSRS drain counter; a point drains each time it passes the drain resistance. */
   prayerDrain = 0;
+  /** Special attack energy, 0-100. */
+  specEnergy = 100;
+  /** The next attack uses the weapon's special attack. */
+  specArmed = false;
   /** Caught pickpocketing: can't act until this tick. */
   stunnedUntil = 0;
 

@@ -1,3 +1,4 @@
+import { SPEC_BY_WEAPON } from '../data/specials';
 import { XP_RATE } from '../data/balance';
 import { EquipStats, item } from '../data/items';
 import { potionRestore } from '../data/prayers';
@@ -49,6 +50,8 @@ export function itemInfo(id: string, p: Player): string[] {
       const style = e.combatStyle ?? 'melee';
       lines.push(`${style[0].toUpperCase()}${style.slice(1)} weapon: speed ${speedText(e.attackSpeed ?? 4)}, range ${e.attackRange ?? 1}`);
       if (e.providesRune) lines.push(`Provides unlimited ${item(e.providesRune).name.toLowerCase()}s`);
+      const spec = SPEC_BY_WEAPON[id];
+      if (spec) lines.push(`Special: ${spec.name} (${spec.cost}% energy): ${spec.desc}`);
     } else {
       lines.push(`${e.slot[0].toUpperCase()}${e.slot.slice(1)} slot`);
     }

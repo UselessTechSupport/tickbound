@@ -89,6 +89,13 @@ const list: ItemDef[] = [
   { id: 'bronze_dagger', name: 'Bronze dagger', color: BRONZE, equip: weapon(4, 3, 1), examine: 'Short but pointy.' },
   { id: 'bronze_sword', name: 'Bronze sword', color: BRONZE, equip: weapon(7, 6, 1), examine: 'A razor sharp sword.' },
   { id: 'bronze_scimitar', name: 'Bronze scimitar', color: BRONZE, equip: weapon(7, 6, 1), examine: 'A vicious, curved sword.' },
+  // Special attack weapons (see data/specials.ts): rare drops.
+  { id: 'dragon_dagger', name: 'Dragon dagger', color: 0xd03020, equip: weapon(40, 40, 30), examine: 'A powerful dagger. Special: Puncture.' },
+  { id: 'granite_maul', name: 'Granite maul', color: 0x8a8a8a, equip: { ...weapon(48, 72, 35), attackSpeed: 7 }, examine: 'Simplicity is the best weapon. Special: Quick Smash.' },
+  { id: 'dragon_warhammer', name: 'Dragon warhammer', color: 0xd03020, equip: { ...weapon(52, 70, 45), attackSpeed: 6 }, examine: 'A dragon-forged warhammer. Special: Smash.' },
+  { id: 'dragon_claws', name: 'Dragon claws', color: 0xd03020, equip: weapon(57, 56, 50), examine: 'A set of fighting claws. Special: Slice and Dice.' },
+  { id: 'magic_shortbow', name: 'Magic shortbow', color: 0x4a7ab0, equip: { ...bow(69, 30), attackSpeed: 3 }, examine: 'Short and magical, but still effective. Special: Snapshot.' },
+  { id: 'ancient_staff', name: 'Ancient staff', color: 0x3a2a5a, equip: staff(15, 30), examine: 'A staff of ancient power. Special: Soul Blast.' },
   { id: 'dragon_scimitar', name: 'Dragon scimitar', color: 0xd03020, equip: weapon(67, 66, 60), examine: 'A vicious, curved sword of dragon metal.' },
   { id: 'iron_scimitar', name: 'Iron scimitar', color: IRON, equip: weapon(10, 9, 1), examine: 'A vicious, curved sword.' },
   { id: 'steel_scimitar', name: 'Steel scimitar', color: STEEL, equip: weapon(15, 14, 5), examine: 'A vicious, curved sword.' },

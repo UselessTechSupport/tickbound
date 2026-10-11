@@ -49,6 +49,8 @@ npm run dev        # then open http://localhost:5173
   hurts you; pockets run dry after 3 picks), and pick the locks of locked chests for double loot (fail = trap).
 - **Agility**: cracked walls, narrow gaps and loose rocks are shortcuts through walls that save a long walk.
   Higher Agility = fewer slips.
+- **Special attacks**: rare weapons (dragon dagger, granite maul, magic shortbow, ancient staff, dragon warhammer,
+  dragon claws) have a special move. Click the spec bar or press E to arm it; energy refills 10% every 30 seconds.
 - **Resume**: a run in progress is saved in your browser (every few seconds and when you close the tab), so a
   refresh or closed tab picks up where you left off.
 - **Starting a run**: the ladder offers floor 1, a skip to the floor after any boss you've beaten (with catch-up

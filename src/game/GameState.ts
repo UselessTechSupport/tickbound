@@ -27,6 +27,7 @@ import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer
 import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
+import { SPEC_BY_WEAPON, SPEC_DROP_CHANCE, SPEC_REGEN, SPEC_REGEN_TICKS, SpecDef, specWeaponsFor } from '../data/specials';
 import { PICKPOCKET, POCKET_LIMIT, STUN_TICKS, lockXpFor, thievingChance } from '../data/thieving';
 import { SHORTCUT_KINDS, shortcutChance, shortcutXp } from '../data/agility';
 import { Enchantment, Enchantments, enchantValue, enchantedItems } from '../data/enchants';
@@ -922,6 +923,7 @@ export class GameState {
         if (!p.boosts[k]) delete p.boosts[k];
       }
     }
+    if (this.tickCount % SPEC_REGEN_TICKS === 0) p.specEnergy = Math.min(100, p.specEnergy + SPEC_REGEN);
     const regen = Math.round(this.mods.hpRegenTicks / (this.hasRelic('regen_bracelet') ? 2 : 1));
     if (this.tickCount % regen === 0 && p.hp < p.maxHp) p.hp++;
     const renewal = this.enchantPower('renewal');
@@ -1012,6 +1014,13 @@ export class GameState {
     return cardinalAdjacent(p.pos, target) ? 'adjacent' : 'moving';
   }
 
+  /** Granite maul: an armed special hits right away, whatever the attack delay. */
+  private instantSpecReady(): boolean {
+    const p = this.player;
+    const spec = SPEC_BY_WEAPON[p.equipment.weapon ?? ''];
+    return !!spec?.instant && p.specArmed && p.specEnergy >= spec.cost;
+  }
+
   /** In range of the player's weapon and in line of sight. */
   private inAttackRange(npc: Npc): boolean {
     const p = this.player;
@@ -1070,7 +1079,7 @@ export class GameState {
         if (a === 'unreachable') {
           this.message("I can't reach that!");
           p.intent = null;
-        } else if (a === 'adjacent' && p.attackCooldown === 0) {
+        } else if (a === 'adjacent' && (p.attackCooldown === 0 || this.instantSpecReady())) {
           this.playerAttack(npc);
         }
         return;
@@ -1309,7 +1318,8 @@ export class GameState {
   /** Chance the player's next attack hits `npc` (weakness included). */
   hitChanceAgainst(npc: Npc, preview = this.combatPreview(npc)): number {
     const weakness = npc.def.weakness === preview.mode ? WEAKNESS_PENALTY : 0;
-    const defRoll = roll(npc.def.defence + 9, Math.max(-63, npc.def.defenceBonus - weakness));
+    const defence = Math.floor(npc.def.defence * (1 - npc.defenceDrain));
+    const defRoll = roll(defence + 9, Math.max(-63, npc.def.defenceBonus - weakness));
     return hitChance(preview.attackRoll, defRoll);
   }
 
@@ -1322,9 +1332,93 @@ export class GameState {
       return;
     }
     const { mode, spell, speed } = c;
-    const max = c.maxHit;
+    p.attackCooldown = speed;
+    const spec = this.armedSpec();
+    if (spec) {
+      p.specEnergy -= spec.cost;
+      p.specArmed = false;
+      this.message(`You use ${spec.name}!`);
+      this.sound('spec');
+    }
+    if (mode === 'ranged') this.fireArrow(npc);
+    if (spec?.weapon === 'magic_shortbow' && p.ammo > 0) this.fireArrow(npc);
+    if (spell) this.castSpell(spell);
+    if (mode !== 'melee') this.emit({ type: 'projectile', from: { ...p.pos }, to: { ...npc.pos }, style: mode, ticks: 1 });
+    // Each hit: [accuracy multiplier, max hit multiplier]; most attacks are a single plain hit.
+    const hits: Array<[number, number]> = !spec ? [[1, 1]]
+      : spec.weapon === 'dragon_dagger' ? [[1.15, 1.15], [1.15, 1.15]]
+        : spec.weapon === 'magic_shortbow' ? [[1.1, 1], [1.1, 1]]
+          : spec.weapon === 'dragon_warhammer' ? [[1, 1.5]]
+            : spec.weapon === 'ancient_staff' ? [[3, 1.3]]
+              : [[1, 1]];
+    if (spec?.weapon === 'dragon_claws') {
+      this.clawSpec(npc, c);
+    } else {
+      for (const [acc, mult] of hits) {
+        if (npc.dead) break;
+        const dmg = this.strike(npc, { ...c, attackRoll: Math.floor(c.attackRoll * acc), maxHit: Math.floor(c.maxHit * mult) });
+        if (spec?.weapon === 'dragon_warhammer' && dmg > 0) npc.defenceDrain = Math.min(0.9, 1 - (1 - npc.defenceDrain) * 0.7);
+      }
+    }
+    npc.target = p;
+    if (npc.dead) this.killNpc(npc);
+  }
+
+  /** The special attack the next swing will use, if it's armed and there's enough energy. */
+  private armedSpec(): SpecDef | null {
+    const p = this.player;
+    const spec = p.specArmed ? SPEC_BY_WEAPON[p.equipment.weapon ?? ''] : undefined;
+    if (!spec) return null;
+    if (p.specEnergy < spec.cost) {
+      p.specArmed = false;
+      this.message('You do not have enough special attack energy left.');
+      return null;
+    }
+    return spec;
+  }
+
+  /** Arm or disarm the special attack (E, or click the spec bar). */
+  toggleSpec(): void {
+    const p = this.player;
+    const spec = SPEC_BY_WEAPON[p.equipment.weapon ?? ''];
+    if (!spec) {
+      this.message('Your weapon has no special attack.');
+      return;
+    }
+    if (!p.specArmed && p.specEnergy < spec.cost) {
+      this.message(`You need ${spec.cost}% special attack energy for ${spec.name}.`);
+      return;
+    }
+    p.specArmed = !p.specArmed;
+  }
+
+  /** Dragon claws: four slashes. Damage cascades from the first slash that lands. */
+  private clawSpec(npc: Npc, c: CombatPreview): void {
     const chance = this.hitChanceAgainst(npc, c);
-    let dmg = Math.min(npc.hp, rollDamage(chance, max, rand));
+    const pattern = [[1, 0.5, 0.25, 0.25], [0, 1, 0.5, 0.5], [0, 0, 0.75, 0.75], [0, 0, 0, 1.25]];
+    for (let first = 0; first < 4; first++) {
+      if (rand() >= chance) continue;
+      const base = 1 + Math.floor(rand() * Math.max(1, c.maxHit));
+      for (const share of pattern[first]) {
+        if (npc.dead) return;
+        if (share) this.strikeFixed(npc, Math.max(1, Math.floor(base * share)), c);
+      }
+      return;
+    }
+    // All four missed: two small consolation hits, as in OSRS.
+    this.strikeFixed(npc, 1, c);
+    if (!npc.dead) this.strikeFixed(npc, 1, c);
+  }
+
+  /** One hit roll against `npc` with on-hit effects and XP; returns the damage dealt. */
+  private strike(npc: Npc, c: CombatPreview): number {
+    const chance = this.hitChanceAgainst(npc, c);
+    return this.strikeFixed(npc, rollDamage(chance, c.maxHit, rand), c);
+  }
+
+  private strikeFixed(npc: Npc, raw: number, c: CombatPreview): number {
+    const p = this.player;
+    let dmg = Math.min(npc.hp, raw);
     if (dmg > 0) dmg = Math.min(npc.hp, dmg + this.enchantPower('flaming')); // Flaming: bonus fire damage on hits
     if (dmg > 0 && this.enchantPower('leeching')) {
       this.leechBank += dmg * this.enchantPower('leeching');
@@ -1338,15 +1432,9 @@ export class GameState {
       this.lifestealBank %= 4;
       p.hp = Math.min(p.maxHp, p.hp + heal);
     }
-
-    p.attackCooldown = speed;
-    if (mode === 'ranged') this.fireArrow(npc);
-    if (spell) this.castSpell(spell);
-    if (mode !== 'melee') this.emit({ type: 'projectile', from: { ...p.pos }, to: { ...npc.pos }, style: mode, ticks: 1 });
     this.applyHit(npc, dmg);
-    npc.target = p;
-    this.giveCombatXp(mode, dmg, spell);
-    if (npc.dead) this.killNpc(npc);
+    this.giveCombatXp(c.mode, dmg, c.spell);
+    return dmg;
   }
 
   private giveCombatXp(mode: 'melee' | 'ranged' | 'magic', dmg: number, spell?: SpellDef): void {
@@ -1459,6 +1547,16 @@ export class GameState {
     // Regular monsters sometimes drop a herb that grows at this depth; elites always do.
     if (!npc.isBoss && npc.def.id !== 'mimic' && (npc.elite || rand() < HERB_DROP_CHANCE)) {
       this.groundItems.push(new GroundItem(herbForDepth(this.depth, rand), 1, { ...npc.pos }));
+    }
+    // Rarely, a special attack weapon.
+    const specChance = npc.isBoss ? SPEC_DROP_CHANCE.boss : npc.elite ? SPEC_DROP_CHANCE.elite : SPEC_DROP_CHANCE.normal;
+    const specPool = specWeaponsFor(this.depth);
+    if (specPool.length && npc.def.id !== 'mimic' && rand() < specChance * this.mods.rareDropMult) {
+      const w = specPool[Math.floor(rand() * specPool.length)].weapon;
+      this.groundItems.push(new GroundItem(w, 1, { ...npc.pos }));
+      this.emit({ type: 'obtain', item: w, qty: 1, source: npc.def.id });
+      this.message(`Rare drop: ${item(w).name}!`);
+      this.sound('levelup');
     }
     // Elites roll their whole table twice.
     for (const d of npc.elite ? [...npc.def.drops, ...npc.def.drops] : npc.def.drops) {

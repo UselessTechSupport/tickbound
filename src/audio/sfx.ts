@@ -6,7 +6,7 @@
 import { saveSettings, settings } from '../save/settings';
 
 export type SoundName =
-  | 'hit' | 'miss' | 'hurt' | 'block' | 'eat' | 'pickup' | 'mine' | 'chop' | 'fish' | 'cook' | 'burn'
+  | 'hit' | 'miss' | 'hurt' | 'spec' | 'block' | 'eat' | 'pickup' | 'mine' | 'chop' | 'fish' | 'cook' | 'burn'
   | 'smith' | 'prayerOn' | 'prayerOff' | 'levelup' | 'death' | 'stairs' | 'magic' | 'arrow' | 'buy' | 'bury' | 'warning';
 
 
@@ -83,6 +83,8 @@ class Sfx {
     switch (name) {
       case 'hit': this.noise(0.08, 0.5, 'lowpass', 1200); this.tone(140, 0.08, 'square', 0.15, 70); break;
       case 'miss': this.noise(0.06, 0.15, 'highpass', 2000); break;
+      // Special attack: a rising whoosh and a heavy thud.
+      case 'spec': this.tone(300, 0.12, 'sawtooth', 0.18, 900); this.noise(0.12, 0.35, 'bandpass', 1400); break;
       case 'hurt': this.tone(220, 0.14, 'sawtooth', 0.2, 100); this.noise(0.06, 0.3, 'lowpass', 800); break;
       case 'block': this.tone(900, 0.08, 'triangle', 0.25); this.tone(1350, 0.06, 'triangle', 0.15, undefined, 0.02); break;
       case 'eat': for (let i = 0; i < 3; i++) this.noise(0.04, 0.3, 'bandpass', 900, i * 0.09); break;

@@ -14,6 +14,7 @@ import { itemInfo, speedText } from '../ui/itemInfo';
 import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/achievements';
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
+import { SPEC_BY_WEAPON } from '../data/specials';
 import { ARMOURY, ARMOURY_LINES, ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { ENCHANTS, ENCHANT_COSTS, ENCHANT_SWITCH_FEE, ROMAN, describeEnchant, enchantCost, lineKind } from '../data/enchants';
 import { recipesFor } from '../data/recipes';
@@ -109,6 +110,8 @@ export class UIScene extends Phaser.Scene {
   private slots: SlotView[] = [];
   private prayerText!: Phaser.GameObjects.Text;
   private prayerBar!: Phaser.GameObjects.Rectangle;
+  private specBar!: Phaser.GameObjects.Rectangle;
+  private specText!: Phaser.GameObjects.Text;
   private tab: Tab = 'inventory';
   private tabButtons = new Map<Tab, Phaser.GameObjects.Text>();
   private tabObjects: Record<Tab, Phaser.GameObjects.GameObject[]> = { inventory: [], prayer: [], magic: [], gear: [] };
@@ -204,6 +207,7 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-A', () => this.toggleModal('achievements'));
     this.input.keyboard?.on('keydown-O', () => this.toggleModal('settings'));
     this.input.keyboard?.on('keydown-Q', () => this.state.toggleQuickPrayers(settings.quickPrayers));
+    this.input.keyboard?.on('keydown-E', () => !this.modalKind && this.state.toggleSpec());
     this.input.keyboard?.on('keydown-L', () => this.toggleModal('log'));
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
@@ -299,7 +303,20 @@ export class UIScene extends Phaser.Scene {
     root.add(this.add.rectangle(px + 10, y, PANEL_W - 20, 8, 0x1a2a4a).setOrigin(0));
     this.prayerBar = this.add.rectangle(px + 10, y, PANEL_W - 20, 8, 0x40a0e0).setOrigin(0);
     root.add(this.prayerBar);
-    y += 16;
+    y += 12;
+
+    // Special attack bar: click (or E) to arm the wielded weapon's special.
+    const specBg = this.add.rectangle(px + 10, y, PANEL_W - 20, 13, 0x2a2010).setOrigin(0).setStrokeStyle(1, 0x000000)
+      .setInteractive({ useHandCursor: true });
+    specBg.on('pointerdown', () => this.state.toggleSpec());
+    this.hoverable(specBg, () => {
+      const spec = SPEC_BY_WEAPON[this.state.player.equipment.weapon ?? ''];
+      return spec ? `Use special attack: ${spec.name} (${spec.cost}%), E` : 'Special attack: wield a special weapon (rare drops)';
+    });
+    this.specBar = this.add.rectangle(px + 11, y + 1, PANEL_W - 22, 11, 0x40a040).setOrigin(0);
+    this.specText = this.add.text(px + PANEL_W / 2, y + 1, '', { ...FONT, fontSize: '10px', color: '#ffffff' }).setOrigin(0.5, 0);
+    root.add([specBg, this.specBar, this.specText]);
+    y += 19;
 
     const styles: AttackStyle[] = ['accurate', 'aggressive', 'defensive'];
     styles.forEach((s, i) => {
@@ -958,6 +975,7 @@ export class UIScene extends Phaser.Scene {
       'Wheel        zoom',
       '1 2 3        protect prayers',
       'Q            quick-prayers',
+      'E            special attack',
       'R            run / walk',
       'G            go to stairs',
       'A / L        achievements / log',
@@ -1587,6 +1605,11 @@ export class UIScene extends Phaser.Scene {
     this.hpBar.width = (PANEL_W - 20) * Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.prayerText.setText(`Prayer ${p.prayerPoints}/${p.maxPrayer}`);
     this.prayerBar.width = (PANEL_W - 20) * Phaser.Math.Clamp(p.prayerPoints / p.maxPrayer, 0, 1);
+    const spec = SPEC_BY_WEAPON[p.equipment.weapon ?? ''];
+    this.specBar.width = (PANEL_W - 22) * p.specEnergy / 100;
+    this.specBar.setFillStyle(!spec ? 0x3a4a3a : p.specArmed ? 0xe0c040 : p.specEnergy >= spec.cost ? 0x40a040 : 0x6a7a4a);
+    this.specText.setText(`Special attack: ${p.specEnergy}%${spec ? (p.specArmed ? ' (ARMED)' : ` - ${spec.name}`) : ''}`)
+      .setColor(p.specArmed ? '#000000' : '#ffffff');
     const prayerLevel = p.skills.level('prayer');
     for (const pr of PRAYERS) {
       const cell = this.prayerCells.get(pr.id)!;
