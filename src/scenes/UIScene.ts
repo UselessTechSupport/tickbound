@@ -47,6 +47,7 @@ type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer';
 const TABS: Array<[Tab, string]> = [['inventory', 'Items'], ['prayer', 'Prayer'], ['magic', 'Magic'], ['gear', 'Gear']];
 const TAB_W = 50;
+const MAX_TOASTS = 3;
 
 /** Style button labels and what each trains, per weapon type. */
 const STYLE_INFO: Record<'melee' | 'ranged' | 'magic', Array<[string, string]>> = {
@@ -113,8 +114,9 @@ export class UIScene extends Phaser.Scene {
   private logCategory = LOG_CATEGORIES[0].id;
   private achievementTier: Tier = 'easy';
   private taskText!: Phaser.GameObjects.Text;
-  /** Toasts currently on screen (stacked downwards). */
+  /** Toasts currently on screen, and the ones waiting for a free spot. */
   private toasts = 0;
+  private toastQueue: Array<{ text: string; color: string }> = [];
   private minimap!: Phaser.GameObjects.Graphics;
   private minimapRect = new Phaser.Geom.Rectangle();
   private tooltip!: Phaser.GameObjects.Container;
@@ -651,25 +653,35 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  /** Brief banner for unlocks; several queue up one after another. */
+  /** Brief banner for unlocks: at most MAX_TOASTS on screen, the rest wait their turn. */
   private toast(n: Notice): void {
     const text = n.kind === 'achievement' ? `Achievement completed: ${n.name}  (+${n.reward} tokens)`
       : n.kind === 'pet' ? `New pet: ${n.name}! It will follow you (change it in the Collection log).`
-        : `Collection log: ${n.name}`;
-    const color = n.kind === 'collection' ? '#ffffff' : '#ffd040';
-    // Just above the chatbox, stacking upwards, so they never cover window headers.
-    const t = this.add.text(this.panelX / 2, this.scale.height - CHAT_H - 8 - this.toasts * 28, text, {
-      ...FONT, fontSize: '14px', color, backgroundColor: '#2a241ce0', padding: { x: 10, y: 4 },
-    }).setOrigin(0.5, 1).setDepth(45);
-    this.toasts++;
-    this.tweens.add({
-      targets: t, alpha: 0, delay: 3000, duration: 600,
-      onComplete: () => {
-        t.destroy();
-        this.toasts--;
-      },
-    });
+        : n.kind === 'unlock' ? n.name
+          : `Collection log: ${n.name}`;
+    this.toastQueue.push({ text, color: n.kind === 'collection' ? '#ffffff' : '#ffd040' });
+    this.showToasts();
   }
+
+  private showToasts(): void {
+    while (this.toasts < MAX_TOASTS && this.toastQueue.length) {
+      const { text, color } = this.toastQueue.shift()!;
+      // Just above the chatbox, stacking upwards, so they never cover window headers.
+      const t = this.add.text(this.panelX / 2, this.scale.height - CHAT_H - 8 - this.toasts * 28, text, {
+        ...FONT, fontSize: '14px', color, backgroundColor: '#2a241ce0', padding: { x: 10, y: 4 },
+      }).setOrigin(0.5, 1).setDepth(45);
+      this.toasts++;
+      this.tweens.add({
+        targets: t, alpha: 0, delay: 2600, duration: 500,
+        onComplete: () => {
+          t.destroy();
+          this.toasts--;
+          this.showToasts();
+        },
+      });
+    }
+  }
+
 
   /** Buy list on the left, your sellable inventory on the right. */
   private buildMerchant(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
@@ -973,6 +985,7 @@ export class UIScene extends Phaser.Scene {
     if (this.menu.isOpen) return null;
     const p = this.state.player;
     const s = this.hoveredSkill;
+    if (s === 'slayer' && !this.dungeon.meta.slayerUnlocked) return ['Slayer (locked)', 'Defeat the Goblin Warlord (floor 5) to unlock it.'];
     if (s) {
       const xp = Math.floor(p.skills.xp[s]);
       const level = p.skills.level(s);
@@ -1089,7 +1102,8 @@ export class UIScene extends Phaser.Scene {
     this.autocastText.setText(`Autocast: ${auto}${p.weaponType === 'magic' ? '' : '\n(wield a staff to cast)'}`);
     for (const [s, v] of this.skillViews) {
       const level = p.skills.level(s);
-      v.text.setText(`${SKILL_SHORT[s].padEnd(5)} ${level}`);
+      const locked = s === 'slayer' && !this.dungeon.meta.slayerUnlocked;
+      v.text.setText(`${SKILL_SHORT[s].padEnd(5)} ${locked ? '--' : level}`).setColor(locked ? '#6a6a6a' : '#ffffff');
       const lo = xpForLevel(level);
       const frac = level >= MAX_LEVEL ? 1 : (p.skills.xp[s] - lo) / (xpForLevel(level + 1) - lo);
       v.bar.width = (SKILL_COL_W - 14) * frac;

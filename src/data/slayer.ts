@@ -34,6 +34,9 @@ export interface SlayerTask {
   remaining: number;
 }
 
+/** Slayer unlocks the first time you defeat this boss. */
+export const SLAYER_UNLOCK_BOSS = 'goblin_warlord';
+
 /** Tokens to skip a task at the Slayer master. */
 export const SKIP_TASK_COST = 15;
 

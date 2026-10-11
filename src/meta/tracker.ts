@@ -8,7 +8,9 @@ import type { MetaSave } from '../save/meta';
 export type Notice =
   | { kind: 'achievement'; id: string; name: string; reward: number }
   | { kind: 'collection'; id: string; name: string }
-  | { kind: 'pet'; id: string; name: string };
+  | { kind: 'pet'; id: string; name: string }
+  /** A feature opening up (e.g. Slayer); `name` is the full toast text. */
+  | { kind: 'unlock'; name: string };
 
 /** Events that can move achievement progress; everything else is skipped cheaply. */
 const TRACKED = new Set<GameEvent['type']>(['kill', 'obtain', 'stat', 'pet', 'floor', 'levelup', 'death', 'made']);

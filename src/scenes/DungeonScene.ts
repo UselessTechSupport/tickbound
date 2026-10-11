@@ -17,7 +17,7 @@ import { sfx } from '../audio/sfx';
 import { Notice, ProgressTracker } from '../meta/tracker';
 import { PET_BY_ID } from '../data/collectionLog';
 import type { AchievementDef } from '../data/achievements';
-import { SKIP_TASK_COST, SLAYER_BY_ID, assignTask } from '../data/slayer';
+import { SKIP_TASK_COST, SLAYER_BY_ID, SLAYER_UNLOCK_BOSS, assignTask } from '../data/slayer';
 import { themeForDepth } from '../data/themes';
 import { bodyLayer, ensureItemTexture, generateSprites, npcSprite, preloadSprites, shieldLayer, weaponLayer } from '../render/sprites';
 import type { UIScene } from './UIScene';
@@ -151,7 +151,9 @@ export class DungeonScene extends Phaser.Scene {
 
   /** Return to the camp hub (game start, and after a death). */
   toCamp(): void {
-    this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), { camp: true, tools: this.meta.tools }));
+    this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
+      camp: true, tools: this.meta.tools, slayerUnlocked: this.meta.slayerUnlocked,
+    }));
   }
 
   /** Start a fresh dungeon run with every unlock and perk applied. */
@@ -162,7 +164,7 @@ export class DungeonScene extends Phaser.Scene {
     const task = this.meta.slayerTask;
     if (task) {
       this.state.message(`Slayer task: kill ${task.remaining} more ${SLAYER_BY_ID[task.category].name.toLowerCase()}.`);
-    } else {
+    } else if (this.meta.slayerUnlocked) {
       this.state.message('Tip: the Slayer master at camp hands out tasks that pay bonus tokens.');
     }
   }
@@ -210,6 +212,7 @@ export class DungeonScene extends Phaser.Scene {
     if (e.type === 'death') this.bankRun();
     // Swap to the run after the current tick finishes rather than mid-tick.
     if (e.type === 'enterDungeon') this.startPending = true;
+    if (e.type === 'kill' && e.npcId === SLAYER_UNLOCK_BOSS && !this.meta.slayerUnlocked) this.unlockSlayer();
     if (e.type === 'slayerDone') {
       this.meta.tokens += e.tokens;
       this.meta.slayerTask = null;
@@ -263,9 +266,17 @@ export class DungeonScene extends Phaser.Scene {
     return this.tracker.progress(a);
   }
 
+  private unlockSlayer(): void {
+    this.meta.slayerUnlocked = true;
+    saveMeta(this.meta);
+    this.state.message('Slayer unlocked! A Slayer master has arrived at camp with monster-hunting tasks for you.');
+    this.bus.emit('notice', { kind: 'unlock', name: 'Slayer unlocked! A Slayer master has arrived at camp.' });
+    sfx.play('levelup');
+  }
+
   /** Slayer master: hand out a task if you don't have one. */
   getSlayerTask(): void {
-    if (this.meta.slayerTask) return;
+    if (this.meta.slayerTask || !this.meta.slayerUnlocked) return;
     this.meta.slayerTask = assignTask(this.meta.bestDepth, Math.random);
     saveMeta(this.meta);
     sfx.play('buy');

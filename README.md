@@ -49,7 +49,7 @@ npm run dev        # then open http://localhost:5173
   same as dying.
 - **Themed floors**: every 5 floors the dungeon changes (the Crypt from floor 6, the Volcanic depths from 11, the
   Frozen caverns from 16), each with its own monsters.
-- **Slayer**: the Slayer master at camp gives a kill task that carries across runs. Task kills give Slayer XP (which
+- **Slayer** (unlocks after your first Goblin Warlord kill): the Slayer master at camp gives a kill task that carries across runs. Task kills give Slayer XP (which
   boosts your accuracy and max hit against task monsters) and finishing pays tokens.
 - **Achievements**: 54 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
   challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.

@@ -88,6 +88,8 @@ export interface RunSetup {
   tools?: Toolbelt;
   perks?: PerkRanks;
   camp?: boolean;
+  /** Camp only: whether the Slayer master is around. */
+  slayerUnlocked?: boolean;
   /** The save's Slayer task; progress is written straight into it. */
   slayerTask?: SlayerTask | null;
 }
@@ -143,7 +145,7 @@ export class GameState {
     this.player = new Player({ x: 0, y: 0 });
     this.player.tools = { ...(setup.tools ?? NO_TOOLS) };
     if (setup.camp) {
-      this.loadCamp();
+      this.loadCamp(setup.slayerUnlocked);
       return;
     }
     this.applyStartingKit();
@@ -174,8 +176,8 @@ export class GameState {
     p.prayerPoints = p.maxPrayer;
   }
 
-  private loadCamp(): void {
-    const { map, nodes } = generateCamp();
+  private loadCamp(slayerUnlocked = false): void {
+    const { map, nodes } = generateCamp(slayerUnlocked);
     this.map = map;
     this.nodes = nodes;
     // The camp is safe and small: show all of it.
