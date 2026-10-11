@@ -1,9 +1,10 @@
 /** Permanent perks bought with Dungeoneering tokens at the camp's Mentor. */
 
-export type Branch = 'warrior' | 'survivalist' | 'artisan' | 'devotion' | 'fortune';
+export type Branch = 'warrior' | 'arsenal' | 'survivalist' | 'artisan' | 'devotion' | 'fortune';
 
 export const BRANCHES: Array<{ id: Branch; name: string; color: number }> = [
   { id: 'warrior', name: 'Warrior', color: 0xd05030 },
+  { id: 'arsenal', name: 'Arsenal', color: 0xb070e0 },
   { id: 'survivalist', name: 'Survivalist', color: 0x50a040 },
   { id: 'artisan', name: 'Artisan', color: 0xc0a040 },
   { id: 'devotion', name: 'Devotion', color: 0x60a0e0 },
@@ -29,6 +30,11 @@ export const PERKS: PerkDef[] = [
   { id: 'iron_will', branch: 'warrior', tier: 1, name: 'Iron Will', costs: [20, 40, 70], requires: 'basic_training', desc: '+2 starting Hitpoints levels per rank.' },
   { id: 'veterans_kit', branch: 'warrior', tier: 2, name: "Veteran's Kit", costs: [60, 150], requires: 'basic_training', desc: 'Rank 1: start with an iron scimitar. Rank 2: also an iron platebody.' },
   { id: 'killer_instinct', branch: 'warrior', tier: 3, name: 'Killer Instinct', costs: [80, 160, 300], requires: 'iron_will', desc: '+5% accuracy and max hit per rank.' },
+
+  { id: 'rangers_kit', branch: 'arsenal', tier: 0, name: "Ranger's Kit", costs: [20, 60], desc: 'Rank 1: start with a shortbow and 150 bronze arrows. Rank 2: an oak shortbow, 150 iron arrows and Ranged level 5.' },
+  { id: 'quiver', branch: 'arsenal', tier: 1, name: 'Quiver', costs: [30, 70, 120], requires: 'rangers_kit', desc: 'Fired arrows are recovered 15% more often per rank (base 40%).' },
+  { id: 'apprentice_kit', branch: 'arsenal', tier: 2, name: "Apprentice's Kit", costs: [20, 60], desc: 'Rank 1: start with a staff of air and 150 mind runes. Rank 2: also 100 water and 100 earth runes, and Magic level 9.' },
+  { id: 'arcane_thrift', branch: 'arsenal', tier: 3, name: 'Arcane Thrift', costs: [40, 90, 160], requires: 'apprentice_kit', desc: '10% chance per rank that a spell costs no runes.' },
 
   { id: 'packed_lunch', branch: 'survivalist', tier: 0, name: 'Packed Lunch', costs: [10, 25, 45], desc: 'Start each run with +2 trout per rank.' },
   { id: 'hearty_meals', branch: 'survivalist', tier: 1, name: 'Hearty Meals', costs: [30, 60, 100], requires: 'packed_lunch', desc: 'Food heals +1 HP per rank.' },
@@ -57,7 +63,7 @@ export type PerkRanks = Record<string, number>;
 
 /** Run-wide numbers derived from purchased perks. Defaults = no perks. */
 export interface RunMods {
-  startLevels: { attack: number; strength: number; defence: number; hitpoints: number; prayer: number };
+  startLevels: { attack: number; strength: number; defence: number; hitpoints: number; prayer: number; ranged: number; magic: number };
   startItems: Array<{ id: string; qty: number }>;
   startWeapon?: string;
   startBody?: string;
@@ -77,6 +83,8 @@ export interface RunMods {
   coinMult: number;
   rareDropMult: number;
   bossTokens: number;
+  arrowRecovery: number;
+  runeSaveChance: number;
 }
 
 export function computeMods(ranks: PerkRanks): RunMods {
@@ -84,6 +92,10 @@ export function computeMods(ranks: PerkRanks): RunMods {
   const startItems: RunMods['startItems'] = [];
   if (r('packed_lunch')) startItems.push({ id: 'trout', qty: 2 * r('packed_lunch') });
   if (r('holy_supplies')) startItems.push({ id: 'prayer_potion', qty: r('holy_supplies') });
+  if (r('rangers_kit') === 1) startItems.push({ id: 'shortbow', qty: 1 }, { id: 'bronze_arrow', qty: 150 });
+  if (r('rangers_kit') >= 2) startItems.push({ id: 'oak_shortbow', qty: 1 }, { id: 'iron_arrow', qty: 150 });
+  if (r('apprentice_kit')) startItems.push({ id: 'staff_of_air', qty: 1 }, { id: 'mind_rune', qty: 150 });
+  if (r('apprentice_kit') >= 2) startItems.push({ id: 'water_rune', qty: 100 }, { id: 'earth_rune', qty: 100 });
   return {
     startLevels: {
       attack: 1 + 3 * r('basic_training'),
@@ -91,6 +103,9 @@ export function computeMods(ranks: PerkRanks): RunMods {
       defence: 1 + 3 * r('basic_training'),
       hitpoints: 10 + 2 * r('iron_will'),
       prayer: 1 + 4 * r('blessed'),
+      // Rank 2 kits come with the levels to use their gear.
+      ranged: r('rangers_kit') >= 2 ? 5 : 1,
+      magic: r('apprentice_kit') >= 2 ? 9 : 1,
     },
     startItems,
     startWeapon: r('veterans_kit') >= 1 ? 'iron_scimitar' : undefined,
@@ -109,6 +124,8 @@ export function computeMods(ranks: PerkRanks): RunMods {
     coinMult: 1 + 0.5 * r('deep_pockets'),
     rareDropMult: 1 + 0.25 * r('lucky'),
     bossTokens: 25 * (1 + r('bounty')),
+    arrowRecovery: 0.4 + 0.15 * r('quiver'),
+    runeSaveChance: 0.1 * r('arcane_thrift'),
   };
 }
 

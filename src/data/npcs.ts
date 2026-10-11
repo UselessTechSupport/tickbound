@@ -41,7 +41,61 @@ export interface NpcDef {
   /** Tiles; melee is always 1 (cardinal only). */
   attackRange?: number;
   boss?: BossDef;
+  /** Player attacks of this style land far more often (see WEAKNESS_PENALTY). */
+  weakness?: AttackType;
 }
+
+/** Defence bonus lost against the style a monster is weak to. */
+export const WEAKNESS_PENALTY = 30;
+
+/**
+ * Combat triangle: armoured melee brutes fall to magic, casters to arrows,
+ * archers to a sword in the face. Assigned here so the table above stays readable.
+ */
+const WEAKNESSES: Record<string, AttackType> = {
+  zombie: 'magic', skeleton: 'magic', hill_giant: 'magic', moss_giant: 'magic', lesser_demon: 'magic',
+  greater_demon: 'magic', goblin_warlord: 'magic',
+  dark_wizard: 'ranged', infernal_mage: 'ranged', giant_spider: 'ranged', tztok_jad: 'ranged',
+  skeleton_archer: 'melee', dark_archer: 'melee',
+};
+
+/** Ranged and magic supplies, appended to the drop tables above. */
+const SUPPLY_DROPS: Record<string, Drop[]> = {
+  goblin: [{ item: 'bronze_arrow', chance: 0.2, min: 5, max: 15 }, { item: 'shortbow', chance: 0.03 }],
+  zombie: [{ item: 'air_rune', chance: 0.25, min: 5, max: 15 }, { item: 'mind_rune', chance: 0.25, min: 5, max: 15 }],
+  skeleton: [{ item: 'iron_arrow', chance: 0.2, min: 5, max: 15 }],
+  dark_wizard: [
+    { item: 'air_rune', chance: 0.5, min: 8, max: 20 }, { item: 'mind_rune', chance: 0.5, min: 8, max: 20 },
+    { item: 'water_rune', chance: 0.25, min: 5, max: 15 }, { item: 'earth_rune', chance: 0.25, min: 5, max: 15 },
+    { item: 'staff', chance: 0.06 }, { item: 'wizard_robe', chance: 0.05 },
+  ],
+  skeleton_archer: [
+    { item: 'iron_arrow', chance: 0.5, min: 10, max: 30 }, { item: 'oak_shortbow', chance: 0.05 },
+    { item: 'leather_body', chance: 0.05 },
+  ],
+  hill_giant: [{ item: 'steel_arrow', chance: 0.15, min: 5, max: 15 }, { item: 'chaos_rune', chance: 0.12, min: 3, max: 8 }],
+  giant_spider: [{ item: 'fire_rune', chance: 0.2, min: 10, max: 25 }],
+  moss_giant: [
+    { item: 'mithril_arrow', chance: 0.15, min: 5, max: 20 }, { item: 'chaos_rune', chance: 0.2, min: 5, max: 12 },
+    { item: 'willow_shortbow', chance: 0.04 },
+  ],
+  infernal_mage: [
+    { item: 'chaos_rune', chance: 0.45, min: 8, max: 20 }, { item: 'fire_rune', chance: 0.45, min: 15, max: 40 },
+    { item: 'death_rune', chance: 0.12, min: 2, max: 6 }, { item: 'staff_of_fire', chance: 0.05 },
+    { item: 'mystic_robe_top', chance: 0.03 },
+  ],
+  dark_archer: [
+    { item: 'adamant_arrow', chance: 0.45, min: 10, max: 30 }, { item: 'maple_shortbow', chance: 0.05 },
+    { item: 'yew_shortbow', chance: 0.02 }, { item: 'green_dhide_body', chance: 0.03 },
+  ],
+  lesser_demon: [{ item: 'death_rune', chance: 0.2, min: 3, max: 8 }, { item: 'rune_arrow', chance: 0.1, min: 5, max: 15 }],
+  greater_demon: [{ item: 'death_rune', chance: 0.3, min: 5, max: 12 }, { item: 'mystic_fire_staff', chance: 0.02 }],
+  goblin_warlord: [{ item: 'willow_shortbow', chance: 0.25 }, { item: 'iron_arrow', chance: 1, min: 40, max: 80 }, { item: 'staff_of_water', chance: 0.25 }],
+  tztok_jad: [{ item: 'mystic_air_staff', chance: 0.25 }, { item: 'chaos_rune', chance: 1, min: 30, max: 60 }, { item: 'maple_shortbow', chance: 0.25 }],
+  chaos_elemental: [{ item: 'death_rune', chance: 1, min: 20, max: 40 }, { item: 'yew_shortbow', chance: 0.25 }, { item: 'mystic_robe_top', chance: 0.25 }],
+};
+
+
 
 const list: NpcDef[] = [
   {
@@ -254,6 +308,11 @@ const list: NpcDef[] = [
     ],
   },
 ];
+
+for (const n of list) {
+  n.weakness = WEAKNESSES[n.id];
+  n.drops.push(...(SUPPLY_DROPS[n.id] ?? []));
+}
 
 export const BOSS_EVERY = 5;
 

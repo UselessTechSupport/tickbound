@@ -41,6 +41,10 @@ export class Player extends Actor {
   /** Ticks until the next skilling roll / crafted item. */
   actionTimer = 0;
   tools: Toolbelt = { ...NO_TOOLS };
+  /** Arrows in the ammo slot. */
+  ammo = 0;
+  /** Spell cast by a wielded staff; null = strongest one available. */
+  autocast: string | null = null;
   prayerPoints = 1;
   activePrayers = new Set<string>();
   /** OSRS drain counter; a point drains each time it passes the drain resistance. */
@@ -78,17 +82,35 @@ export class Player extends Actor {
 
   get combatLevel(): number {
     const s = this.skills;
-    return combatLevel(s.level('attack'), s.level('strength'), s.level('defence'), s.level('hitpoints'), s.level('prayer'));
+    return combatLevel(s.level('attack'), s.level('strength'), s.level('defence'), s.level('hitpoints'), s.level('prayer'),
+      s.level('ranged'), s.level('magic'));
   }
 
-  bonuses(): { attack: number; strength: number; defence: number; speed: number } {
-    const b = { attack: 0, strength: 0, defence: 0, speed: 4 };
+  /** Which combat style the wielded weapon uses. */
+  get weaponType(): 'melee' | 'ranged' | 'magic' {
+    const w = this.equipment.weapon;
+    return (w && item(w).equip?.combatStyle) || 'melee';
+  }
+
+  /** Attack reach in tiles: melee 1 (cardinal), bows 7 (+2 on Longrange), staffs 8. */
+  get attackRange(): number {
+    const w = this.equipment.weapon;
+    const e = w ? item(w).equip : undefined;
+    if (!e?.combatStyle) return 1;
+    return (e.attackRange ?? 7) + (e.combatStyle === 'ranged' && this.style === 'defensive' ? 2 : 0);
+  }
+
+  bonuses(): { attack: number; strength: number; defence: number; speed: number; ranged: number; rangedStrength: number; magic: number } {
+    const b = { attack: 0, strength: 0, defence: 0, speed: 4, ranged: 0, rangedStrength: 0, magic: 0 };
     for (const id of Object.values(this.equipment)) {
       const e = id ? item(id).equip : undefined;
       if (!e) continue;
       b.attack += e.attackBonus;
       b.strength += e.strengthBonus;
       b.defence += e.defenceBonus;
+      b.ranged += e.rangedBonus ?? 0;
+      b.rangedStrength += e.rangedStrength ?? 0;
+      b.magic += e.magicBonus ?? 0;
       if (e.attackSpeed) b.speed = e.attackSpeed;
     }
     return b;

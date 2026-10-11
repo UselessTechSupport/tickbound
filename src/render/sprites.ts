@@ -12,6 +12,9 @@ const TILE_KEYS = [
   'pd_base', 'pd_plate', 'pd_dagger', 'pd_sword', 'pd_scimitar', 'pd_wooden_shield', 'pd_kiteshield',
   'item_coins', 'item_bones', 'item_prayer_potion', 'item_dagger', 'item_sword', 'item_scimitar',
   'item_platebody', 'item_wooden_shield', 'pd_jacket',
+  'item_shortbow', 'item_arrow', 'item_staff', 'item_elemental_staff', 'item_mystic_staff', 'item_robe',
+  'item_leather_body', 'item_dhide_body', 'pd_bow', 'pd_staff', 'pd_elemental_staff', 'pd_mystic_staff',
+  'pd_wizard_robe', 'pd_mystic_robe', 'pd_leather_body', 'pd_dhide_body',
 ];
 
 export function preloadSprites(scene: Phaser.Scene): void {
@@ -30,12 +33,35 @@ const METAL_TINT: Record<string, number> = {
 
 const metalOf = (id: string) => METAL_TINT[id.split('_')[0]];
 
+const WOOD_TINT: Record<string, number> = { oak: 0xffe0b0, willow: 0xf0f0a0, maple: 0xffb080, yew: 0xd09070 };
+const woodOf = (id: string) => WOOD_TINT[id.split('_')[0]];
+
+const ELEMENT_TINT: Record<string, number> = { air: 0xf0f0ff, water: 0x80a0ff, earth: 0xc0a070, fire: 0xff8060 };
+/** "staff_of_fire" / "mystic_fire_staff" -> fire tint. */
+const elementOf = (id: string) => ELEMENT_TINT[Object.keys(ELEMENT_TINT).find((e) => id.includes(e)) ?? ''];
+
+/** Ranged and magic gear, shared by inventory icons and the paperdoll. */
+function rangedMagicSprite(id: string, layer: 'item' | 'pd'): SpriteRef | null {
+  if (id.endsWith('shortbow')) return { key: layer === 'item' ? 'item_shortbow' : 'pd_bow', tint: woodOf(id) };
+  if (id === 'staff') return { key: `${layer}_staff` };
+  if (id.startsWith('staff_of_')) return { key: `${layer}_elemental_staff`, tint: elementOf(id) };
+  if (id.startsWith('mystic_') && id.endsWith('_staff')) return { key: `${layer}_mystic_staff`, tint: elementOf(id) };
+  if (id === 'wizard_robe') return { key: layer === 'item' ? 'item_robe' : 'pd_wizard_robe' };
+  if (id === 'mystic_robe_top') return layer === 'item' ? { key: 'item_robe', tint: 0x9090ff } : { key: 'pd_mystic_robe' };
+  if (id === 'leather_body') return { key: `${layer}_leather_body` };
+  if (id === 'green_dhide_body') return { key: `${layer}_dhide_body` };
+  return null;
+}
+
 export function itemSprite(id: string): SpriteRef {
   if (id === 'coins') return { key: 'item_coins' };
   if (id === 'bones' || id === 'big_bones') return { key: 'item_bones' };
   if (id === 'prayer_potion') return { key: 'item_prayer_potion' };
   if (id === 'wooden_shield') return { key: 'item_wooden_shield' };
   if (id.endsWith('_kiteshield')) return { key: 'gen_kiteshield', tint: metalOf(id) };
+  if (id.endsWith('_arrow')) return { key: 'item_arrow', tint: metalOf(id) };
+  const rm = rangedMagicSprite(id, 'item');
+  if (rm) return rm;
   for (const kind of ['dagger', 'sword', 'scimitar', 'platebody']) {
     if (id.endsWith(`_${kind}`)) return { key: `item_${kind}`, tint: metalOf(id) };
   }
@@ -49,6 +75,8 @@ export function npcSprite(npcId: string): string {
 /** Paperdoll layers for the player's equipment (DCSS player tiles share one 32x32 frame). */
 export function weaponLayer(id: string | undefined): SpriteRef | null {
   if (!id) return null;
+  const rm = rangedMagicSprite(id, 'pd');
+  if (rm) return rm;
   for (const kind of ['dagger', 'sword', 'scimitar']) {
     if (id.endsWith(`_${kind}`)) return { key: `pd_${kind}`, tint: metalOf(id) };
   }
@@ -57,7 +85,8 @@ export function weaponLayer(id: string | undefined): SpriteRef | null {
 
 /** Platebody if worn, otherwise a plain leather jacket. */
 export function bodyLayer(id: string | undefined): SpriteRef {
-  return id ? { key: 'pd_plate', tint: metalOf(id) } : { key: 'pd_jacket' };
+  if (!id) return { key: 'pd_jacket' };
+  return rangedMagicSprite(id, 'pd') ?? { key: 'pd_plate', tint: metalOf(id) };
 }
 
 export function shieldLayer(id: string | undefined): SpriteRef | null {
@@ -167,6 +196,22 @@ const ANVIL = [
   '...oooooooooo',
 ];
 
+const RUNE = [
+  '', '', '',
+  '.....oooooo',
+  '...oommmmmmoo',
+  '..ommmmmmmmmmo',
+  '..ommmxxxxmmmo',
+  '.ommmxmmmmxmmmo',
+  '.ommmxmmmmxmmmo',
+  '.ommmmxxxxmmmmo',
+  '.ommmmmxxmmmmmo',
+  '..ommmmxxmmmmo',
+  '..oddmmmmmmddo',
+  '...ooddddddoo',
+  '.....oooooo',
+];
+
 /** Greyscale so metal tints colour it cleanly. */
 const KITE = [
   '', '',
@@ -223,7 +268,8 @@ export function generateSprites(scene: Phaser.Scene): void {
   for (const def of Object.values(ITEMS)) {
     const c = def.color;
     const tones = { o: 0x1a1612, x: c, X: shade(c, 1.35), d: shade(c, 0.65), k: 0x101010, l: 0xd8b880 };
-    if (def.id.endsWith('_ore') || def.id === 'coal') paint(scene, `gen_${def.id}`, ORE, { ...ROCK, x: c, X: shade(c, 1.4) });
+    if (def.id.endsWith('_rune')) paint(scene, `gen_${def.id}`, RUNE, { o: 0x1a1a1a, m: 0x8a8a92, d: 0x5a5a62, x: c });
+    else if (def.id.endsWith('_ore') || def.id === 'coal') paint(scene, `gen_${def.id}`, ORE, { ...ROCK, x: c, X: shade(c, 1.4) });
     else if (def.id.endsWith('_bar')) paint(scene, `gen_${def.id}`, BAR, tones);
     else if (def.id.endsWith('logs')) paint(scene, `gen_${def.id}`, LOGS, tones);
     else if (def.id.includes('shrimps')) paint(scene, `gen_${def.id}`, SHRIMP, tones);
