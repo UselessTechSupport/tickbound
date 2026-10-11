@@ -27,6 +27,7 @@ import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer
 import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
+import { Enchantment, Enchantments, enchantValue, enchantedItems } from '../data/enchants';
 import type { Counter } from '../data/achievements';
 import { sellPriceOf } from '../data/prices';
 
@@ -58,7 +59,7 @@ export type GameEvent =
   | { type: 'made'; item: string }
   | { type: 'slayerDone'; tokens: number }
   | { type: 'sound'; name: SoundName }
-  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' | 'armoury' }
+  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' | 'armoury' | 'enchanter' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
 /** What the player's next attack would look like; see GameState.combatPreview. */
@@ -101,6 +102,9 @@ export interface RunSetup {
   /** Armourer starting gear and which weapon style to equip. */
   armoury?: ArmouryRanks;
   startStyle?: StartStyle;
+  /** Enchanter: enchantments on Armourer gear lines. */
+  enchants?: Enchantments;
+  enchanterUnlocked?: boolean;
   /** Skip ahead: start on this floor with catch-up levels and supplies (half rewards). */
   startDepth?: number;
   /** The save's Slayer task; progress is written straight into it. */
@@ -166,6 +170,10 @@ export class GameState {
   autoPickup = { coins: false, arrows: false, runes: false };
   /** The merchant whose shop window is open. */
   activeMerchant: ResourceNode | null = null;
+  /** Enchanted Armourer gear by item id. */
+  private enchanted = new Map<string, Enchantment>();
+  /** Leeching: fractional healing carried between hits. */
+  private leechBank = 0;
   /** Vampyric Fang: damage dealt that hasn't been converted to healing yet. */
   private lifestealBank = 0;
 
@@ -175,9 +183,10 @@ export class GameState {
     this.player = new Player({ x: 0, y: 0 });
     this.player.tools = { ...(setup.tools ?? NO_TOOLS) };
     if (setup.camp) {
-      this.loadCamp(setup.slayerUnlocked, setup.armourerUnlocked);
+      this.loadCamp(setup.slayerUnlocked, setup.armourerUnlocked, setup.enchanterUnlocked);
       return;
     }
+    this.enchanted = enchantedItems(setup.armoury ?? NO_ARMOURY, setup.enchants ?? {});
     const startDepth = Math.max(1, setup.startDepth ?? 1);
     this.applyStartingKit(setup, startDepth);
     this.loadFloor(startDepth);
@@ -252,11 +261,30 @@ export class GameState {
   }
 
   /** Camp: a newly unlocked NPC sets up shop without restarting the camp. */
-  addCampNpc(kind: 'armourer'): void {
+  addCampNpc(kind: 'armourer' | 'enchanter'): void {
     if (!this.isCamp || this.nodes.some((n) => n.kind === kind)) return;
     const node = campNpc(kind);
     setTile(this.map, node.pos.x, node.pos.y, Tile.Object);
     this.nodes.push(node);
+  }
+
+  /**
+   * Strength of an enchantment from the gear you're wearing (weapon, body, shield).
+   * Stacks if two worn pieces share it; Renewal (an interval) takes the best one instead.
+   */
+  enchantPower(id: string): number {
+    const p = this.player;
+    const values = [p.equipment.weapon, p.equipment.body, p.equipment.shield]
+      .map((item) => (item ? this.enchanted.get(item) : undefined))
+      .filter((e): e is Enchantment => e?.id === id)
+      .map(enchantValue);
+    if (!values.length) return 0;
+    return id === 'renewal' ? Math.min(...values) : values.reduce((a, b) => a + b, 0);
+  }
+
+  /** Enchantment on an item, if it's one of your enchanted Armourer pieces. */
+  enchantOn(itemId: string): Enchantment | undefined {
+    return this.enchanted.get(itemId);
   }
 
   /** Autoplay handover: everything earned so far counts half from here on. */
@@ -266,8 +294,8 @@ export class GameState {
     this.message(`Autoplay hands over on floor ${this.depth}. Autoplayed floors pay half tokens. Good luck!`);
   }
 
-  private loadCamp(slayerUnlocked = false, armourerUnlocked = false): void {
-    const { map, nodes } = generateCamp(slayerUnlocked, armourerUnlocked);
+  private loadCamp(slayerUnlocked = false, armourerUnlocked = false, enchanterUnlocked = false): void {
+    const { map, nodes } = generateCamp(slayerUnlocked, armourerUnlocked, enchanterUnlocked);
     this.map = map;
     this.nodes = nodes;
     // The camp is safe and small: show all of it.
@@ -756,6 +784,8 @@ export class GameState {
     }
     const regen = Math.round(this.mods.hpRegenTicks / (this.hasRelic('regen_bracelet') ? 2 : 1));
     if (this.tickCount % regen === 0 && p.hp < p.maxHp) p.hp++;
+    const renewal = this.enchantPower('renewal');
+    if (renewal && this.tickCount % renewal === 0 && p.hp < p.maxHp) p.hp++;
     this.updateFov();
   }
 
@@ -769,7 +799,8 @@ export class GameState {
     const p = this.player;
     if (!p.activePrayers.size) return;
     for (const id of p.activePrayers) p.prayerDrain += PRAYER_BY_ID[id].drain;
-    const resistance = DRAIN_RESISTANCE * this.mods.drainResistMult * (this.hasRelic('holy_wrench') ? 1.15 : 1);
+    const resistance = DRAIN_RESISTANCE * this.mods.drainResistMult * (this.hasRelic('holy_wrench') ? 1.15 : 1)
+      / (1 - Math.min(0.6, this.enchantPower('blessed')));
     while (p.prayerDrain >= resistance) {
       p.prayerDrain -= resistance;
       p.prayerPoints = Math.max(0, p.prayerPoints - 1);
@@ -987,7 +1018,8 @@ export class GameState {
             this.offerRelics();
           }
         } else {
-          const menu = node.kind === 'slayer_master' ? 'slayer' : node.kind === 'armourer' ? 'armoury' : node.kind as 'mentor' | 'toolsmith';
+          const menu = node.kind === 'slayer_master' ? 'slayer' : node.kind === 'armourer' ? 'armoury'
+            : node.kind === 'enchanter' ? 'enchanter' : node.kind as 'mentor' | 'toolsmith';
           this.emit({ type: 'campMenu', kind: menu });
         }
         return;
@@ -1097,11 +1129,14 @@ export class GameState {
     }
     const glory = this.hasRelic('amulet_of_glory') ? 1.1 : 1;
     const berserk = this.hasRelic('berserker_necklace') && p.hp < p.maxHp / 2 ? 1.25 : 1;
-    const slayer = target && this.isOnTask(target) ? 1 + SLAYER_BONUS_PER_LEVEL * s.level('slayer') : 1;
+    const onTask = !!target && this.isOnTask(target);
+    const slayer = (onTask ? 1 + SLAYER_BONUS_PER_LEVEL * s.level('slayer') : 1) * (onTask ? 1 + this.enchantPower('slayers') : 1);
+    const keen = 1 + this.enchantPower('keen');
+    const brutal = 1 + this.enchantPower('brutal');
     return {
       mode,
-      attackRoll: Math.floor(this.mods.combatMult * glory * slayer * attackRoll),
-      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * max),
+      attackRoll: Math.floor(this.mods.combatMult * glory * slayer * keen * attackRoll),
+      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * brutal * max),
       speed,
       range: p.attackRange,
       spell,
@@ -1127,7 +1162,14 @@ export class GameState {
     const { mode, spell, speed } = c;
     const max = c.maxHit;
     const chance = this.hitChanceAgainst(npc, c);
-    const dmg = Math.min(npc.hp, rollDamage(chance, max, rand));
+    let dmg = Math.min(npc.hp, rollDamage(chance, max, rand));
+    if (dmg > 0) dmg = Math.min(npc.hp, dmg + this.enchantPower('flaming')); // Flaming: bonus fire damage on hits
+    if (dmg > 0 && this.enchantPower('leeching')) {
+      this.leechBank += dmg * this.enchantPower('leeching');
+      const heal = Math.floor(this.leechBank);
+      this.leechBank -= heal;
+      p.hp = Math.min(p.maxHp, p.hp + heal);
+    }
     if (dmg > 0 && this.hasRelic('vampyric_fang')) {
       this.lifestealBank += dmg;
       const heal = Math.floor(this.lifestealBank / 4);
@@ -1339,7 +1381,7 @@ export class GameState {
     const style = npc.attackStyle;
     const def = Math.floor(p.boostedLevel('defence') * (1 + p.prayerBoost('defence')));
     const attRoll = roll(d.attack + 9, d.attackBonus);
-    const defRoll = roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence);
+    const defRoll = Math.floor(roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence) * (1 + this.enchantPower('fortified')));
     const max = maxHit(d.strength + 9, d.strengthBonus);
     const dmg = rollDamage(hitChance(attRoll, defRoll), max, rand);
     npc.attackCooldown = d.attackSpeed;
@@ -1362,8 +1404,9 @@ export class GameState {
     let dmg = blocked ? 0 : damage;
     if (dmg > 0 && this.hasRelic('dragon_defender')) dmg -= 1;
     dmg = Math.min(p.hp, dmg);
-    if (dmg > 0 && this.hasRelic('ring_of_recoil') && !npc.dead && this.npcs.includes(npc)) {
-      const recoil = Math.min(npc.hp, Math.max(1, Math.round(dmg * 0.1)));
+    const reflect = (this.hasRelic('ring_of_recoil') ? 0.1 : 0) + this.enchantPower('thorns');
+    if (dmg > 0 && reflect > 0 && !npc.dead && this.npcs.includes(npc)) {
+      const recoil = Math.min(npc.hp, Math.max(1, Math.round(dmg * reflect)));
       this.applyHit(npc, recoil);
       if (npc.dead) this.killNpc(npc);
     }

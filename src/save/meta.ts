@@ -3,6 +3,7 @@ import { PerkRanks } from '../data/skillTree';
 import type { Counter } from '../data/achievements';
 import type { SlayerTask } from '../data/slayer';
 import { ArmouryRanks, NO_ARMOURY, StartStyle } from '../data/armoury';
+import type { Enchantments } from '../data/enchants';
 
 const BOSS_FLOORS: Record<string, number> = { goblin_warlord: 5, tztok_jad: 10, chaos_elemental: 15, demonic_gorilla: 20 };
 
@@ -36,6 +37,9 @@ export interface MetaSave {
   startStyle: StartStyle;
   /** Deepest boss floor beaten; you can skip to the floor after any boss floor up to this. */
   deepestBoss: number;
+  /** The Enchanter arrives after your first TzTok-Jad kill. */
+  enchanterUnlocked: boolean;
+  enchants: Enchantments;
 }
 
 const KEY = 'tickbound.meta';
@@ -47,6 +51,7 @@ export function freshMeta(): MetaSave {
     version: 1, tokens: 0, tools: { ...NO_TOOLS }, perks: {}, runs: 0, bestDepth: 0,
     collection: {}, killCounts: {}, achievements: [], lifetime: {}, pets: [], activePet: null, made: {}, slayerTask: null,
     slayerUnlocked: false, armoury: { ...NO_ARMOURY }, startStyle: 'melee', deepestBoss: 0,
+    enchanterUnlocked: false, enchants: {},
   };
 }
 
@@ -72,6 +77,8 @@ export function loadMeta(): MetaSave {
       // Saves that already used Slayer (before it was gated) keep it.
       slayerUnlocked: parsed.slayerUnlocked ?? (!!parsed.slayerTask || (parsed.lifetime?.tasks ?? 0) > 0),
       armoury: { ...NO_ARMOURY, ...parsed.armoury },
+      enchants: { ...parsed.enchants },
+      enchanterUnlocked: parsed.enchanterUnlocked ?? (parsed.killCounts?.tztok_jad ?? 0) > 0,
       // Older saves: credit boss floors already beaten, from the kill counts.
       deepestBoss: parsed.deepestBoss ?? Math.max(0, ...Object.entries(BOSS_FLOORS)
         .filter(([id]) => (parsed.killCounts?.[id] ?? 0) > 0).map(([, floor]) => floor)),

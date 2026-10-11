@@ -23,6 +23,10 @@ import { SKIP_TASK_COST, SLAYER_BY_ID, SLAYER_UNLOCK_BOSS, assignTask } from '..
 import { themeForDepth } from '../data/themes';
 import { ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
+import { enchantCost } from '../data/enchants';
+
+/** Your first kill of this boss brings the Enchanter to camp. */
+const ENCHANTER_UNLOCK_BOSS = 'tztok_jad';
 import { BotMemory, botStep, newBotMemory } from '../sim/bot';
 import { bodyLayer, ensureItemTexture, generateSprites, npcSprite, preloadSprites, shieldLayer, weaponLayer } from '../render/sprites';
 import type { UIScene } from './UIScene';
@@ -184,7 +188,7 @@ export class DungeonScene extends Phaser.Scene {
   toCamp(): void {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
       camp: true, tools: this.meta.tools, slayerUnlocked: this.meta.slayerUnlocked,
-      armourerUnlocked: (this.meta.perks[ARMOURER_PERK] ?? 0) > 0,
+      armourerUnlocked: (this.meta.perks[ARMOURER_PERK] ?? 0) > 0, enchanterUnlocked: this.meta.enchanterUnlocked,
     }));
   }
 
@@ -196,7 +200,7 @@ export class DungeonScene extends Phaser.Scene {
   startRun(opts: { startDepth?: number; autoplayTo?: number } = {}): void {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
       tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
-      armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth,
+      armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth, enchants: this.meta.enchants,
     }));
     if (opts.autoplayTo && opts.autoplayTo > 1) {
       this.autoplay = { target: opts.autoplayTo, memo: newBotMemory(), floorTicks: 0, floor: 1 };
@@ -268,6 +272,7 @@ export class DungeonScene extends Phaser.Scene {
     // Swap to the run after the current tick finishes rather than mid-tick.
     if (e.type === 'enterDungeon') this.startPending = true;
     if (e.type === 'kill' && e.boss) this.meta.deepestBoss = Math.max(this.meta.deepestBoss, this.state.depth);
+    if (e.type === 'kill' && e.npcId === ENCHANTER_UNLOCK_BOSS && !this.meta.enchanterUnlocked) this.unlockEnchanter();
     if (e.type === 'kill' && e.npcId === SLAYER_UNLOCK_BOSS && !this.meta.slayerUnlocked) this.unlockSlayer();
     if (e.type === 'slayerDone') {
       this.meta.tokens += e.tokens;
@@ -320,6 +325,26 @@ export class DungeonScene extends Phaser.Scene {
 
   achievementProgress(a: AchievementDef): [number, number] | null {
     return this.tracker.progress(a);
+  }
+
+  private unlockEnchanter(): void {
+    this.meta.enchanterUnlocked = true;
+    saveMeta(this.meta);
+    this.state.message('The Enchanter has heard of your victory and will await you at camp, ready to enchant your Armourer gear.');
+    this.bus.emit('notice', { kind: 'unlock', name: 'Enchanter unlocked! She awaits you at camp.' });
+    sfx.play('levelup');
+  }
+
+  /** Enchanter: put (or upgrade) an enchantment on an Armourer gear line. */
+  enchant(line: ArmouryLine, id: string): boolean {
+    const current = this.meta.enchants[line];
+    const cost = enchantCost(current, id);
+    if (cost === null || this.meta.tokens < cost || !this.meta.armoury[line]) return false;
+    this.meta.tokens -= cost;
+    this.meta.enchants[line] = { id, rank: current?.id === id ? current.rank + 1 : 1 };
+    saveMeta(this.meta);
+    sfx.play('buy');
+    return true;
   }
 
   private unlockSlayer(): void {
@@ -465,7 +490,7 @@ export class DungeonScene extends Phaser.Scene {
         fontFamily: 'monospace', fontSize: '12px', color: '#ffff00', stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5, 1).setDepth(6));
       for (const n of this.state.nodes) {
-        if (['mentor', 'toolsmith', 'slayer_master', 'armourer'].includes(n.kind)) label(n.pos.x, n.pos.y - 0.4, n.name);
+        if (['mentor', 'toolsmith', 'slayer_master', 'armourer', 'enchanter'].includes(n.kind)) label(n.pos.x, n.pos.y - 0.4, n.name);
       }
       label(map.stairs.x, map.stairs.y, 'Dungeon');
     }
@@ -552,6 +577,7 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'toolsmith') return [{ label: 'Trade Toolsmith', action: () => g.talkTo(node) }];
     if (node.kind === 'slayer_master') return [{ label: 'Get-task Slayer master', action: () => g.talkTo(node) }];
     if (node.kind === 'armourer') return [{ label: 'Trade Armourer', action: () => g.talkTo(node) }];
+    if (node.kind === 'enchanter') return [{ label: 'Enchant Enchanter', action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
     if (node.kind === 'chest') return node.used ? [] : [{ label: 'Open Chest', action: () => g.talkTo(node) }];

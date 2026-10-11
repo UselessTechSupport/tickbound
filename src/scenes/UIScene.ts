@@ -14,7 +14,8 @@ import { itemInfo, speedText } from '../ui/itemInfo';
 import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/achievements';
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
-import { ARMOURY, ARMOURY_LINES, StartStyle, nextArmouryTier } from '../data/armoury';
+import { ARMOURY, ARMOURY_LINES, ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
+import { ENCHANTS, ENCHANT_COSTS, ENCHANT_SWITCH_FEE, ROMAN, describeEnchant, enchantCost, lineKind } from '../data/enchants';
 import { recipesFor } from '../data/recipes';
 import { herbForDepth } from '../data/resources';
 import { HERB_DROP_CHANCE } from '../game/GameState';
@@ -52,7 +53,7 @@ const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops'
-  | 'armoury' | 'startRun';
+  | 'armoury' | 'startRun' | 'enchanter';
 
 /** What the drop-table window is showing. */
 export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
@@ -144,6 +145,8 @@ export class UIScene extends Phaser.Scene {
   private logCategory = LOG_CATEGORIES[0].id;
   private dropsSubject: DropsSubject | null = null;
   private autoplayOverlay?: Phaser.GameObjects.Container;
+  /** Enchanter window: which gear line is selected. */
+  private enchantLine?: ArmouryLine;
   private achievementTier: Tier = 'easy';
   private taskText!: Phaser.GameObjects.Text;
   /** Toasts currently on screen, and the ones waiting for a free spot. */
@@ -571,7 +574,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
-      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon',
+      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter',
       drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
@@ -586,6 +589,7 @@ export class UIScene extends Phaser.Scene {
       slayer: `Dungeoneering tokens: ${meta.tokens}   Tasks completed: ${meta.lifetime.tasks ?? 0}`,
       settings: 'Saved in this browser',
       armoury: `Dungeoneering tokens: ${meta.tokens}`,
+      enchanter: `Dungeoneering tokens: ${meta.tokens}`,
       startRun: `Best floor: ${meta.bestDepth}   Deepest boss beaten: ${meta.deepestBoss ? `floor ${meta.deepestBoss}` : 'none yet'}`,
       drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
     }[kind];
@@ -601,6 +605,7 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'settings') this.buildSettings(add);
     else if (kind === 'drops') this.buildDrops(add);
     else if (kind === 'armoury') this.buildArmoury(add);
+    else if (kind === 'enchanter') this.buildEnchanter(add);
     else if (kind === 'startRun') this.buildStartRun(add);
     else this.buildToolsmith(add);
   }
@@ -705,6 +710,69 @@ export class UIScene extends Phaser.Scene {
     add(this.add.text(x0, y + 32, 'Your other bought weapons start in your pack, so you can switch mid-run.', {
       ...FONT, fontSize: '11px', color: '#c8c8c8',
     }));
+  }
+
+  /** Enchanter: one enchantment per Armourer line, ranks I-III; pick a line, then an enchantment. */
+  private buildEnchanter(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const d = this.dungeon;
+    const meta = d.meta;
+    const W = this.panelX;
+    const x0 = W / 2 - 340;
+    const owned = ARMOURY_LINES.filter((l) => meta.armoury[l] > 0);
+    add(this.add.text(W / 2, 86, `Enchantments last forever and follow the line as you upgrade it. Upgrades: ${ENCHANT_COSTS.join(' / ')} tokens.\n`
+      + `Switching to a different enchantment costs ${ENCHANT_SWITCH_FEE} extra and starts again at rank I.`, {
+      ...FONT, fontSize: '11px', color: '#c8c8c8', align: 'center',
+    }).setOrigin(0.5, 0));
+    if (!owned.length) {
+      add(this.add.text(W / 2, 160, 'Buy some gear from the Armourer first.', { ...FONT, fontSize: '14px', color: '#ffffff' }).setOrigin(0.5, 0));
+      return;
+    }
+    if (!this.enchantLine || !owned.includes(this.enchantLine)) this.enchantLine = owned[0];
+    const line = this.enchantLine;
+    // Line tabs.
+    owned.forEach((l, i) => {
+      const on = l === line;
+      const b = add(this.add.text(x0 + i * 136, 124, ARMOURY[l].name, {
+        ...FONT, fontSize: '12px', color: on ? '#ffffff' : '#a08a5a', backgroundColor: on ? '#5d5447' : '#2a241c',
+        padding: { x: 6, y: 4 }, fixedWidth: 128, align: 'center',
+      }).setInteractive({ useHandCursor: true }));
+      b.on('pointerdown', () => {
+        this.enchantLine = l;
+        this.openModal('enchanter');
+      });
+    });
+    const current = meta.enchants[line];
+    const piece = ARMOURY[line].tiers[meta.armoury[line] - 1].label;
+    add(this.add.text(x0, 160, `${piece}: ${current ? describeEnchant(current) : 'not enchanted'}`, {
+      ...FONT, fontSize: '13px', color: current ? '#60ff60' : '#ffffff',
+    }));
+    let y = 192;
+    for (const ench of ENCHANTS.filter((e) => e.kind === lineKind(line))) {
+      const mine = current?.id === ench.id;
+      const rank = mine ? current.rank : 0;
+      const nextV = ench.values[Math.min(2, rank)];
+      add(this.add.text(x0, y + 4, `${ench.name}${rank ? ` ${ROMAN[rank]}` : ''}`, { ...FONT, fontSize: '13px', color: '#ff981f' }));
+      add(this.add.text(x0 + 130, y + 4, rank >= 3 ? ench.describe(ench.values[2]) : `${rank ? 'Next: ' : ''}${ench.describe(nextV)}`, {
+        ...FONT, fontSize: '12px', color: '#ffffff',
+      }));
+      const cost = enchantCost(current, ench.id);
+      if (cost === null) {
+        add(this.add.text(x0 + 680, y + 4, 'Maxed', { ...FONT, fontSize: '12px', color: '#60ff60' }).setOrigin(1, 0));
+      } else {
+        const ok = meta.tokens >= cost;
+        const verb = mine ? `Upgrade to ${ROMAN[rank + 1]}` : current ? 'Switch' : 'Enchant';
+        const b = add(this.add.text(x0 + 680, y, `${verb} (${cost})`, {
+          ...FONT, fontSize: '12px', color: ok ? '#ffffff' : '#7a7a7a', backgroundColor: ok ? '#3e3529' : '#241f18', padding: { x: 8, y: 4 },
+        }).setOrigin(1, 0));
+        if (ok) {
+          b.setInteractive({ useHandCursor: true });
+          b.on('pointerover', () => b.setBackgroundColor('#5d5447'));
+          b.on('pointerout', () => b.setBackgroundColor('#3e3529'));
+          b.on('pointerdown', () => d.enchant(line, ench.id) && this.openModal('enchanter'));
+        }
+      }
+      y += 34;
+    }
   }
 
   /** Taking the ladder: floor 1, skip past a beaten boss, or autoplay to your best floor. */
@@ -1431,7 +1499,9 @@ export class UIScene extends Phaser.Scene {
       return lines;
     }
     const id = this.hoveredItem?.();
-    return id ? itemInfo(id, p) : null;
+    if (!id) return null;
+    const ench = this.state.enchantOn(id);
+    return ench ? [...itemInfo(id, p), `Enchanted: ${describeEnchant(ench)}`] : itemInfo(id, p);
   }
 
   private updateTooltip(): void {
