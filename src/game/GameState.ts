@@ -144,6 +144,8 @@ export class GameState {
   relics: string[] = [];
   /** Relics on offer, waiting for the player to pick one (the scene pauses meanwhile). */
   pendingRelics: string[] | null = null;
+  /** Item categories picked up automatically when walked over (from settings). */
+  autoPickup = { coins: false, arrows: false, runes: false };
   /** The merchant whose shop window is open. */
   activeMerchant: ResourceNode | null = null;
   /** Vampyric Fang: damage dealt that hasn't been converted to healing yet. */
@@ -312,10 +314,11 @@ export class GameState {
     this.player.path = [];
   }
 
-  take(g: GroundItem): void {
+  /** Walk to an item and pick it up; `all` takes the whole pile on that tile. */
+  take(g: GroundItem, all = false): void {
     if (this.over) return;
     const p = this.player;
-    p.intent = { kind: 'take', item: g };
+    p.intent = { kind: 'take', item: g, all };
     p.path = findPath(this.map, p.pos, g.pos);
   }
 
@@ -612,6 +615,7 @@ export class GameState {
     for (const n of this.npcs) n.prev = { ...n.pos };
 
     this.processPlayer();
+    this.autoPickUp();
     if (this.over) return;
     for (const n of [...this.npcs]) this.processNpc(n);
     this.landPendingHits();
@@ -815,7 +819,8 @@ export class GameState {
         if (!this.groundItems.includes(g)) {
           p.intent = null;
         } else if (samePos(p.pos, g.pos)) {
-          this.pickUp(g);
+          if (intent.all) for (const other of this.itemsAt(g.pos.x, g.pos.y)) this.pickUp(other);
+          else this.pickUp(g);
           p.intent = null;
         } else if (!p.path.length) {
           p.intent = null;
@@ -894,6 +899,24 @@ export class GameState {
     this.groundItems.splice(this.groundItems.indexOf(g), 1);
     this.countLoot(g.id, g.qty);
     this.sound('pickup');
+  }
+
+  /** Picks up enabled categories (coins, arrows, runes) from tiles you walked over this tick. */
+  private autoPickUp(): void {
+    const a = this.autoPickup;
+    if (this.over || !(a.coins || a.arrows || a.runes)) return;
+    const wanted = (id: string) => (a.coins && id === 'coins') || (a.arrows && id.endsWith('_arrow')) || (a.runes && id.endsWith('_rune'));
+    const p = this.player;
+    if (samePos(p.prev, p.pos)) return; // only tiles you moved onto, so a full pack doesn't nag every tick
+    for (const pos of [p.via, p.pos]) {
+      if (!pos) continue;
+      for (const gi of this.itemsAt(pos.x, pos.y)) if (wanted(gi.id)) this.pickUp(gi);
+    }
+  }
+
+  /** Swap two inventory slots. */
+  swapSlots(a: number, b: number): void {
+    this.player.inventory.swap(a, b);
   }
 
   private countLoot(id: string, qty: number): void {
