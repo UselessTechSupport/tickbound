@@ -22,6 +22,7 @@ npm run dev        # then open http://localhost:5173
 | Minimap click | Walk there |
 | `1` `2` `3` | Protect from Magic / Missiles / Melee |
 | `R` | Toggle run (2 tiles per tick) / walk (1 tile) |
+| Hover an item | Stats tooltip: speed, range, bonuses, requirements, comparison with what you wear, value |
 | `M` | Mute sound |
 | `H` | Show controls in chat |
 | `Esc` | Close windows |

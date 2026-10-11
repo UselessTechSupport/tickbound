@@ -43,6 +43,20 @@ export type GameEvent =
   | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
+/** What the player's next attack would look like; see GameState.combatPreview. */
+export interface CombatPreview {
+  mode: AttackType;
+  attackRoll: number;
+  maxHit: number;
+  /** Ticks between attacks. */
+  speed: number;
+  /** Tiles. */
+  range: number;
+  spell?: SpellDef;
+  /** Why the player can't attack right now (no ammo, no runes...). */
+  problem?: string;
+}
+
 /** A ranged/magic attack in flight; protection prayers are checked when it lands. */
 interface PendingHit {
   npc: Npc;
@@ -783,50 +797,71 @@ export class GameState {
     this.sound('pickup');
   }
 
-  private playerAttack(npc: Npc): void {
+  /**
+   * The player's current offence with their gear, style, prayers, perks and relics.
+   * Pure: used both to resolve attacks and to show stats in the Gear tab.
+   */
+  combatPreview(): CombatPreview {
     const p = this.player;
     const b = p.bonuses();
     const s = p.skills;
     const boosted = (skill: SkillName, group: PrayerGroup) =>
       Math.floor(s.level(skill) * (1 + p.prayerBoost(group)));
-    const mult = this.mods.combatMult;
     const mode = p.weaponType;
-    const weakness = npc.def.weakness === mode ? WEAKNESS_PENALTY : 0;
-    const defRoll = roll(npc.def.defence + 9, Math.max(-63, npc.def.defenceBonus - weakness));
-    let attRoll: number;
+    let attackRoll: number;
     let max: number;
     let speed = b.speed;
     let spell: SpellDef | undefined;
+    let problem: string | undefined;
 
     if (mode === 'ranged') {
-      if (!p.equipment.ammo || p.ammo <= 0) {
-        this.message('There is no ammo left in your quiver.');
-        p.intent = null;
-        return;
-      }
+      if (!p.equipment.ammo || p.ammo <= 0) problem = 'There is no ammo left in your quiver.';
       const eff = effectiveLevel(boosted('ranged', 'ranged'), p.style === 'accurate' ? 3 : 0);
-      attRoll = roll(eff, b.ranged);
+      attackRoll = roll(eff, b.ranged);
       max = maxHit(eff, b.rangedStrength);
       if (p.style === 'aggressive') speed -= 1; // Rapid
     } else if (mode === 'magic') {
       const pick = this.pickSpell();
-      if (typeof pick === 'string') {
-        this.message(pick);
-        p.intent = null;
-        return;
-      }
-      spell = pick;
-      attRoll = roll(effectiveLevel(boosted('magic', 'magic'), 1), b.magic);
-      max = spell.maxHit;
+      if (typeof pick === 'string') problem = pick;
+      else spell = pick;
+      attackRoll = roll(effectiveLevel(boosted('magic', 'magic'), 1), b.magic);
+      max = spell?.maxHit ?? 0;
     } else {
-      attRoll = roll(effectiveLevel(boosted('attack', 'attack'), p.style === 'accurate' ? 3 : 0), b.attack);
+      attackRoll = roll(effectiveLevel(boosted('attack', 'attack'), p.style === 'accurate' ? 3 : 0), b.attack);
       max = maxHit(effectiveLevel(boosted('strength', 'strength'), p.style === 'aggressive' ? 3 : 0), b.strength);
     }
     const glory = this.hasRelic('amulet_of_glory') ? 1.1 : 1;
     const berserk = this.hasRelic('berserker_necklace') && p.hp < p.maxHp / 2 ? 1.25 : 1;
-    attRoll = Math.floor(mult * glory * attRoll);
-    max = Math.floor(mult * glory * berserk * max);
-    const dmg = Math.min(npc.hp, rollDamage(hitChance(attRoll, defRoll), max, rand));
+    return {
+      mode,
+      attackRoll: Math.floor(this.mods.combatMult * glory * attackRoll),
+      maxHit: Math.floor(this.mods.combatMult * glory * berserk * max),
+      speed,
+      range: p.attackRange,
+      spell,
+      problem,
+    };
+  }
+
+  /** Chance the player's next attack hits `npc` (weakness included). */
+  hitChanceAgainst(npc: Npc, preview = this.combatPreview()): number {
+    const weakness = npc.def.weakness === preview.mode ? WEAKNESS_PENALTY : 0;
+    const defRoll = roll(npc.def.defence + 9, Math.max(-63, npc.def.defenceBonus - weakness));
+    return hitChance(preview.attackRoll, defRoll);
+  }
+
+  private playerAttack(npc: Npc): void {
+    const p = this.player;
+    const c = this.combatPreview();
+    if (c.problem) {
+      this.message(c.problem);
+      p.intent = null;
+      return;
+    }
+    const { mode, spell, speed } = c;
+    const max = c.maxHit;
+    const chance = this.hitChanceAgainst(npc, c);
+    const dmg = Math.min(npc.hp, rollDamage(chance, max, rand));
     if (dmg > 0 && this.hasRelic('vampyric_fang')) {
       this.lifestealBank += dmg;
       const heal = Math.floor(this.lifestealBank / 4);
