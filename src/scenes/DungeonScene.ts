@@ -14,6 +14,7 @@ import { nextRankCost, perkBlocker } from '../data/skillTree';
 import { AttackType } from '../data/prayers';
 import { describeOptions, type MenuOption } from '../ui/ContextMenu';
 import { sfx } from '../audio/sfx';
+import { saveSettings, settings } from '../save/settings';
 import { Notice, ProgressTracker } from '../meta/tracker';
 import { PET_BY_ID } from '../data/collectionLog';
 import type { AchievementDef } from '../data/achievements';
@@ -30,15 +31,7 @@ export const STYLE_COLORS: Record<AttackType, number> = { melee: 0xd03030, range
 const OVERHEAD_LETTER: Record<AttackType, string> = { melee: 'S', ranged: 'R', magic: 'M' };
 
 const HOVER_COLOR = 0xffff00;
-const RUN_KEY = 'tickbound.run';
 
-function loadRunPref(): boolean {
-  try {
-    return localStorage.getItem(RUN_KEY) !== '0';
-  } catch {
-    return true;
-  }
-}
 
 interface ActorView {
   /** Container the camera can follow; holds the sprite layers. */
@@ -65,6 +58,15 @@ function renderPos(actor: Actor, alpha: number): { x: number; y: number } {
   return alpha < 0.5 ? lerp(actor.prev, actor.via, alpha * 2) : lerp(actor.via, actor.pos, alpha * 2 - 1);
 }
 
+/** OSRS level colours: red is far stronger than you, green far weaker. */
+function levelColor(diff: number): string {
+  if (diff >= 10) return '#ff3030';
+  if (diff >= 1) return '#ff9030';
+  if (diff === 0) return '#ffff00';
+  if (diff > -10) return '#a0ff40';
+  return '#40ff40';
+}
+
 /** Stable per-tile pick among texture variants so floors don't look tiled. */
 const variant = (x: number, y: number, n: number) => (((x * 73856093) ^ (y * 19349663)) >>> 0) % n;
 
@@ -80,6 +82,8 @@ export class DungeonScene extends Phaser.Scene {
   bus = new Phaser.Events.EventEmitter();
   /** OSRS-style top-left action text for whatever is under the cursor. */
   hoverText = '';
+  /** Extra coloured detail (HP, hit chance) when hovering a monster. */
+  hoverDetail: { text: string; color: string } | null = null;
   /** Between-run progress (tokens, unlocked tools). */
   meta: MetaSave = loadMeta();
   /** Tokens awarded for the run that just ended. */
@@ -107,7 +111,6 @@ export class DungeonScene extends Phaser.Scene {
   private pet?: Phaser.GameObjects.Image;
   /** The pet trails one step behind the player. */
   private petTile = { prev: { x: 0, y: 0 }, pos: { x: 0, y: 0 } };
-  private runPref = loadRunPref();
   private labels: Phaser.GameObjects.Text[] = [];
 
   constructor() {
@@ -171,23 +174,19 @@ export class DungeonScene extends Phaser.Scene {
 
   /** Run toggle, remembered across runs and sessions. */
   get running(): boolean {
-    return this.runPref;
+    return settings.run;
   }
 
   setRunning(on: boolean): void {
-    this.runPref = on;
+    settings.run = on;
+    saveSettings();
     this.state.setRunning(on);
-    try {
-      localStorage.setItem(RUN_KEY, on ? '1' : '0');
-    } catch {
-      // Not persisted; fine.
-    }
   }
 
   private setState(state: GameState): void {
     for (const v of this.npcViews.values()) this.destroyView(v);
     this.npcViews.clear();
-    state.setRunning(this.runPref);
+    state.setRunning(settings.run);
     this.state = state;
     this.onFloorChanged();
     this.bus.emit('newrun');
@@ -644,6 +643,18 @@ export class DungeonScene extends Phaser.Scene {
     this.splats.push({ actor, view, until: this.time.now + 1000 });
   }
 
+  /** HP and hit chance for a hovered monster, coloured by level like OSRS. */
+  private describeHoveredNpc(): { text: string; color: string } | null {
+    const g = this.state;
+    const { x, y } = this.hoverTile;
+    if (!g || x < 0) return null;
+    const npc = g.npcAt(x, y);
+    if (!npc || !g.isVisible(x, y)) return null;
+    const chance = Math.round(100 * g.hitChanceAgainst(npc));
+    const weak = npc.def.weakness === g.player.weaponType ? ', weak to your style' : '';
+    return { text: `HP ${npc.hp}/${npc.maxHp}  ${chance}% to hit${weak}`, color: levelColor(npc.level - g.player.combatLevel) };
+  }
+
   private describeHover(): string {
     if (this.hoverTile.x < 0 || !this.state) return '';
     return describeOptions(this.optionsAt(this.hoverTile));
@@ -708,5 +719,6 @@ export class DungeonScene extends Phaser.Scene {
     });
 
     this.hoverText = this.describeHover();
+    this.hoverDetail = this.describeHoveredNpc();
   }
 }

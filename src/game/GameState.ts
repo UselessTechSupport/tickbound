@@ -125,7 +125,17 @@ export class GameState {
   undyingUsed = false;
   slayerTask: SlayerTask | null = null;
   /** Per-run facts some achievements need. */
-  runStats = { foodEaten: 0, killStyles: new Set<AttackType>() };
+  runStats = {
+    foodEaten: 0,
+    killStyles: new Set<AttackType>(),
+    damageDealt: 0,
+    damageTaken: 0,
+    /** XP gained this run, per skill. */
+    xp: {} as Partial<Record<SkillName, number>>,
+    itemsLooted: 0,
+    coinsLooted: 0,
+    killedBy: '',
+  };
   /** Damage each boss has dealt this run (for "Untouchable"). */
   private bossDamage = new Map<Npc, number>();
   /** The run ended by choice rather than death. */
@@ -388,7 +398,8 @@ export class GameState {
     this.stat('chests');
     for (const { id, qty } of chestLoot(this.depth)) {
       this.emit({ type: 'obtain', item: id, qty, source: 'chest' });
-      if (!this.player.inventory.add(id, qty)) this.dropOnTile(id, qty, this.player.pos);
+      if (this.player.inventory.add(id, qty)) this.countLoot(id, qty);
+      else this.dropOnTile(id, qty, this.player.pos);
       got.push(`${qty > 1 ? `${qty} x ` : ''}${item(id).name}`);
     }
     this.message(`You open the chest and find: ${got.join(', ')}.`);
@@ -459,6 +470,25 @@ export class GameState {
     }
     p.activePrayers.add(id);
     this.sound('prayerOn');
+  }
+
+  /**
+   * Quick-prayers: if any of `ids` is on, switch them all off; otherwise switch on
+   * every one you have the level for.
+   */
+  toggleQuickPrayers(ids: string[]): void {
+    if (this.over || !ids.length) return;
+    const p = this.player;
+    if (ids.some((id) => p.activePrayers.has(id))) {
+      for (const id of ids) if (p.activePrayers.has(id)) this.togglePrayer(id);
+      return;
+    }
+    const usable = ids.filter((id) => p.skills.level('prayer') >= PRAYER_BY_ID[id].level);
+    if (!usable.length) {
+      this.message("You don't have the Prayer level for any of your quick-prayers yet.");
+      return;
+    }
+    for (const id of usable) this.togglePrayer(id);
   }
 
   setStyle(style: AttackStyle): void {
@@ -862,7 +892,13 @@ export class GameState {
       return;
     }
     this.groundItems.splice(this.groundItems.indexOf(g), 1);
+    this.countLoot(g.id, g.qty);
     this.sound('pickup');
+  }
+
+  private countLoot(id: string, qty: number): void {
+    if (id === 'coins') this.runStats.coinsLooted += qty;
+    else this.runStats.itemsLooted += qty;
   }
 
   /**
@@ -1030,6 +1066,8 @@ export class GameState {
   }
 
   private applyHit(target: Actor, dmg: number): void {
+    if (target === this.player) this.runStats.damageTaken += dmg;
+    else this.runStats.damageDealt += dmg;
     target.hp -= dmg;
     target.lastHitTick = this.tickCount;
     this.emit({ type: 'hit', target, damage: dmg });
@@ -1084,6 +1122,7 @@ export class GameState {
     const hpBefore = p.maxHp;
     const prayerBefore = p.maxPrayer;
     if (this.hasRelic('seers_insight')) amount *= 1.5;
+    this.runStats.xp[skill] = (this.runStats.xp[skill] ?? 0) + amount;
     const gained = p.skills.addXp(skill, amount);
     this.emit({ type: 'xp', skill, amount });
     if (gained > 0) {
@@ -1175,6 +1214,7 @@ export class GameState {
     }
     if (p.dead) {
       this.over = true;
+      this.runStats.killedBy = npc.name;
       this.message('Oh dear, you are dead!');
       this.emit({ type: 'death' });
     }
