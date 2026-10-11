@@ -21,6 +21,7 @@ export function generateCamp(slayerUnlocked = false): { map: FloorMap; nodes: Re
   const nodes = [
     new ResourceNode({ x: 7, y: 6 }, 'mentor'),
     new ResourceNode({ x: 19, y: 6 }, 'toolsmith'),
+    new ResourceNode({ x: 7, y: 10 }, 'armourer'),
     // The Slayer master only shows up once Slayer is unlocked.
     ...(slayerUnlocked ? [new ResourceNode({ x: 19, y: 10 }, 'slayer_master')] : []),
     new ResourceNode({ x: 13, y: 12 }, 'fire'),

@@ -41,6 +41,8 @@ const uniques = (c: AchievementContext) => Object.keys(c.meta.collection).length
 const killedTimes = (npcId: string, n: number) => (c: AchievementContext) => (c.meta.killCounts[npcId] ?? 0) >= n;
 const made = (pred: (id: string) => boolean) => (c: AchievementContext) => Object.keys(c.meta.made).some(pred);
 const inRun = (f: (g: GameState) => boolean) => (c: AchievementContext) => !c.game.isCamp && f(c.game);
+/** Run challenges can't be done with skip-ahead or autoplay. */
+const unassisted = (f: (g: GameState) => boolean) => inRun((g) => !g.assisted && f(g));
 const NON_COMBAT = ['mining', 'woodcutting', 'fishing', 'cooking', 'smithing', 'herblore'] as const;
 const MIX_OUTPUTS = RECIPES.filter((r) => r.station === 'mix').map((r) => r.output);
 
@@ -87,8 +89,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'fight_caves', name: 'The Fight Caves', desc: 'Defeat TzTok-Jad.', tier: 'hard', check: killed('tztok_jad') },
   { id: 'abyssal', name: 'Abyssal', desc: 'Reach floor 15.', tier: 'hard', check: reached(15) },
   { id: 'untouchable', name: 'Untouchable', desc: 'Defeat a boss without taking any damage from it.', tier: 'hard' },
-  { id: 'ghost', name: 'Ghost', desc: 'Reach floor 5 without killing anything.', tier: 'hard', check: (c) => !c.game.isCamp && c.game.depth >= 5 && c.game.kills === 0 },
-  { id: 'iron_stomach', name: 'Iron Stomach', desc: 'Reach floor 10 without eating.', tier: 'hard', check: (c) => !c.game.isCamp && c.game.depth >= 10 && c.game.runStats.foodEaten === 0 },
+  { id: 'ghost', name: 'Ghost', desc: 'Reach floor 5 without killing anything.', tier: 'hard', check: unassisted((g) => g.depth >= 5 && g.kills === 0) },
+  { id: 'iron_stomach', name: 'Iron Stomach', desc: 'Reach floor 10 without eating.', tier: 'hard', check: unassisted((g) => g.depth >= 10 && g.runStats.foodEaten === 0) },
   { id: 'master_of_arms', name: 'Master of Arms', desc: 'Kill monsters with melee, ranged and magic in one run.', tier: 'hard', check: (c) => c.game.runStats.killStyles.size === 3 },
   { id: 'into_the_fire', name: 'Into the Fire', desc: 'Reach the Volcanic depths (floor 11).', tier: 'hard', check: reached(11) },
   { id: 'rune_smith', name: 'Rune Smith', desc: 'Smith a rune item.', tier: 'hard', check: made((id) => /^rune_(scimitar|kiteshield|platebody)$/.test(id)) },
@@ -107,7 +109,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'gorilla', name: 'Gorilla Warfare', desc: 'Defeat the Demonic gorilla.', tier: 'elite', check: killed('demonic_gorilla') },
   { id: 'abyss_walker', name: 'Abyss Walker', desc: 'Reach floor 25.', tier: 'elite', check: reached(25) },
   { id: 'pet_owner', name: 'Funny Feeling', desc: 'Obtain a boss pet.', tier: 'elite', check: (c) => c.meta.pets.length > 0 },
-  { id: 'speedrunner', name: 'Speedrunner', desc: 'Reach floor 10 within 1,500 ticks.', tier: 'elite', check: (c) => !c.game.isCamp && c.game.depth >= 10 && c.game.tickCount <= 1500 },
+  { id: 'speedrunner', name: 'Speedrunner', desc: 'Reach floor 10 within 1,500 ticks.', tier: 'elite', check: unassisted((g) => g.depth >= 10 && g.tickCount <= 1500) },
   { id: 'frostbitten', name: 'Frostbitten', desc: 'Reach the Frozen caverns (floor 16).', tier: 'elite', check: reached(16) },
   { id: 'slayer_master', name: 'Slayer Master', desc: 'Complete 50 Slayer tasks.', tier: 'elite', ...count('tasks', 50) },
   { id: 'dragon_slayer', name: 'Dragon Slayer', desc: 'Obtain a dragon scimitar.', tier: 'elite', check: (c) => (c.meta.collection.dragon_scimitar ?? 0) > 0 },

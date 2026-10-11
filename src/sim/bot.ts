@@ -39,7 +39,7 @@ export function playRun(seed: number, setup: RunSetup, maxTicks = 60_000): RunRe
       if (npc) lastAttacker = npc.name;
     }
   }, setup);
-  const memo: BotMemory = { ignored: new Set<Npc>(), lastTarget: null, seenMessages: 0 };
+  const memo = newBotMemory();
   let floorTicks = 0;
   let depth = g.depth;
 
@@ -59,7 +59,17 @@ export function playRun(seed: number, setup: RunSetup, maxTicks = 60_000): RunRe
   };
 }
 
-interface BotMemory {
+/** Fresh memory for driving a run with botStep (also used by in-game autoplay). */
+export function newBotMemory(): BotMemory {
+  return { ignored: new Set<Npc>(), lastTarget: null, seenMessages: 0 };
+}
+
+/** One decision for the current tick; call before GameState.tick(). `rush` = head for the stairs. */
+export function botStep(g: GameState, memo: BotMemory, rush: boolean): void {
+  decide(g, memo, rush);
+}
+
+export interface BotMemory {
   /** Monsters it couldn't path to this floor. */
   ignored: Set<Npc>;
   lastTarget: Npc | null;

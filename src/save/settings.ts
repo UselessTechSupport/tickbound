@@ -12,6 +12,8 @@ export interface Settings {
   /** Prayers toggled together by the quick-prayer button / Q. */
   quickPrayers: string[];
   zoom: number;
+  /** Offer "Autoplay to your best floor" when starting a run. */
+  allowAutoplay: boolean;
 }
 
 const KEY = 'tickbound.settings';
@@ -26,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoPickup: { coins: true, arrows: true, runes: true },
   quickPrayers: [],
   zoom: 1,
+  allowAutoplay: true,
 };
 
 function read(key: string): string | null {

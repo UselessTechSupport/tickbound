@@ -6,7 +6,7 @@ const TILE_KEYS = [
   'floor_0', 'floor_1', 'floor_2', 'floor_3', 'wall_0', 'wall_1', 'wall_2', 'wall_3',
   'grass_0', 'grass_1', 'grass_2', 'herb_patch', 'item_attack_potion', 'item_strength_potion', 'item_defence_potion',
   'item_super_attack', 'item_super_strength', 'item_super_defence', 'item_ranging_potion', 'item_magic_potion',
-  'item_vial_of_water', 'shrine', 'chest', 'chest_open', 'merchant', 'npc_mimic', 'stairs', 'ladder', 'water', 'boulder', 'tree', 'fire', 'altar',
+  'item_vial_of_water', 'armourer', 'shrine', 'chest', 'chest_open', 'merchant', 'npc_mimic', 'stairs', 'ladder', 'water', 'boulder', 'tree', 'fire', 'altar',
   'mentor', 'toolsmith',
   'npc_rat', 'npc_goblin', 'npc_giant_rat', 'npc_zombie',
   'npc_ghoul', 'npc_wight', 'npc_mummy', 'npc_hellhound', 'npc_fire_elemental', 'npc_salamander',

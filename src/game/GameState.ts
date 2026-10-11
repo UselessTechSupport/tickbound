@@ -25,6 +25,8 @@ import { herbForDepth } from '../data/resources';
 export const HERB_DROP_CHANCE = 0.12;
 import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer';
 import { themeForDepth } from '../data/themes';
+import { ArmouryRanks, NO_ARMOURY, StartStyle, armouryKit } from '../data/armoury';
+import { catchUpFor } from '../data/catchup';
 import type { Counter } from '../data/achievements';
 import { sellPriceOf } from '../data/prices';
 
@@ -56,7 +58,7 @@ export type GameEvent =
   | { type: 'made'; item: string }
   | { type: 'slayerDone'; tokens: number }
   | { type: 'sound'; name: SoundName }
-  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' }
+  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' | 'armoury' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
 /** What the player's next attack would look like; see GameState.combatPreview. */
@@ -95,6 +97,11 @@ export interface RunSetup {
   camp?: boolean;
   /** Camp only: whether the Slayer master is around. */
   slayerUnlocked?: boolean;
+  /** Armourer starting gear and which weapon style to equip. */
+  armoury?: ArmouryRanks;
+  startStyle?: StartStyle;
+  /** Skip ahead: start on this floor with catch-up levels and supplies (half rewards). */
+  startDepth?: number;
   /** The save's Slayer task; progress is written straight into it. */
   slayerTask?: SlayerTask | null;
 }
@@ -146,6 +153,10 @@ export class GameState {
   private bossDamage = new Map<Npc, number>();
   /** The run ended by choice rather than death. */
   forfeited = false;
+  /** This run used skip-ahead or autoplay (in-run challenge achievements don't count). */
+  assisted = false;
+  /** Raw tokens earned before handing control to the player; these count half. */
+  private tokenBaseline = 0;
   /** Relics picked this run. */
   relics: string[] = [];
   /** Relics on offer, waiting for the player to pick one (the scene pauses meanwhile). */
@@ -166,8 +177,14 @@ export class GameState {
       this.loadCamp(setup.slayerUnlocked);
       return;
     }
-    this.applyStartingKit();
-    this.loadFloor(1);
+    const startDepth = Math.max(1, setup.startDepth ?? 1);
+    this.applyStartingKit(setup, startDepth);
+    this.loadFloor(startDepth);
+    if (startDepth > 1) {
+      this.assisted = true;
+      this.tokenBaseline = this.rawTokens();
+      this.message(`You skip ahead to floor ${startDepth}. Floors you skip pay half tokens.`);
+    }
     this.message('Welcome to Tickbound. Find the stairs and go deeper.');
     const t = this.player.tools;
     if (!t.pickaxe && !t.axe && !t.fishing) {
@@ -180,18 +197,65 @@ export class GameState {
   }
 
   /** Starting levels, gear and supplies, including skill-tree perks. */
-  private applyStartingKit(): void {
+  /**
+   * Starting levels, gear and supplies: skill-tree perks, Armourer gear (worn if you
+   * can wield it, otherwise carried) and, when skipping ahead, catch-up levels.
+   */
+  private applyStartingKit(setup: RunSetup, startDepth: number): void {
     const p = this.player;
     const m = this.mods;
-    for (const [skill, level] of Object.entries(m.startLevels) as Array<[SkillName, number]>) {
+    const style = setup.startStyle ?? 'melee';
+    const levels: Partial<Record<SkillName, number>> = { ...m.startLevels };
+    const catchUp = startDepth > 1 ? catchUpFor(startDepth, style) : null;
+    for (const [skill, level] of Object.entries(catchUp?.levels ?? {}) as Array<[SkillName, number]>) {
+      levels[skill] = Math.max(levels[skill] ?? 1, level);
+    }
+    for (const [skill, level] of Object.entries(levels) as Array<[SkillName, number]>) {
       p.skills.xp[skill] = Math.max(p.skills.xp[skill], xpForLevel(level));
     }
     p.equipment = { weapon: m.startWeapon ?? 'bronze_dagger', shield: 'wooden_shield' };
     if (m.startBody) p.equipment.body = m.startBody;
     p.inventory.add('shrimps', 4);
-    for (const it of m.startItems) p.inventory.add(it.id, it.qty);
+    for (const it of [...m.startItems, ...(catchUp?.items ?? [])]) p.inventory.add(it.id, it.qty);
+
+    const canWield = (id: string) => {
+      const req = item(id).equip?.req;
+      return !req || p.skills.level(req.skill) >= req.level;
+    };
+    // Compare gear by what matters for your starting style (a mage doesn't care about strength).
+    const score = (id?: string) => {
+      const e = id ? item(id).equip : undefined;
+      if (!e) return -Infinity;
+      const offence = style === 'melee' ? e.attackBonus + e.strengthBonus
+        : style === 'ranged' ? (e.rangedBonus ?? 0) + (e.rangedStrength ?? 0) : (e.magicBonus ?? 0);
+      return e.defenceBonus + offence;
+    };
+    for (const { line, id, qty } of armouryKit(setup.armoury ?? NO_ARMOURY)) {
+      const e = item(id).equip;
+      const isWeapon = e?.slot === 'weapon';
+      const wear = e && canWield(id) && (isWeapon ? line === style
+        : e.slot === 'ammo' ? style === 'ranged' && !p.equipment.ammo
+          : score(id) > score(p.equipment[e.slot]));
+      if (wear && e.slot === 'ammo') {
+        p.equipment.ammo = id;
+        p.ammo = qty;
+      } else if (wear) {
+        const old = p.equipment[e.slot];
+        p.equipment[e.slot] = id;
+        if (old && old !== 'bronze_dagger' && old !== 'wooden_shield') p.inventory.add(old);
+      } else {
+        p.inventory.add(id, qty);
+      }
+    }
     p.hp = p.maxHp;
     p.prayerPoints = p.maxPrayer;
+  }
+
+  /** Autoplay handover: everything earned so far counts half from here on. */
+  endAutoplay(): void {
+    this.assisted = true;
+    this.tokenBaseline = this.rawTokens();
+    this.message(`Autoplay hands over on floor ${this.depth}. Autoplayed floors pay half tokens. Good luck!`);
   }
 
   private loadCamp(slayerUnlocked = false): void {
@@ -211,9 +275,15 @@ export class GameState {
 
   /** Dungeoneering tokens this run is worth: depth reached, kills, bosses and carried coins. */
   get tokensEarned(): number {
-    const base = 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills + ELITE_TOKENS * this.eliteKills
-      + Math.floor(this.player.inventory.count('coins') / 20);
+    // Tokens from skipped or autoplayed floors (the baseline) only count half.
+    const base = this.rawTokens() - this.tokenBaseline / 2;
     return Math.floor(base * this.mods.tokenMult * (this.hasRelic('lucky_charm') ? 1.25 : 1));
+  }
+
+  /** Token value before multipliers and the half-rate for skipped floors. */
+  private rawTokens(): number {
+    return 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills + ELITE_TOKENS * this.eliteKills
+      + Math.floor(this.player.inventory.count('coins') / 20);
   }
 
   get depth(): number {
@@ -909,7 +979,8 @@ export class GameState {
             this.offerRelics();
           }
         } else {
-          this.emit({ type: 'campMenu', kind: node.kind === 'slayer_master' ? 'slayer' : node.kind as 'mentor' | 'toolsmith' });
+          const menu = node.kind === 'slayer_master' ? 'slayer' : node.kind === 'armourer' ? 'armoury' : node.kind as 'mentor' | 'toolsmith';
+          this.emit({ type: 'campMenu', kind: menu });
         }
         return;
       }
@@ -1211,6 +1282,13 @@ export class GameState {
       const level = p.skills.level(skill);
       if (skill === 'hitpoints') p.hp += p.maxHp - hpBefore;
       if (skill === 'prayer') p.prayerPoints += p.maxPrayer - prayerBefore;
+      // Carried starting gear you can now use.
+      for (const s of p.inventory.slots) {
+        const req = s ? item(s.id).equip?.req : undefined;
+        if (req?.skill === skill && req.level > level - gained && req.level <= level) {
+          this.message(`You can now wield your ${item(s!.id).name}!`);
+        }
+      }
       const label = SKILL_LABELS[skill];
       this.message(`Congratulations, you just advanced ${/^[AEIOU]/.test(label) ? 'an' : 'a'} ${label} level. You are now level ${level}.`);
       this.emit({ type: 'levelup', skill, level });

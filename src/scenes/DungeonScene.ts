@@ -21,6 +21,9 @@ import { PET_BY_ID } from '../data/collectionLog';
 import type { AchievementDef } from '../data/achievements';
 import { SKIP_TASK_COST, SLAYER_BY_ID, SLAYER_UNLOCK_BOSS, assignTask } from '../data/slayer';
 import { themeForDepth } from '../data/themes';
+import { ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
+import { catchUpFor } from '../data/catchup';
+import { BotMemory, botStep, newBotMemory } from '../sim/bot';
 import { bodyLayer, ensureItemTexture, generateSprites, npcSprite, preloadSprites, shieldLayer, weaponLayer } from '../render/sprites';
 import type { UIScene } from './UIScene';
 
@@ -32,6 +35,8 @@ export const STYLE_COLORS: Record<AttackType, number> = { melee: 0xd03030, range
 const OVERHEAD_LETTER: Record<AttackType, string> = { melee: 'S', ranged: 'R', magic: 'M' };
 
 const HOVER_COLOR = 0xffff00;
+/** Safety cap so autoplay always hands over eventually. */
+const AUTOPLAY_MAX_TICKS = 40_000;
 /** Hold this long on a touch screen to open the right-click menu. */
 export const LONG_PRESS_MS = 450;
 
@@ -119,6 +124,8 @@ export class DungeonScene extends Phaser.Scene {
   private hoverTile = { x: -1, y: -1 };
   private lastFrameAt?: number;
   private startPending = false;
+  /** Autoplay in progress: target floor and the bot's memory. */
+  autoplay: { target: number; memo: BotMemory; floorTicks: number; floor: number } | null = null;
   private touchHold?: number;
   /** The current touch already opened a menu, so its release does nothing. */
   private touchConsumed = false;
@@ -181,10 +188,19 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Start a fresh dungeon run with every unlock and perk applied. */
-  startRun(): void {
+  /**
+   * Start a fresh run. `startDepth` skips ahead with catch-up (half rewards);
+   * `autoplayTo` lets the bot play fast until that floor, then hands over.
+   */
+  startRun(opts: { startDepth?: number; autoplayTo?: number } = {}): void {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
       tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
+      armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth,
     }));
+    if (opts.autoplayTo && opts.autoplayTo > 1) {
+      this.autoplay = { target: opts.autoplayTo, memo: newBotMemory(), floorTicks: 0, floor: 1 };
+      this.bus.emit('autoplay', this.autoplay);
+    }
     const task = this.meta.slayerTask;
     if (task) {
       this.state.message(`Slayer task: kill ${task.remaining} more ${SLAYER_BY_ID[task.category].name.toLowerCase()}.`);
@@ -226,6 +242,17 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private onGameEvent(e: GameEvent): void {
+    // Autoplay fast-forwards: skip effects, popups and achievement tracking, keep the essentials.
+    if (this.autoplay) {
+      if (e.type === 'floor' && this.state) this.onFloorChanged();
+      if (e.type === 'death') {
+        this.autoplay = null;
+        this.bankRun();
+        this.bus.emit('autoplay', null);
+        this.bus.emit('death', e);
+      }
+      return;
+    }
     this.playSoundFor(e);
     if (e.type === 'hit') this.addHitsplat(e.target, e.damage);
     if (e.type === 'projectile') this.fireProjectile(e.from, e.to, e.style, e.ticks);
@@ -233,6 +260,7 @@ export class DungeonScene extends Phaser.Scene {
     if (e.type === 'death') this.bankRun();
     // Swap to the run after the current tick finishes rather than mid-tick.
     if (e.type === 'enterDungeon') this.startPending = true;
+    if (e.type === 'kill' && e.boss) this.meta.deepestBoss = Math.max(this.meta.deepestBoss, this.state.depth);
     if (e.type === 'kill' && e.npcId === SLAYER_UNLOCK_BOSS && !this.meta.slayerUnlocked) this.unlockSlayer();
     if (e.type === 'slayerDone') {
       this.meta.tokens += e.tokens;
@@ -314,6 +342,79 @@ export class DungeonScene extends Phaser.Scene {
     return true;
   }
 
+  /** Ways to start a run: floor 1, the floor after each beaten boss, and autoplay. */
+  runStartOptions(): Array<{ label: string; detail: string; start: () => void }> {
+    const opts = [{ label: 'Start at floor 1', detail: 'Full rewards.', start: () => this.startRun() }];
+    for (let floor = 5; floor <= this.meta.deepestBoss; floor += 5) {
+      const depth = floor + 1;
+      const c = catchUpFor(depth, this.meta.startStyle);
+      opts.push({
+        label: `Skip to floor ${depth}`,
+        detail: `Start with ${this.meta.startStyle} levels ~${c.levels.defence}, HP ${c.levels.hitpoints} and supplies. Skipped floors pay half tokens.`,
+        start: () => this.startRun({ startDepth: depth }),
+      });
+    }
+    if (settings.allowAutoplay && this.meta.bestDepth > 1) {
+      opts.push({
+        label: `Autoplay to floor ${this.meta.bestDepth}`,
+        detail: 'The bot plays fast until your best floor, then hands over. It can die! Autoplayed floors pay half tokens.',
+        start: () => this.startRun({ autoplayTo: this.meta.bestDepth }),
+      });
+    }
+    return opts;
+  }
+
+  /** Run the bot for a burst of ticks; hand over at the target floor or when cancelled. */
+  private stepAutoplay(): void {
+    const a = this.autoplay!;
+    const g = this.state;
+    const deadline = performance.now() + 25;
+    while (performance.now() < deadline && this.autoplay && !g.over) {
+      if (g.depth !== a.floor) {
+        a.floor = g.depth;
+        a.floorTicks = 0;
+      }
+      if (g.depth >= a.target || g.tickCount > AUTOPLAY_MAX_TICKS) {
+        this.finishAutoplay();
+        return;
+      }
+      botStep(g, a.memo, a.floorTicks > 3000);
+      g.tick();
+      a.floorTicks++;
+    }
+    this.lastFrameAt = performance.now();
+    this.bus.emit('autoplay', this.autoplay);
+  }
+
+  /** Stop fast-forwarding and give the player control (also used by the Cancel button). */
+  finishAutoplay(): void {
+    if (!this.autoplay) return;
+    this.autoplay = null;
+    const g = this.state;
+    if (g.pendingRelics) g.chooseRelic(g.pendingRelics[0]);
+    g.player.intent = null;
+    g.player.path = [];
+    g.endAutoplay();
+    this.onFloorChanged();
+    this.bus.emit('autoplay', null);
+  }
+
+  /** Armourer: buy the next starting-gear tier in a line. */
+  buyArmoury(line: ArmouryLine): boolean {
+    const tier = nextArmouryTier(this.meta.armoury, line);
+    if (!tier || this.meta.tokens < tier.cost) return false;
+    this.meta.tokens -= tier.cost;
+    this.meta.armoury[line]++;
+    saveMeta(this.meta);
+    sfx.play('buy');
+    return true;
+  }
+
+  setStartStyle(style: StartStyle): void {
+    this.meta.startStyle = style;
+    saveMeta(this.meta);
+  }
+
   /** Pick which owned pet follows you (null = none). */
   setActivePet(id: string | null): void {
     this.meta.activePet = id;
@@ -357,7 +458,7 @@ export class DungeonScene extends Phaser.Scene {
         fontFamily: 'monospace', fontSize: '12px', color: '#ffff00', stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5, 1).setDepth(6));
       for (const n of this.state.nodes) {
-        if (n.kind === 'mentor' || n.kind === 'toolsmith' || n.kind === 'slayer_master') label(n.pos.x, n.pos.y - 0.4, n.name);
+        if (['mentor', 'toolsmith', 'slayer_master', 'armourer'].includes(n.kind)) label(n.pos.x, n.pos.y - 0.4, n.name);
       }
       label(map.stairs.x, map.stairs.y, 'Dungeon');
     }
@@ -443,6 +544,7 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'mentor') return [{ label: 'Talk-to Mentor', action: () => g.talkTo(node) }];
     if (node.kind === 'toolsmith') return [{ label: 'Trade Toolsmith', action: () => g.talkTo(node) }];
     if (node.kind === 'slayer_master') return [{ label: 'Get-task Slayer master', action: () => g.talkTo(node) }];
+    if (node.kind === 'armourer') return [{ label: 'Trade Armourer', action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
     if (node.kind === 'chest') return node.used ? [] : [{ label: 'Open Chest', action: () => g.talkTo(node) }];
@@ -536,7 +638,9 @@ export class DungeonScene extends Phaser.Scene {
     this.state.tick();
     if (this.startPending) {
       this.startPending = false;
-      this.startRun();
+      // With skip-ahead or autoplay available, let the player choose how to start.
+      if (this.runStartOptions().length > 1) this.ui.openModal('startRun');
+      else this.startRun();
     }
     if (!this.state.player.path.length) this.destMarker.setVisible(false);
     this.drawMap();
@@ -769,6 +873,10 @@ export class DungeonScene extends Phaser.Scene {
     // when the frame rate drops, which would stretch the 600ms tick.
     const wall = performance.now();
     // The game waits while a relic choice is on screen.
+    if (this.autoplay) {
+      this.stepAutoplay();
+      return;
+    }
     const paused = !!this.state.pendingRelics || this.ui.pausesGame;
     if (this.lastFrameAt !== undefined && !paused) this.ticks.update(wall - this.lastFrameAt);
     this.lastFrameAt = wall;
