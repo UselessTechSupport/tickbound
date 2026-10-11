@@ -108,6 +108,8 @@ export class GameState {
   mods: RunMods;
   /** Undying perk: whether the one cheat-death has been used this run. */
   undyingUsed = false;
+  /** The run ended by choice rather than death. */
+  forfeited = false;
   /** Relics picked this run. */
   relics: string[] = [];
   /** Relics on offer, waiting for the player to pick one (the scene pauses meanwhile). */
@@ -339,6 +341,16 @@ export class GameState {
     }
     this.message(`You open the chest and find: ${got.join(', ')}.`);
     this.sound('buy');
+  }
+
+  /** Ends the run now; tokens are banked exactly as if you had died. */
+  forfeit(): void {
+    if (this.over || this.isCamp) return;
+    this.over = true;
+    this.forfeited = true;
+    this.pendingRelics = null;
+    this.message('You forfeit the run and retreat to camp.');
+    this.emit({ type: 'death' });
   }
 
   hasRelic(id: string): boolean {

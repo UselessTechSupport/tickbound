@@ -205,7 +205,7 @@ export class DungeonScene extends Phaser.Scene {
         break;
       case 'projectile': sfx.play(e.style === 'magic' ? 'magic' : 'arrow'); break;
       case 'levelup': sfx.play('levelup'); break;
-      case 'death': sfx.play('death'); break;
+      case 'death': sfx.play(this.state?.forfeited ? 'stairs' : 'death'); break;
       case 'floor': if (e.depth > 1) sfx.play('stairs'); break;
       case 'enterDungeon': sfx.play('stairs'); break;
     }
