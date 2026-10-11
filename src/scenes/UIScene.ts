@@ -103,6 +103,10 @@ export class UIScene extends Phaser.Scene {
   private chat!: Phaser.GameObjects.Text;
   private runButton!: Phaser.GameObjects.Text;
   private soundText!: Phaser.GameObjects.Text;
+  private invGrid = { x: 0, y: 0 };
+  /** Inventory drag in progress: from slot, press position, whether it has moved yet. */
+  private drag: { from: number; x: number; y: number; moved: boolean } | null = null;
+  private dragGhost?: Phaser.GameObjects.Image;
   private hoverDetail!: Phaser.GameObjects.Text;
   private lowHp!: Phaser.GameObjects.Graphics;
   private wasLowHp = false;
@@ -152,7 +156,11 @@ export class UIScene extends Phaser.Scene {
     this.menu = new ContextMenu(this, () => (this.consumedFrame = this.game.loop.frame));
     this.build();
     this.scale.on('resize', () => this.build());
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.menu.handlePointerMove(p.x, p.y));
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      this.menu.handlePointerMove(p.x, p.y);
+      this.updateDrag(p);
+    });
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.endDrag(p));
 
     const bus = this.dungeon.bus;
     bus.on('xp', (e: Extract<GameEvent, { type: 'xp' }>) => this.xpDrop(e.skill, e.amount));
@@ -327,6 +335,7 @@ export class UIScene extends Phaser.Scene {
     this.gearText = this.add.text(px + 12, y + 2, '', { ...FONT, fontSize: '11px', color: '#ffffff', lineSpacing: 3 });
     this.tabObjects.gear.push(this.gearText);
     const gridX = px + (PANEL_W - SLOT * 4) / 2;
+    this.invGrid = { x: gridX, y };
     for (let i = 0; i < INVENTORY_SIZE; i++) {
       const sx = gridX + (i % 4) * SLOT;
       const sy = y + Math.floor(i / 4) * SLOT;
@@ -336,7 +345,11 @@ export class UIScene extends Phaser.Scene {
         ...FONT, fontSize: '8px', color: '#ffffff', align: 'center', wordWrap: { width: SLOT - 4 }, lineSpacing: -2,
       }).setOrigin(0.5, 1);
       const qty = this.add.text(sx + 3, sy + 2, '', { ...FONT, fontSize: '11px' });
-      bg.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPanelClick(p, this.inventoryOptions(i)));
+      // Right-click opens the menu at once; left-click acts on release so you can drag instead.
+      bg.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        if (p.rightButtonDown()) this.onPanelClick(p, this.inventoryOptions(i));
+        else if (this.state.player.inventory.slots[i]) this.drag = { from: i, x: p.x, y: p.y, moved: false };
+      });
       this.hoverable(bg, () => this.describe(this.inventoryOptions(i)));
       this.itemHover(bg, () => this.state.player.inventory.slots[i]?.id);
       this.slots.push({ icon, label, qty });
@@ -1043,6 +1056,48 @@ export class UIScene extends Phaser.Scene {
       ...FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3,
     }).setOrigin(1, 0);
     this.tweens.add({ targets: t, y: 4, alpha: 0, duration: 1600, onComplete: () => t.destroy() });
+  }
+
+  /** Inventory slot under a screen point, or -1. */
+  private slotAt(x: number, y: number): number {
+    const col = Math.floor((x - this.invGrid.x) / SLOT);
+    const row = Math.floor((y - this.invGrid.y) / SLOT);
+    if (this.tab !== 'inventory' || col < 0 || col > 3 || row < 0 || row > 6) return -1;
+    return row * 4 + col;
+  }
+
+  private updateDrag(p: Phaser.Input.Pointer): void {
+    const d = this.drag;
+    if (!d) return;
+    if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) > 6) {
+      d.moved = true;
+      const stack = this.state.player.inventory.slots[d.from];
+      if (!stack) {
+        this.drag = null;
+        return;
+      }
+      const ref = ensureItemTexture(this, stack.id);
+      this.dragGhost = this.add.image(p.x, p.y, ref.key).setDepth(60).setAlpha(0.85);
+      if (ref.tint !== undefined) this.dragGhost.setTint(ref.tint);
+      this.slots[d.from].icon.setAlpha(0.3);
+    }
+    this.dragGhost?.setPosition(p.x, p.y);
+  }
+
+  /** Drop onto another slot to swap; a plain click (no drag) uses the item. */
+  private endDrag(p: Phaser.Input.Pointer): void {
+    const d = this.drag;
+    if (!d) return;
+    this.drag = null;
+    this.dragGhost?.destroy();
+    this.dragGhost = undefined;
+    this.slots[d.from]?.icon.setAlpha(1);
+    if (!d.moved) {
+      this.inventoryOptions(d.from)[0]?.action();
+      return;
+    }
+    const to = this.slotAt(p.x, p.y);
+    if (to >= 0 && to !== d.from) this.state.swapSlots(d.from, to);
   }
 
   /** Tracks which item `obj` shows, so hovering it brings up its stats tooltip. */

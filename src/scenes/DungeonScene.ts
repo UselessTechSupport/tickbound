@@ -15,6 +15,7 @@ import { AttackType } from '../data/prayers';
 import { describeOptions, type MenuOption } from '../ui/ContextMenu';
 import { sfx } from '../audio/sfx';
 import { saveSettings, settings } from '../save/settings';
+import { priceOf } from '../data/prices';
 import { Notice, ProgressTracker } from '../meta/tracker';
 import { PET_BY_ID } from '../data/collectionLog';
 import type { AchievementDef } from '../data/achievements';
@@ -56,6 +57,15 @@ function renderPos(actor: Actor, alpha: number): { x: number; y: number } {
   });
   if (!actor.via) return lerp(actor.prev, actor.pos, alpha);
   return alpha < 0.5 ? lerp(actor.prev, actor.via, alpha * 2) : lerp(actor.via, actor.pos, alpha * 2 - 1);
+}
+
+/** Ground-label colour by pile value (gp), like RuneLite's loot tiers. */
+function valueColor(value: number): string {
+  if (value >= 5000) return '#ff66ff';
+  if (value >= 1500) return '#ff9a30';
+  if (value >= 300) return '#60ff60';
+  if (value >= 50) return '#80d0ff';
+  return '#ffffff';
 }
 
 /** OSRS level colours: red is far stronger than you, green far weaker. */
@@ -187,6 +197,7 @@ export class DungeonScene extends Phaser.Scene {
     for (const v of this.npcViews.values()) this.destroyView(v);
     this.npcViews.clear();
     state.setRunning(settings.run);
+    state.autoPickup = settings.autoPickup;
     this.state = state;
     this.onFloorChanged();
     this.bus.emit('newrun');
@@ -418,7 +429,17 @@ export class DungeonScene extends Phaser.Scene {
       const weak = npc.def.weakness ? ` It looks weak to ${npc.def.weakness === 'melee' ? 'melee' : npc.def.weakness}.` : '';
       examines.push({ label: `Examine ${npc.name}`, action: () => g.message(npc.def.examine + weak) });
     }
-    for (const gi of [...g.itemsAt(t.x, t.y)].reverse()) {
+    const pile = g.itemsAt(t.x, t.y);
+    if (pile.length > 1) {
+      opts.push({
+        label: `Take all (${pile.length} items)`,
+        action: () => {
+          g.take(pile[pile.length - 1], true);
+          if (g.player.path.length) this.destMarker.setPosition(t.x * TILE, t.y * TILE).setVisible(true);
+        },
+      });
+    }
+    for (const gi of [...pile].reverse()) {
       const def = item(gi.id);
       const name = def.name + (gi.qty > 1 ? ` (${gi.qty})` : '');
       opts.push({
@@ -512,7 +533,20 @@ export class DungeonScene extends Phaser.Scene {
       const img = this.add.image(gi.pos.x * TILE + TILE / 2, gi.pos.y * TILE + TILE / 2, ref.key).setDepth(2).setScale(0.8);
       if (ref.tint) img.setTint(ref.tint);
       this.dynamic.push(img);
+      if (settings.groundLabels) this.labelPile(gi.pos);
     }
+  }
+
+  /** RuneLite-style label over a pile: top item, how many more, coloured by total value. */
+  private labelPile(pos: Point): void {
+    const pile = this.state.itemsAt(pos.x, pos.y);
+    const top = pile[pile.length - 1];
+    const value = pile.reduce((v, gi) => v + priceOf(gi.id) * gi.qty, 0);
+    const name = `${item(top.id).name}${top.qty > 1 ? ` (${top.qty})` : ''}${pile.length > 1 ? ` +${pile.length - 1}` : ''}`;
+    const label = this.add.text(pos.x * TILE + TILE / 2, pos.y * TILE - 2, name, {
+      fontFamily: 'monospace', fontSize: '10px', color: valueColor(value), stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(7);
+    this.dynamic.push(label);
   }
 
   private drawNode(fx: Phaser.GameObjects.Graphics, n: ResourceNode): void {

@@ -24,6 +24,7 @@ npm run dev        # then open http://localhost:5173
 | `Q` | Quick-prayers (choose them with "Set up quick-prayers" in the Prayer tab) |
 | `R` | Toggle run (2 tiles per tick) / walk (1 tile) |
 | Hover an item | Stats tooltip: speed, range, bonuses, requirements, comparison with what you wear, value |
+| Drag an item | Move it to another inventory slot |
 | `Shift` + click item | Drop it (left-click option becomes Drop while Shift is held) |
 | `A` / `L` | Achievements / Collection log (also buttons at the bottom of the side panel) |
 | `M` | Mute sound |

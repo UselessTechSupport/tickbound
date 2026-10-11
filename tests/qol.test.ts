@@ -58,3 +58,42 @@ describe('run summary stats', () => {
     expect(g.runStats.coinsLooted).toBe(10);
   });
 });
+
+describe('loot QoL', () => {
+  it('Take all picks up the whole pile', async () => {
+    const { GroundItem } = await import('../src/entities/GroundItem');
+    const g = new GameState(510);
+    g.npcs = [];
+    const spot = adjacentFloor(g);
+    const pile = [new GroundItem('bones', 1, spot), new GroundItem('coins', 40, spot), new GroundItem('trout', 1, spot)];
+    g.groundItems.push(...pile);
+    g.take(pile[2], true);
+    for (let i = 0; i < 5; i++) g.tick();
+    expect(g.itemsAt(spot.x, spot.y)).toHaveLength(0);
+    expect(g.player.inventory.count('coins')).toBe(40);
+    expect(g.player.inventory.count('trout')).toBe(1);
+  });
+
+  it('auto-picks up enabled categories you walk over', async () => {
+    const { GroundItem } = await import('../src/entities/GroundItem');
+    const g = new GameState(511);
+    g.npcs = [];
+    g.autoPickup = { coins: true, arrows: false, runes: true };
+    const spot = adjacentFloor(g);
+    g.groundItems.push(new GroundItem('coins', 25, spot), new GroundItem('iron_arrow', 10, spot), new GroundItem('air_rune', 30, spot));
+    g.walkTo(spot);
+    for (let i = 0; i < 3; i++) g.tick();
+    expect(g.player.inventory.count('coins')).toBe(25);
+    expect(g.player.inventory.count('air_rune')).toBe(30);
+    expect(g.itemsAt(spot.x, spot.y).map((i) => i.id)).toEqual(['iron_arrow']);
+  });
+
+  it('swaps inventory slots', () => {
+    const g = new GameState(512);
+    g.player.inventory.add('coins', 5);
+    const coinSlot = g.player.inventory.slots.findIndex((s) => s?.id === 'coins');
+    g.swapSlots(0, coinSlot);
+    expect(g.player.inventory.slots[0]?.id).toBe('coins');
+    expect(g.player.inventory.slots[coinSlot]?.id).toBe('shrimps');
+  });
+});

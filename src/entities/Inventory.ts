@@ -57,6 +57,12 @@ export class Inventory {
     return true;
   }
 
+  /** Swaps two slots (drag-to-rearrange). */
+  swap(a: number, b: number): void {
+    if (a === b || a < 0 || b < 0 || a >= INVENTORY_SIZE || b >= INVENTORY_SIZE) return;
+    [this.slots[a], this.slots[b]] = [this.slots[b], this.slots[a]];
+  }
+
   freeSlots(): number {
     return this.slots.filter((s) => s === null).length;
   }

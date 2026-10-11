@@ -23,7 +23,7 @@ export const STYLE_SKILL: Record<AttackStyle, SkillName> = {
 export type Intent =
   | { kind: 'walk' }
   | { kind: 'attack'; npc: Npc }
-  | { kind: 'take'; item: GroundItem }
+  | { kind: 'take'; item: GroundItem; all?: boolean }
   | { kind: 'descend' }
   | { kind: 'gather'; node: ResourceNode; started: boolean }
   | { kind: 'altar'; node: ResourceNode }
