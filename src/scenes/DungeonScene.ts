@@ -25,6 +25,15 @@ export const STYLE_COLORS: Record<AttackType, number> = { melee: 0xd03030, range
 const OVERHEAD_LETTER: Record<AttackType, string> = { melee: 'S', ranged: 'R', magic: 'M' };
 
 const HOVER_COLOR = 0xffff00;
+const RUN_KEY = 'tickbound.run';
+
+function loadRunPref(): boolean {
+  try {
+    return localStorage.getItem(RUN_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
 
 interface ActorView {
   /** Container the camera can follow; holds the sprite layers. */
@@ -39,6 +48,16 @@ interface PaperDoll {
   body: Phaser.GameObjects.Image;
   shield: Phaser.GameObjects.Image;
   weapon: Phaser.GameObjects.Image;
+}
+
+/** Pixel position between ticks; a running step passes through `via` so it never cuts corners. */
+function renderPos(actor: Actor, alpha: number): { x: number; y: number } {
+  const lerp = (a: Point, b: Point, t: number) => ({
+    x: Phaser.Math.Linear(a.x, b.x, t) * TILE + TILE / 2,
+    y: Phaser.Math.Linear(a.y, b.y, t) * TILE + TILE / 2,
+  });
+  if (!actor.via) return lerp(actor.prev, actor.pos, alpha);
+  return alpha < 0.5 ? lerp(actor.prev, actor.via, alpha * 2) : lerp(actor.via, actor.pos, alpha * 2 - 1);
 }
 
 /** Stable per-tile pick among texture variants so floors don't look tiled. */
@@ -79,6 +98,7 @@ export class DungeonScene extends Phaser.Scene {
   private hoverTile = { x: -1, y: -1 };
   private lastFrameAt?: number;
   private startPending = false;
+  private runPref = loadRunPref();
   private labels: Phaser.GameObjects.Text[] = [];
 
   constructor() {
@@ -130,9 +150,25 @@ export class DungeonScene extends Phaser.Scene {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), { tools: this.meta.tools, perks: this.meta.perks }));
   }
 
+  /** Run toggle, remembered across runs and sessions. */
+  get running(): boolean {
+    return this.runPref;
+  }
+
+  setRunning(on: boolean): void {
+    this.runPref = on;
+    this.state.setRunning(on);
+    try {
+      localStorage.setItem(RUN_KEY, on ? '1' : '0');
+    } catch {
+      // Not persisted; fine.
+    }
+  }
+
   private setState(state: GameState): void {
     for (const v of this.npcViews.values()) this.destroyView(v);
     this.npcViews.clear();
+    state.setRunning(this.runPref);
     this.state = state;
     this.onFloorChanged();
     this.bus.emit('newrun');
@@ -450,8 +486,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private placeView(v: ActorView, actor: Actor, alpha: number, visible: boolean): { x: number; y: number } {
-    const x = Phaser.Math.Linear(actor.prev.x, actor.pos.x, alpha) * TILE + TILE / 2;
-    const y = Phaser.Math.Linear(actor.prev.y, actor.pos.y, alpha) * TILE + TILE / 2;
+    const { x, y } = renderPos(actor, alpha);
     v.body.setPosition(x, y).setVisible(visible);
     // HP bar shows for a few ticks after being hit, as in OSRS.
     const showHp = visible && this.state.tickCount - actor.lastHitTick < 8 && !actor.dead;
@@ -534,8 +569,7 @@ export class DungeonScene extends Phaser.Scene {
         s.view.destroy();
         return false;
       }
-      const x = Phaser.Math.Linear(s.actor.prev.x, s.actor.pos.x, a) * TILE + TILE / 2;
-      const y = Phaser.Math.Linear(s.actor.prev.y, s.actor.pos.y, a) * TILE + TILE / 2;
+      const { x, y } = renderPos(s.actor, a);
       s.view.setPosition(x, y);
       return true;
     });

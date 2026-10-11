@@ -12,7 +12,7 @@ import { sfx } from '../audio/sfx';
 
 const CONTROLS = [
   'Controls: left-click to walk, attack, take or use. Right-click for all options.',
-  '1 / 2 / 3: Protect from Magic / Missiles / Melee.  M: mute.  Esc: close windows.',
+  '1 / 2 / 3: Protect from Magic / Missiles / Melee.  R: run/walk.  M: mute.  Esc: close windows.',
   'Click the minimap to walk there. Hover skills for XP details.',
 ];
 import { BRANCHES, PERKS, nextRankCost, perkBlocker } from '../data/skillTree';
@@ -72,6 +72,7 @@ export class UIScene extends Phaser.Scene {
   private bossName!: Phaser.GameObjects.Text;
   private bossFill!: Phaser.GameObjects.Rectangle;
   private chat!: Phaser.GameObjects.Text;
+  private runButton!: Phaser.GameObjects.Text;
   private soundText!: Phaser.GameObjects.Text;
   private toolText!: Phaser.GameObjects.Text;
   private modal!: Phaser.GameObjects.Container;
@@ -112,6 +113,7 @@ export class UIScene extends Phaser.Scene {
     bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
     this.input.keyboard?.on('keydown-ESC', () => this.closeModal());
     this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
+    this.input.keyboard?.on('keydown-R', () => this.dungeon.setRunning(!this.dungeon.running));
     this.input.keyboard?.on('keydown-H', () => {
       for (const line of CONTROLS) this.state.message(line);
     });
@@ -165,6 +167,12 @@ export class UIScene extends Phaser.Scene {
     let y = 8;
     this.header = this.add.text(px + 10, y, '', FONT);
     root.add(this.header);
+    this.runButton = this.add.text(px + PANEL_W - 10, y - 2, '', {
+      ...FONT, fontSize: '12px', backgroundColor: '#2a241c', padding: { x: 5, y: 2 },
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    this.runButton.on('pointerdown', () => this.dungeon.setRunning(!this.dungeon.running));
+    this.hoverable(this.runButton, () => `Toggle Run (R): ${this.dungeon.running ? 'running 2 tiles' : 'walking 1 tile'} per tick`);
+    root.add(this.runButton);
     y += 22;
 
     this.hpText = this.add.text(px + 10, y, '', { ...FONT, color: '#ffffff' });
@@ -576,7 +584,9 @@ export class UIScene extends Phaser.Scene {
     }
     this.hoverLabel.setText(hover);
 
-    this.header.setText(g.isCamp ? `Camp   Tokens ${this.dungeon.meta.tokens}` : `Floor ${g.depth}   Combat ${p.combatLevel}`);
+    this.header.setText(g.isCamp ? `Camp  Tokens ${this.dungeon.meta.tokens}` : `Floor ${g.depth}  Combat ${p.combatLevel}`);
+    const running = this.dungeon.running;
+    this.runButton.setText(running ? 'Run: on' : 'Run: off').setColor(running ? '#ffff00' : '#a08a5a');
     this.hpText.setText(`Hitpoints ${p.hp}/${p.maxHp}`);
     this.hpBar.width = (PANEL_W - 20) * Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.prayerText.setText(`Prayer ${p.prayerPoints}/${p.maxPrayer}`);

@@ -4,6 +4,8 @@ export abstract class Actor {
   pos: Point;
   /** Position at the start of the current tick, for render interpolation. */
   prev: Point;
+  /** Tile passed through mid-tick when running 2 tiles, so rendering follows the path. */
+  via?: Point;
   hp: number;
   attackCooldown = 0;
   /** Tick this actor was last hit; drives HP bar visibility. */

@@ -160,6 +160,7 @@ export class GameState {
     if (depth > 1) p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + Math.ceil(p.maxPrayer * this.mods.descentPrayerRestore));
     p.pos = { ...this.map.spawn };
     p.prev = { ...this.map.spawn };
+    p.via = undefined;
     p.path = [];
     p.intent = null;
     this.updateFov();
@@ -362,6 +363,7 @@ export class GameState {
     if (this.over) return;
     this.tickCount++;
     this.player.prev = { ...this.player.pos };
+    this.player.via = undefined;
     for (const n of this.npcs) n.prev = { ...n.pos };
 
     this.processPlayer();
@@ -421,11 +423,24 @@ export class GameState {
   /** Steps along the path, re-pathing if something (e.g. a new fire) now blocks it. */
   private stepPlayer(): void {
     const p = this.player;
+    this.stepAlongPath();
+    if (p.running && p.path.length) {
+      p.via = { ...p.pos };
+      this.stepAlongPath();
+    }
+  }
+
+  private stepAlongPath(): void {
+    const p = this.player;
     const next = p.path[0];
     if (next && !isWalkable(this.map, next.x, next.y)) {
       p.path = findPath(this.map, p.pos, p.path[p.path.length - 1]);
     }
     p.step();
+  }
+
+  setRunning(on: boolean): void {
+    this.player.running = on;
   }
 
   /** Moves the player toward a tile cardinally adjacent to `target`. */
@@ -435,6 +450,10 @@ export class GameState {
     p.path = this.pathToAdjacent(target);
     if (!p.path.length) return 'unreachable';
     p.step();
+    if (p.running && p.path.length && !cardinalAdjacent(p.pos, target)) {
+      p.via = { ...p.pos };
+      p.step();
+    }
     return cardinalAdjacent(p.pos, target) ? 'adjacent' : 'moving';
   }
 
