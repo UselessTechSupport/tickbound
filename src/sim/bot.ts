@@ -68,6 +68,7 @@ interface BotMemory {
 
 function decide(g: GameState, memo: BotMemory, rush: boolean): void {
   const p = g.player;
+  if (g.pendingRelics) g.chooseRelic(g.pendingRelics[0]);
   const fresh = g.messages.slice(memo.seenMessages);
   memo.seenMessages = g.messages.length;
   if (memo.lastTarget && fresh.includes("I can't reach that!")) memo.ignored.add(memo.lastTarget);

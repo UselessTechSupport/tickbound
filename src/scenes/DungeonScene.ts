@@ -294,6 +294,7 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'altar') return [{ label: 'Pray-at Altar', action: () => g.prayAt(node) }];
     if (node.kind === 'mentor') return [{ label: 'Talk-to Mentor', action: () => g.talkTo(node) }];
     if (node.kind === 'toolsmith') return [{ label: 'Trade Toolsmith', action: () => g.talkTo(node) }];
+    if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
     // Anvil: "Smith" opens a second menu listing what your bars can make.
     return [{
       label: 'Smith Anvil',
@@ -452,6 +453,10 @@ export class DungeonScene extends Phaser.Scene {
       case 'anvil':
         sprite(`gen_${n.kind}`);
         break;
+      case 'shrine':
+        sprite('shrine', n.used ? 0x606060 : undefined);
+        if (!n.used) fx.lineStyle(2, 0xffd040, 0.7).strokeCircle(cx, cy, 14);
+        break;
       default:
         sprite(n.kind);
     }
@@ -531,7 +536,8 @@ export class DungeonScene extends Phaser.Scene {
     // Game ticks follow the wall clock. Phaser's smoothed frame delta runs slow
     // when the frame rate drops, which would stretch the 600ms tick.
     const wall = performance.now();
-    if (this.lastFrameAt !== undefined) this.ticks.update(wall - this.lastFrameAt);
+    // The game waits while a relic choice is on screen.
+    if (this.lastFrameAt !== undefined && !this.state.pendingRelics) this.ticks.update(wall - this.lastFrameAt);
     this.lastFrameAt = wall;
     const g = this.state;
     const a = this.ticks.alpha;

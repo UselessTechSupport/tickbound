@@ -14,6 +14,9 @@ import { SKILL_LABELS, SkillName } from '../data/skills';
 import { AttackType, DRAIN_RESISTANCE, PRAYER_BY_ID, PrayerGroup, potionRestore } from '../data/prayers';
 import { SPELLS, SPELL_BY_ID, SpellDef } from '../data/spells';
 import { WEAKNESS_PENALTY } from '../data/npcs';
+import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
+
+const ELEMENTAL_RUNES = ['air_rune', 'water_rune', 'earth_rune', 'fire_rune'];
 import { Actor } from '../entities/Actor';
 import { GroundItem } from '../entities/GroundItem';
 import { Npc } from '../entities/Npc';
@@ -32,6 +35,7 @@ export type GameEvent =
   | { type: 'floor'; depth: number }
   | { type: 'death' }
   | { type: 'enterDungeon' }
+  | { type: 'relicChoice'; options: string[] }
   | { type: 'sound'; name: SoundName }
   | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
@@ -87,6 +91,12 @@ export class GameState {
   mods: RunMods;
   /** Undying perk: whether the one cheat-death has been used this run. */
   undyingUsed = false;
+  /** Relics picked this run. */
+  relics: string[] = [];
+  /** Relics on offer, waiting for the player to pick one (the scene pauses meanwhile). */
+  pendingRelics: string[] | null = null;
+  /** Vampyric Fang: damage dealt that hasn't been converted to healing yet. */
+  private lifestealBank = 0;
 
   constructor(public seed: number, private emit: (e: GameEvent) => void = () => {}, setup: RunSetup = {}) {
     this.mods = computeMods(setup.perks ?? {});
@@ -143,7 +153,7 @@ export class GameState {
   get tokensEarned(): number {
     const base = 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills
       + Math.floor(this.player.inventory.count('coins') / 20);
-    return Math.floor(base * this.mods.tokenMult);
+    return Math.floor(base * this.mods.tokenMult * (this.hasRelic('lucky_charm') ? 1.25 : 1));
   }
 
   get depth(): number {
@@ -167,6 +177,10 @@ export class GameState {
     p.intent = null;
     this.updateFov();
     if (depth > 1) this.message(`You descend to floor ${depth}.`);
+    if (depth > 1 && this.hasRelic('packed_supplies')) {
+      const fish = depth >= 12 ? 'swordfish' : depth >= 8 ? 'lobster' : 'trout';
+      if (p.inventory.add(fish)) this.message(`Packed Supplies: you find a ${item(fish).name.toLowerCase()} in your pack.`);
+    }
     const boss = this.npcs.find((n) => n.isBoss);
     if (boss) this.message(`You sense a powerful presence guarding the stairs: ${boss.name}.`);
     this.emit({ type: 'floor', depth });
@@ -238,6 +252,26 @@ export class GameState {
     this.player.path = [];
   }
 
+  hasRelic(id: string): boolean {
+    return this.relics.includes(id);
+  }
+
+  /** Offers RELIC_CHOICES random relics the player doesn't have yet. */
+  offerRelics(): void {
+    const pool = RELICS.filter((r) => !this.hasRelic(r.id)).map((r) => r.id);
+    if (!pool.length) return;
+    this.pendingRelics = RNG.shuffle(pool).slice(0, RELIC_CHOICES);
+    this.emit({ type: 'relicChoice', options: this.pendingRelics });
+  }
+
+  chooseRelic(id: string): void {
+    if (!this.pendingRelics?.includes(id)) return;
+    this.relics.push(id);
+    this.pendingRelics = null;
+    this.message(`You gain the ${RELIC_BY_ID[id].name}: ${RELIC_BY_ID[id].desc}`);
+    this.sound('levelup');
+  }
+
   /** Walk to a camp NPC and open its menu. */
   talkTo(node: ResourceNode): void {
     this.player.intent = { kind: 'talk', node };
@@ -290,14 +324,16 @@ export class GameState {
     } else if (def.restoresPrayer) {
       if (p.eatCooldown > 0) return;
       p.inventory.take(slot, 1);
-      p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + potionRestore(p.maxPrayer));
+      const restore = potionRestore(p.maxPrayer) * (this.hasRelic('holy_wrench') ? 1.5 : 1);
+      p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + Math.floor(restore));
       p.eatCooldown = EAT_DELAY;
       this.message('You drink the prayer potion.');
       this.sound('eat');
     } else if (def.heal) {
       if (p.eatCooldown > 0) return;
       p.inventory.take(slot, 1);
-      p.hp = Math.min(p.maxHp, p.hp + def.heal + this.mods.foodHealBonus);
+      const heal = (def.heal + this.mods.foodHealBonus) * (this.hasRelic('gourmet') ? 1.5 : 1);
+      p.hp = Math.min(p.maxHp, p.hp + Math.floor(heal));
       p.eatCooldown = EAT_DELAY;
       p.attackCooldown += EAT_DELAY;
       this.message(`You eat the ${def.name.toLowerCase()}. It heals some health.`);
@@ -397,7 +433,8 @@ export class GameState {
     this.drainPrayer();
 
     const p = this.player;
-    if (this.tickCount % this.mods.hpRegenTicks === 0 && p.hp < p.maxHp) p.hp++;
+    const regen = Math.round(this.mods.hpRegenTicks / (this.hasRelic('regen_bracelet') ? 2 : 1));
+    if (this.tickCount % regen === 0 && p.hp < p.maxHp) p.hp++;
     this.updateFov();
   }
 
@@ -411,7 +448,7 @@ export class GameState {
     const p = this.player;
     if (!p.activePrayers.size) return;
     for (const id of p.activePrayers) p.prayerDrain += PRAYER_BY_ID[id].drain;
-    const resistance = DRAIN_RESISTANCE * this.mods.drainResistMult;
+    const resistance = DRAIN_RESISTANCE * this.mods.drainResistMult * (this.hasRelic('holy_wrench') ? 1.15 : 1);
     while (p.prayerDrain >= resistance) {
       p.prayerDrain -= resistance;
       p.prayerPoints = Math.max(0, p.prayerPoints - 1);
@@ -613,7 +650,18 @@ export class GameState {
         const a = this.approach(intent.node.pos);
         if (a === 'moving') return;
         p.intent = null;
-        if (a === 'adjacent') this.emit({ type: 'campMenu', kind: intent.node.kind as 'mentor' | 'toolsmith' });
+        if (a !== 'adjacent') return;
+        const node = intent.node;
+        if (node.kind === 'shrine') {
+          if (node.used) {
+            this.message('The shrine is dormant.');
+          } else {
+            node.used = true;
+            this.offerRelics();
+          }
+        } else {
+          this.emit({ type: 'campMenu', kind: node.kind as 'mentor' | 'toolsmith' });
+        }
         return;
       }
       case 'altar': {
@@ -694,9 +742,17 @@ export class GameState {
       attRoll = roll(effectiveLevel(boosted('attack', 'attack'), p.style === 'accurate' ? 3 : 0), b.attack);
       max = maxHit(effectiveLevel(boosted('strength', 'strength'), p.style === 'aggressive' ? 3 : 0), b.strength);
     }
-    attRoll = Math.floor(mult * attRoll);
-    max = Math.floor(mult * max);
+    const glory = this.hasRelic('amulet_of_glory') ? 1.1 : 1;
+    const berserk = this.hasRelic('berserker_necklace') && p.hp < p.maxHp / 2 ? 1.25 : 1;
+    attRoll = Math.floor(mult * glory * attRoll);
+    max = Math.floor(mult * glory * berserk * max);
     const dmg = Math.min(npc.hp, rollDamage(hitChance(attRoll, defRoll), max, rand));
+    if (dmg > 0 && this.hasRelic('vampyric_fang')) {
+      this.lifestealBank += dmg;
+      const heal = Math.floor(this.lifestealBank / 4);
+      this.lifestealBank %= 4;
+      p.hp = Math.min(p.maxHp, p.hp + heal);
+    }
 
     p.attackCooldown = speed;
     if (mode === 'ranged') this.fireArrow(npc);
@@ -728,6 +784,7 @@ export class GameState {
   private fireArrow(npc: Npc): void {
     const p = this.player;
     const id = p.equipment.ammo!;
+    if (this.hasRelic('avas_accumulator') && rand() < 0.8) return; // straight back to the quiver
     p.ammo--;
     if (p.ammo <= 0) {
       delete p.equipment.ammo;
@@ -769,7 +826,9 @@ export class GameState {
 
   private castSpell(spell: SpellDef): void {
     if (rand() < this.mods.runeSaveChance) return; // Arcane Thrift
+    const tome = this.hasRelic('tome_of_fire');
     for (const [rune, n] of Object.entries(spell.runes)) {
+      if (tome && ELEMENTAL_RUNES.includes(rune)) continue;
       if (this.runesFor(rune) !== Infinity) this.player.inventory.remove(rune, n);
     }
   }
@@ -791,13 +850,23 @@ export class GameState {
     if (npc.isBoss) {
       this.bossKills++;
       this.message(`Congratulations, you have defeated ${npc.name}! The way down is open.`);
+      this.offerRelics();
     }
     this.player.intent = null;
+    const wealth = this.hasRelic('ring_of_wealth');
     for (const d of npc.def.drops) {
-      const chance = d.chance < 0.1 ? d.chance * this.mods.rareDropMult : d.chance;
+      const rareMult = this.mods.rareDropMult * (wealth ? 1.25 : 1);
+      const chance = d.chance < 0.1 ? d.chance * rareMult : d.chance;
       if (rand() >= chance) continue;
       let qty = d.min !== undefined ? d.min + Math.floor(rand() * ((d.max ?? d.min) - d.min + 1)) : 1;
-      if (d.item === 'coins') qty = Math.floor(qty * this.mods.coinMult);
+      if (d.item === 'coins') qty = Math.floor(qty * this.mods.coinMult * (wealth ? 2 : 1));
+      const buryXp = item(d.item).buryXp;
+      if (buryXp && this.hasRelic('bonecrusher')) {
+        this.giveXp('prayer', buryXp * qty);
+        const p = this.player;
+        p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + 1);
+        continue;
+      }
       if (item(d.item).stackable) {
         this.groundItems.push(new GroundItem(d.item, qty, { ...npc.pos }));
       } else {
@@ -810,6 +879,7 @@ export class GameState {
     const p = this.player;
     const hpBefore = p.maxHp;
     const prayerBefore = p.maxPrayer;
+    if (this.hasRelic('seers_insight')) amount *= 1.5;
     const gained = p.skills.addXp(skill, amount);
     this.emit({ type: 'xp', skill, amount });
     if (gained > 0) {
@@ -828,7 +898,8 @@ export class GameState {
 
     if (!npc.target) {
       const d = chebyshev(npc.pos, p.pos);
-      if (npc.def.aggroRadius > 0 && d <= npc.def.aggroRadius && this.isVisible(npc.pos.x, npc.pos.y)) {
+      const aggro = npc.def.aggroRadius - (this.hasRelic('graceful') && !npc.isBoss ? 2 : 0);
+      if (aggro > 0 && d <= aggro && this.isVisible(npc.pos.x, npc.pos.y)) {
         npc.target = p;
       } else {
         this.wander(npc);
@@ -875,7 +946,14 @@ export class GameState {
   /** Applies an NPC hit to the player, blocked entirely by the matching protection prayer. */
   private landHit(npc: Npc, style: AttackType, damage: number): void {
     const p = this.player;
-    let dmg = p.isProtectedFrom(style) ? 0 : Math.min(p.hp, damage);
+    let dmg = p.isProtectedFrom(style) ? 0 : damage;
+    if (dmg > 0 && this.hasRelic('dragon_defender')) dmg -= 1;
+    dmg = Math.min(p.hp, dmg);
+    if (dmg > 0 && this.hasRelic('ring_of_recoil') && !npc.dead && this.npcs.includes(npc)) {
+      const recoil = Math.min(npc.hp, Math.max(1, Math.round(dmg * 0.1)));
+      this.applyHit(npc, recoil);
+      if (npc.dead) this.killNpc(npc);
+    }
     if (dmg >= p.hp && this.mods.undying && !this.undyingUsed) {
       this.undyingUsed = true;
       dmg = p.hp - 1;

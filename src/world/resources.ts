@@ -2,6 +2,7 @@ import { RNG } from 'rot-js';
 import { ResourceDef, ResourceKind, resourcesFor } from '../data/resources';
 import { ResourceNode } from '../entities/ResourceNode';
 import { isBossFloor } from '../data/npcs';
+import { SHRINE_CHANCE } from '../data/relics';
 import { FloorMap, Point, Tile, isWalkable, reachableCount, setTile, tileAt } from './tiles';
 
 /** Chance per floor of a furnace + anvil (floor 2 always has one). */
@@ -62,6 +63,7 @@ export function placeResources(map: FloorMap): ResourceNode[] {
   }
   if (RNG.getUniform() < CAMPFIRE_CHANCE) tryPlace((p) => new ResourceNode(p, 'fire'));
   if (isBossFloor(map.depth) || RNG.getUniform() < ALTAR_CHANCE) tryPlace((p) => new ResourceNode(p, 'altar'));
+  if (!isBossFloor(map.depth) && RNG.getUniform() < SHRINE_CHANCE) tryPlace((p) => new ResourceNode(p, 'shrine'));
   return nodes;
 }
 
