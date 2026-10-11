@@ -18,6 +18,8 @@ import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
 import { MIMIC_CHANCE, mimicFor } from '../data/npcs';
 import { chestLoot } from '../data/loot';
 import { PET_CHANCE } from '../data/collectionLog';
+import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer';
+import { themeForDepth } from '../data/themes';
 import type { Counter } from '../data/achievements';
 import { sellPriceOf } from '../data/prices';
 
@@ -46,8 +48,10 @@ export type GameEvent =
   | { type: 'obtain'; item: string; qty: number; source: string }
   | { type: 'stat'; key: Counter; amount: number }
   | { type: 'pet'; bossId: string }
+  | { type: 'made'; item: string }
+  | { type: 'slayerDone'; tokens: number }
   | { type: 'sound'; name: SoundName }
-  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' }
+  | { type: 'campMenu'; kind: 'mentor' | 'toolsmith' | 'merchant' | 'slayer' }
   | { type: 'projectile'; from: Point; to: Point; style: AttackType; ticks: number };
 
 /** What the player's next attack would look like; see GameState.combatPreview. */
@@ -84,6 +88,8 @@ export interface RunSetup {
   tools?: Toolbelt;
   perks?: PerkRanks;
   camp?: boolean;
+  /** The save's Slayer task; progress is written straight into it. */
+  slayerTask?: SlayerTask | null;
 }
 
 const MAX_MESSAGES = 50;
@@ -115,6 +121,7 @@ export class GameState {
   mods: RunMods;
   /** Undying perk: whether the one cheat-death has been used this run. */
   undyingUsed = false;
+  slayerTask: SlayerTask | null = null;
   /** Per-run facts some achievements need. */
   runStats = { foodEaten: 0, killStyles: new Set<AttackType>() };
   /** Damage each boss has dealt this run (for "Untouchable"). */
@@ -132,6 +139,7 @@ export class GameState {
 
   constructor(public seed: number, private emit: (e: GameEvent) => void = () => {}, setup: RunSetup = {}) {
     this.mods = computeMods(setup.perks ?? {});
+    this.slayerTask = setup.slayerTask ?? null;
     this.player = new Player({ x: 0, y: 0 });
     this.player.tools = { ...(setup.tools ?? NO_TOOLS) };
     if (setup.camp) {
@@ -209,6 +217,8 @@ export class GameState {
     p.intent = null;
     this.updateFov();
     if (depth > 1) this.message(`You descend to floor ${depth}.`);
+    const theme = themeForDepth(depth);
+    if (depth > 1 && theme !== themeForDepth(depth - 1)) this.message(`You enter ${theme.name}. The air changes...`);
     if (depth > 1 && this.hasRelic('packed_supplies')) {
       const fish = depth >= 12 ? 'swordfish' : depth >= 8 ? 'lobster' : 'trout';
       if (p.inventory.add(fish)) this.message(`Packed Supplies: you find a ${item(fish).name.toLowerCase()} in your pack.`);
@@ -216,6 +226,27 @@ export class GameState {
     const boss = this.npcs.find((n) => n.isBoss);
     if (boss) this.message(`You sense a powerful presence guarding the stairs: ${boss.name}.`);
     this.emit({ type: 'floor', depth });
+  }
+
+  /** Slayer XP equals the monster's hitpoints (OSRS); finishing pays tokens. */
+  private slayerKill(npc: Npc): void {
+    const task = this.slayerTask!;
+    const cat = SLAYER_BY_ID[task.category];
+    task.remaining--;
+    this.giveXp('slayer', npc.def.hitpoints * XP_RATE);
+    if (task.remaining === 0) {
+      const tokens = cat.tokensPerKill * task.total;
+      this.message(`You have completed your Slayer task! (+${tokens} Dungeoneering tokens) See the Slayer master at camp for another.`);
+      this.stat('tasks');
+      this.emit({ type: 'slayerDone', tokens });
+    } else if (task.remaining <= 3 || task.remaining % 5 === 0) {
+      this.message(`Slayer task: ${task.remaining} more ${cat.name.toLowerCase()} to go.`);
+    }
+  }
+
+  /** Something gathered or crafted (achievements track what you've made). */
+  made(id: string): void {
+    this.emit({ type: 'made', item: id });
   }
 
   /** Counts toward a lifetime statistic (achievements). */
@@ -517,6 +548,7 @@ export class GameState {
     this.nodes.push(fire);
     setTile(this.map, spot.x, spot.y, Tile.Object);
     this.message('The fire catches and the logs begin to burn.');
+    this.stat('fires');
   }
 
   /** Unequips an item back into the inventory. */
@@ -788,7 +820,7 @@ export class GameState {
             this.offerRelics();
           }
         } else {
-          this.emit({ type: 'campMenu', kind: node.kind as 'mentor' | 'toolsmith' });
+          this.emit({ type: 'campMenu', kind: node.kind === 'slayer_master' ? 'slayer' : node.kind as 'mentor' | 'toolsmith' });
         }
         return;
       }
@@ -835,7 +867,14 @@ export class GameState {
    * The player's current offence with their gear, style, prayers, perks and relics.
    * Pure: used both to resolve attacks and to show stats in the Gear tab.
    */
-  combatPreview(): CombatPreview {
+  /** Is this monster part of the current Slayer task? */
+  isOnTask(npc: Npc): boolean {
+    const t = this.slayerTask;
+    return !!t && t.remaining > 0 && SLAYER_BY_ID[t.category]?.npcIds.includes(npc.def.id);
+  }
+
+  /** With a target on your Slayer task, Slayer levels boost accuracy and max hit (slayer helm style). */
+  combatPreview(target?: Npc): CombatPreview {
     const p = this.player;
     const b = p.bonuses();
     const s = p.skills;
@@ -866,10 +905,11 @@ export class GameState {
     }
     const glory = this.hasRelic('amulet_of_glory') ? 1.1 : 1;
     const berserk = this.hasRelic('berserker_necklace') && p.hp < p.maxHp / 2 ? 1.25 : 1;
+    const slayer = target && this.isOnTask(target) ? 1 + SLAYER_BONUS_PER_LEVEL * s.level('slayer') : 1;
     return {
       mode,
-      attackRoll: Math.floor(this.mods.combatMult * glory * attackRoll),
-      maxHit: Math.floor(this.mods.combatMult * glory * berserk * max),
+      attackRoll: Math.floor(this.mods.combatMult * glory * slayer * attackRoll),
+      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * max),
       speed,
       range: p.attackRange,
       spell,
@@ -878,7 +918,7 @@ export class GameState {
   }
 
   /** Chance the player's next attack hits `npc` (weakness included). */
-  hitChanceAgainst(npc: Npc, preview = this.combatPreview()): number {
+  hitChanceAgainst(npc: Npc, preview = this.combatPreview(npc)): number {
     const weakness = npc.def.weakness === preview.mode ? WEAKNESS_PENALTY : 0;
     const defRoll = roll(npc.def.defence + 9, Math.max(-63, npc.def.defenceBonus - weakness));
     return hitChance(preview.attackRoll, defRoll);
@@ -886,7 +926,7 @@ export class GameState {
 
   private playerAttack(npc: Npc): void {
     const p = this.player;
-    const c = this.combatPreview();
+    const c = this.combatPreview(npc);
     if (c.problem) {
       this.message(c.problem);
       p.intent = null;
@@ -1002,6 +1042,7 @@ export class GameState {
       type: 'kill', npcId: npc.def.id, boss: npc.isBoss, style, weakness: npc.def.weakness === style,
       flawless: npc.isBoss && (this.bossDamage.get(npc) ?? 0) === 0,
     });
+    if (this.isOnTask(npc)) this.slayerKill(npc);
     if (npc.isBoss && rand() < PET_CHANCE) {
       this.message('You have a funny feeling like you\'re being followed.');
       this.emit({ type: 'pet', bossId: npc.def.id });

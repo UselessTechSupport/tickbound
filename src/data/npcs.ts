@@ -58,6 +58,8 @@ const WEAKNESSES: Record<string, AttackType> = {
   greater_demon: 'magic', goblin_warlord: 'magic',
   dark_wizard: 'ranged', infernal_mage: 'ranged', giant_spider: 'ranged', tztok_jad: 'ranged',
   skeleton_archer: 'melee', dark_archer: 'melee',
+  ghoul: 'magic', mummy: 'magic', wight: 'ranged', hellhound: 'ranged', fire_elemental: 'ranged', salamander: 'melee',
+  ice_beast: 'magic', frost_giant: 'magic', freezing_wraith: 'ranged',
 };
 
 /** Ranged and magic supplies, appended to the drop tables above. */
@@ -91,6 +93,7 @@ const SUPPLY_DROPS: Record<string, Drop[]> = {
   ],
   lesser_demon: [{ item: 'death_rune', chance: 0.2, min: 3, max: 8 }, { item: 'rune_arrow', chance: 0.1, min: 5, max: 15 }],
   greater_demon: [{ item: 'death_rune', chance: 0.3, min: 5, max: 12 }, { item: 'mystic_fire_staff', chance: 0.02 }],
+  demonic_gorilla: [{ item: 'dragon_scimitar', chance: 0.1 }],
   goblin_warlord: [{ item: 'willow_shortbow', chance: 0.25 }, { item: 'iron_arrow', chance: 1, min: 40, max: 80 }, { item: 'staff_of_water', chance: 0.25 }],
   tztok_jad: [{ item: 'mystic_air_staff', chance: 0.25 }, { item: 'chaos_rune', chance: 1, min: 30, max: 60 }, { item: 'maple_shortbow', chance: 0.25 }],
   chaos_elemental: [{ item: 'death_rune', chance: 1, min: 20, max: 40 }, { item: 'yew_shortbow', chance: 0.25 }, { item: 'mystic_robe_top', chance: 0.25 }],
@@ -249,6 +252,93 @@ const list: NpcDef[] = [
       { item: 'bones', chance: 1 },
       { item: 'coins', chance: 0.6, min: 50, max: 250 },
       { item: 'prayer_potion', chance: 0.1 },
+    ],
+  },
+
+  // ---- Themed floors: Crypt (6-10), Volcanic depths (11-15), Frozen caverns (16-20) ----
+  {
+    id: 'ghoul', name: 'Ghoul', color: 0x8a9a6a, attack: 20, strength: 22, defence: 16, hitpoints: 26,
+    attackBonus: 10, strengthBonus: 8, defenceBonus: 8, attackSpeed: 4, aggroRadius: 5,
+    minDepth: 6, maxDepth: 10, weight: 5, examine: 'It reeks of the grave.',
+    drops: [
+      { item: 'big_bones', chance: 1 }, { item: 'coins', chance: 0.4, min: 20, max: 80 },
+      { item: 'trout', chance: 0.25 }, { item: 'mithril_platebody', chance: 0.03 },
+    ],
+  },
+  {
+    id: 'wight', name: 'Wight', color: 0x6a7a8a, attack: 24, strength: 22, defence: 20, hitpoints: 28,
+    attackBonus: 20, strengthBonus: 16, defenceBonus: 10, attackSpeed: 5, aggroRadius: 5,
+    attackStyle: 'magic', attackRange: 6,
+    minDepth: 6, maxDepth: 10, weight: 4, examine: 'A barrow-wight, crackling with dark magic.',
+    drops: [
+      { item: 'bones', chance: 1 }, { item: 'chaos_rune', chance: 0.4, min: 5, max: 15 },
+      { item: 'prayer_potion', chance: 0.1 }, { item: 'staff_of_earth', chance: 0.04 },
+    ],
+  },
+  {
+    id: 'mummy', name: 'Mummy', color: 0xc8b890, attack: 22, strength: 26, defence: 26, hitpoints: 34,
+    attackBonus: 12, strengthBonus: 14, defenceBonus: 20, attackSpeed: 6, aggroRadius: 4,
+    minDepth: 7, maxDepth: 10, weight: 4, examine: 'Wrapped up tight, and very cross about it.',
+    drops: [
+      { item: 'coins', chance: 0.6, min: 40, max: 160 }, { item: 'lobster', chance: 0.25 },
+      { item: 'mystic_robe_top', chance: 0.02 }, { item: 'mithril_scimitar', chance: 0.04 },
+    ],
+  },
+  {
+    id: 'hellhound', name: 'Hellhound', color: 0xa02a1a, attack: 40, strength: 42, defence: 30, hitpoints: 45,
+    attackBonus: 30, strengthBonus: 28, defenceBonus: 20, attackSpeed: 4, aggroRadius: 6,
+    minDepth: 11, maxDepth: 15, weight: 5, examine: 'Hello, nice doggy...',
+    drops: [
+      { item: 'bones', chance: 1 }, { item: 'coins', chance: 0.5, min: 60, max: 200 },
+      { item: 'lobster', chance: 0.2 }, { item: 'adamant_platebody', chance: 0.03 }, { item: 'rune_scimitar', chance: 0.01 },
+    ],
+  },
+  {
+    id: 'fire_elemental', name: 'Fire elemental', color: 0xff6020, attack: 38, strength: 36, defence: 30, hitpoints: 40,
+    attackBonus: 35, strengthBonus: 30, defenceBonus: 15, attackSpeed: 5, aggroRadius: 6,
+    attackStyle: 'magic', attackRange: 7,
+    minDepth: 11, maxDepth: 15, weight: 4, examine: 'A living blaze.',
+    drops: [
+      { item: 'fire_rune', chance: 0.7, min: 30, max: 80 }, { item: 'death_rune', chance: 0.15, min: 3, max: 8 },
+      { item: 'mystic_fire_staff', chance: 0.015 },
+    ],
+  },
+  {
+    id: 'salamander', name: 'Salamander', color: 0xd08020, attack: 42, strength: 40, defence: 36, hitpoints: 48,
+    attackBonus: 35, strengthBonus: 30, defenceBonus: 25, attackSpeed: 5, aggroRadius: 6,
+    attackStyle: 'ranged', attackRange: 6,
+    minDepth: 12, maxDepth: 15, weight: 4, examine: 'It spits molten rock.',
+    drops: [
+      { item: 'coins', chance: 0.5, min: 60, max: 200 }, { item: 'swordfish', chance: 0.15 },
+      { item: 'adamant_arrow', chance: 0.4, min: 10, max: 30 }, { item: 'maple_shortbow', chance: 0.04 },
+    ],
+  },
+  {
+    id: 'ice_beast', name: 'Ice beast', color: 0x90d0ff, attack: 60, strength: 60, defence: 55, hitpoints: 64,
+    attackBonus: 45, strengthBonus: 45, defenceBonus: 40, attackSpeed: 4, aggroRadius: 6,
+    minDepth: 16, maxDepth: 20, weight: 5, examine: 'Its breath freezes the air.',
+    drops: [
+      { item: 'big_bones', chance: 1 }, { item: 'coins', chance: 0.5, min: 100, max: 300 },
+      { item: 'swordfish', chance: 0.2 }, { item: 'rune_platebody', chance: 0.02 },
+    ],
+  },
+  {
+    id: 'frost_giant', name: 'Frost giant', color: 0xa0c0e0, attack: 66, strength: 70, defence: 62, hitpoints: 80,
+    attackBonus: 50, strengthBonus: 55, defenceBonus: 45, attackSpeed: 6, aggroRadius: 5,
+    minDepth: 16, maxDepth: 20, weight: 4, examine: 'An enormous giant of living ice.',
+    drops: [
+      { item: 'big_bones', chance: 1 }, { item: 'coins', chance: 0.6, min: 150, max: 400 },
+      { item: 'rune_kiteshield', chance: 0.03 }, { item: 'dragon_scimitar', chance: 0.008 },
+    ],
+  },
+  {
+    id: 'freezing_wraith', name: 'Freezing wraith', color: 0xc0e8ff, attack: 64, strength: 62, defence: 50, hitpoints: 60,
+    attackBonus: 55, strengthBonus: 50, defenceBonus: 30, attackSpeed: 5, aggroRadius: 6,
+    attackStyle: 'magic', attackRange: 7,
+    minDepth: 16, maxDepth: 20, weight: 4, examine: 'A shrieking spirit of frost.',
+    drops: [
+      { item: 'death_rune', chance: 0.4, min: 5, max: 15 }, { item: 'prayer_potion', chance: 0.15 },
+      { item: 'mystic_air_staff', chance: 0.02 },
     ],
   },
 

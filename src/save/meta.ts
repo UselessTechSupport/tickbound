@@ -1,6 +1,7 @@
 import { NO_TOOLS, Toolbelt } from '../data/tools';
 import { PerkRanks } from '../data/skillTree';
 import type { Counter } from '../data/achievements';
+import type { SlayerTask } from '../data/slayer';
 
 /** Progress that survives between runs. */
 export interface MetaSave {
@@ -20,6 +21,10 @@ export interface MetaSave {
   pets: string[];
   /** Pet that follows you around, if any. */
   activePet: string | null;
+  /** Items you've gathered or crafted -> count (skilling achievements). */
+  made: Record<string, number>;
+  /** Current Slayer task; carries across runs until finished or skipped. */
+  slayerTask: SlayerTask | null;
 }
 
 const KEY = 'tickbound.meta';
@@ -29,7 +34,7 @@ const LEGACY_KEY = 'roguescape.meta';
 export function freshMeta(): MetaSave {
   return {
     version: 1, tokens: 0, tools: { ...NO_TOOLS }, perks: {}, runs: 0, bestDepth: 0,
-    collection: {}, killCounts: {}, achievements: [], lifetime: {}, pets: [], activePet: null,
+    collection: {}, killCounts: {}, achievements: [], lifetime: {}, pets: [], activePet: null, made: {}, slayerTask: null,
   };
 }
 
@@ -42,6 +47,7 @@ export function loadMeta(): MetaSave {
     return {
       ...freshMeta(), ...parsed, tools: { ...NO_TOOLS, ...parsed.tools }, perks: { ...parsed.perks },
       collection: { ...parsed.collection }, killCounts: { ...parsed.killCounts }, lifetime: { ...parsed.lifetime },
+      made: { ...parsed.made }, slayerTask: parsed.slayerTask ?? null,
       achievements: [...(parsed.achievements ?? [])], pets: [...(parsed.pets ?? [])],
     };
   } catch {
