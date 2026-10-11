@@ -14,6 +14,9 @@ import { itemInfo, speedText } from '../ui/itemInfo';
 import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/achievements';
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
+import { recipesFor } from '../data/recipes';
+import { herbForDepth } from '../data/resources';
+import { HERB_DROP_CHANCE } from '../game/GameState';
 import { ALL_LOG_SLOTS, LOG_CATEGORIES, PET_BY_ID, PET_CHANCE, petForBoss } from '../data/collectionLog';
 import { CHEST_SECOND_PICK, CHEST_TABLE, chestCoins, metalForDepth } from '../data/loot';
 import type { Npc } from '../entities/Npc';
@@ -71,7 +74,7 @@ const STYLE_INFO: Record<'melee' | 'ranged' | 'magic', Array<[string, string]>> 
 
 const SKILL_SHORT: Record<SkillName, string> = {
   attack: 'Atk', strength: 'Str', defence: 'Def', hitpoints: 'HP', ranged: 'Rng', magic: 'Mage', prayer: 'Pray',
-  mining: 'Mine', woodcutting: 'WC', fishing: 'Fish', cooking: 'Cook', smithing: 'Smith', slayer: 'Slay',
+  mining: 'Mine', woodcutting: 'WC', fishing: 'Fish', cooking: 'Cook', smithing: 'Smith', herblore: 'Herb', slayer: 'Slay',
 };
 
 interface SlotView {
@@ -688,11 +691,16 @@ export class UIScene extends Phaser.Scene {
       info(`Level ${npc.level}   HP ${npc.maxHp}   Attacks: ${style}${npc.attackRange > 1 ? ` (range ${npc.attackRange})` : ''}`
         + `${d.weakness ? `   Weak to ${d.weakness}` : ''}`, '#ffffff');
       info(`You have killed ${meta.killCounts[d.id] ?? 0}.   Chances include your current perks and relics.`);
+      if (npc.elite) info(`ELITE (${npc.elite.name}): ${npc.elite.desc} Rolls its drop table twice.`, '#ffc040');
       header();
       for (const drop of d.drops) {
         const chance = g.dropChance(drop);
         const base = chance !== drop.chance ? `  (base ${formatChance(drop.chance)})` : '';
         row(ensureItemTexture(this, drop.item), item(drop.item).name, range(g.dropQuantity(drop)), formatChance(chance) + base, logNote(drop.item));
+      }
+      if (!npc.isBoss && d.id !== 'mimic') {
+        row(ensureItemTexture(this, herbForDepth(g.depth, () => 0)), 'Random herb (for this depth)', '1',
+          npc.elite ? 'Always' : formatChance(HERB_DROP_CHANCE));
       }
       const pet = npc.isBoss ? petForBoss(d.id) : undefined;
       if (pet) row({ key: npcSprite(d.id), scale: 0.6 }, `${pet.name} (pet)`, '1', formatChance(PET_CHANCE), meta.pets.includes(pet.id) ? 'logged' : 'new log slot');
@@ -1167,7 +1175,13 @@ export class UIScene extends Phaser.Scene {
     if (!stack) return [];
     const def = item(stack.id);
     const opts: MenuOption[] = [];
-    const verb = def.burnTicks ? 'Light' : def.restoresPrayer ? 'Drink' : def.heal ? 'Eat' : def.buryXp ? 'Bury' : def.equip ? (def.equip.slot === 'weapon' || def.equip.slot === 'ammo' ? 'Wield' : 'Wear') : null;
+    // Herbs: Mix the potion they make (first one you have the ingredients for).
+    const mixes = recipesFor('mix').filter((r) => r.inputs[0].item === stack.id);
+    if (mixes.length) {
+      const ready = mixes.find((r) => r.inputs.every((i) => g.player.inventory.count(i.item) >= i.qty)) ?? mixes[0];
+      opts.push({ label: `Mix ${item(ready.output).name}`, action: () => g.mix(ready) });
+    }
+    const verb = def.burnTicks ? 'Light' : def.restoresPrayer || def.boost ? 'Drink' : def.heal ? 'Eat' : def.buryXp ? 'Bury' : def.equip ? (def.equip.slot === 'weapon' || def.equip.slot === 'ammo' ? 'Wield' : 'Wear') : null;
     // Items without a use get a harmless Examine as their left-click, never Drop...
     const examine = { label: `Examine ${def.name}`, action: () => g.message(def.examine + (stack.qty > 1 ? ` (${stack.qty.toLocaleString()})` : '')) };
     const drop = { label: `Drop ${def.name}`, action: () => g.dropItem(slot) };
@@ -1297,7 +1311,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   private tooltipLines(): string[] | null {
-    if (this.menu.isOpen) return null;
+    if (this.menu.isOpen || this.modalKind || this.relicPanel?.visible) return null;
     const p = this.state.player;
     const s = this.hoveredSkill;
     if (s === 'slayer' && !this.dungeon.meta.slayerUnlocked) return ['Slayer (locked)', 'Defeat the Goblin Warlord (floor 5) to unlock it.'];
@@ -1305,6 +1319,7 @@ export class UIScene extends Phaser.Scene {
       const xp = Math.floor(p.skills.xp[s]);
       const level = p.skills.level(s);
       const lines = [`${SKILL_LABELS[s]} XP: ${xp.toLocaleString()}`];
+      if (p.boosts[s]) lines.push(`Boosted +${p.boosts[s]} (fades 1 level per minute)`);
       if (level < MAX_LEVEL) {
         const next = xpForLevel(level + 1);
         lines.push(`Next level at: ${next.toLocaleString()}`, `Remaining XP: ${(next - xp).toLocaleString()}`);
@@ -1428,7 +1443,10 @@ export class UIScene extends Phaser.Scene {
     for (const [s, v] of this.skillViews) {
       const level = p.skills.level(s);
       const locked = s === 'slayer' && !this.dungeon.meta.slayerUnlocked;
-      v.text.setText(`${SKILL_SHORT[s].padEnd(5)} ${locked ? '--' : level}`).setColor(locked ? '#6a6a6a' : '#ffffff');
+      const boost = p.boosts[s] ?? 0;
+      // Potion boosts show the boosted level in green, like OSRS.
+      v.text.setText(`${SKILL_SHORT[s].padEnd(5)} ${locked ? '--' : level + boost}`)
+        .setColor(locked ? '#6a6a6a' : boost ? '#60ff60' : '#ffffff');
       const lo = xpForLevel(level);
       const frac = level >= MAX_LEVEL ? 1 : (p.skills.xp[s] - lo) / (xpForLevel(level + 1) - lo);
       v.bar.width = (SKILL_COL_W - 14) * frac;

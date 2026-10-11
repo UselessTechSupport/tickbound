@@ -1,5 +1,6 @@
 import { RNG } from 'rot-js';
 import { bossForDepth, isBossFloor, npcsForDepth } from '../data/npcs';
+import { ELITE_AFFIXES, ELITE_CHANCE, ELITE_MIN_DEPTH, eliteDef } from '../data/elites';
 import { Npc } from '../entities/Npc';
 import { FloorMap, Tile, isWalkable, tileAt } from './tiles';
 
@@ -26,7 +27,15 @@ export function spawnMonsters(map: FloorMap): Npc[] {
   for (let i = 0; i < monsterCount(map.depth) && i < shuffled.length; i++) {
     if (npcs.some((n) => n.pos.x === shuffled[i].x && n.pos.y === shuffled[i].y)) continue;
     const id = RNG.getWeightedValue(weights)!;
-    npcs.push(new Npc(pool.find((n) => n.id === id)!, shuffled[i]));
+    const def = pool.find((n) => n.id === id)!;
+    if (map.depth >= ELITE_MIN_DEPTH && RNG.getUniform() < ELITE_CHANCE) {
+      const affix = RNG.getItem(ELITE_AFFIXES)!;
+      const elite = new Npc(eliteDef(def, affix), shuffled[i]);
+      elite.elite = affix;
+      npcs.push(elite);
+    } else {
+      npcs.push(new Npc(def, shuffled[i]));
+    }
   }
   return npcs;
 }

@@ -45,6 +45,8 @@ export class Player extends Actor {
   ammo = 0;
   /** Spell cast by a wielded staff; null = strongest one available. */
   autocast: string | null = null;
+  /** Temporary stat boosts from potions (levels above your real level). */
+  boosts: Partial<Record<SkillName, number>> = {};
   prayerPoints = 1;
   activePrayers = new Set<string>();
   /** OSRS drain counter; a point drains each time it passes the drain resistance. */
@@ -60,6 +62,11 @@ export class Player extends Actor {
 
   get maxHp(): number {
     return this.skills.level('hitpoints');
+  }
+
+  /** Real level plus any potion boost; used in combat. */
+  boostedLevel(skill: SkillName): number {
+    return this.skills.level(skill) + (this.boosts[skill] ?? 0);
   }
 
   get maxPrayer(): number {

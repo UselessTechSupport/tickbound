@@ -23,7 +23,8 @@ export const petForBoss = (bossId: string) => PETS.find((p) => p.bossId === boss
 /** Supplies everyone gets plenty of; the log is for the interesting stuff. */
 function isCommon(id: string): boolean {
   const d = ITEMS[id];
-  return !d || id === 'coins' || !!d.heal || !!d.buryXp || !!d.restoresPrayer || d.id.endsWith('_rune') || d.id.endsWith('_arrow');
+  return !d || id === 'coins' || !!d.heal || !!d.buryXp || !!d.restoresPrayer || !!d.boost || !!d.herblore
+    || d.id.endsWith('_rune') || d.id.endsWith('_arrow');
 }
 
 export interface LogCategory {

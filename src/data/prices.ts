@@ -5,6 +5,11 @@ const KIND_FACTOR: Record<string, number> = { dagger: 0.6, sword: 0.8, scimitar:
 const ARROW_VALUE: Record<string, number> = { bronze: 1, iron: 2, steel: 4, mithril: 8, adamant: 15, rune: 40 };
 
 const FIXED: Record<string, number> = {
+  guam_leaf: 10, tarromin: 15, harralander: 20, ranarr_weed: 60, irit_leaf: 30, kwuarm: 40, cadantine: 50,
+  dwarf_weed: 50, lantadyme: 60, eye_of_newt: 5, limpwurt_root: 10, white_berries: 12, snape_grass: 15,
+  wine_of_zamorak: 40, potato_cactus: 35, vial_of_water: 3,
+  attack_potion: 40, strength_potion: 60, defence_potion: 70, super_attack: 150, super_strength: 200,
+  super_defence: 220, ranging_potion: 250, magic_potion: 260,
   shrimps: 5, trout: 15, lobster: 40, swordfish: 70, prayer_potion: 120,
   raw_shrimps: 2, raw_trout: 6, raw_lobster: 18, raw_swordfish: 30,
   bones: 2, big_bones: 8, logs: 3, oak_logs: 6, willow_logs: 12, maple_logs: 25, yew_logs: 60,

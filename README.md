@@ -58,7 +58,12 @@ npm run dev        # then open http://localhost:5173
   Frozen caverns from 16), each with its own monsters.
 - **Slayer** (unlocks after your first Goblin Warlord kill): the Slayer master at camp gives a kill task that carries across runs. Task kills give Slayer XP (which
   boosts your accuracy and max hit against task monsters) and finishing pays tokens.
-- **Achievements**: 54 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
+- **Herblore**: pick herbs from herb patches or loot them, then Mix them (right-click the herb) with a secondary
+  ingredient and a vial of water into Attack/Strength/Defence/Prayer potions, Super versions, Ranging and Magic
+  potions. Potions boost your levels (shown in green) and fade by 1 a minute.
+- **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric or Savage variants in a gold aura. Tougher, but
+  they roll their loot twice, always drop a herb and give bonus tokens.
+- **Achievements**: 62 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
   challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
 - **Collection log**: every notable drop from bosses, monsters and chests, with kill counts. Bosses have a 1/50
   pet drop; choose which pet follows you from the log.

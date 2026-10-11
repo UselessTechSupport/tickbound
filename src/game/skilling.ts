@@ -41,6 +41,7 @@ export function gatherStartMessage(p: Player, def: ResourceDef): string {
   const tier = toolTier(p, def);
   if (def.kind === 'rock') return `You swing your ${TOOL_TIERS[tier - 1].name.toLowerCase()} pickaxe at the rock.`;
   if (def.kind === 'tree') return `You swing your ${TOOL_TIERS[tier - 1].name.toLowerCase()} axe at the tree.`;
+  if (def.kind === 'herb') return 'You start picking herbs.';
   return 'You attempt to catch some fish.';
 }
 
@@ -65,12 +66,15 @@ export function gatherRoll(g: GameState, node: ResourceNode): boolean {
     g.message('Rich Veins: you gather an extra one!');
   }
   node.remaining--;
-  g.message(def.kind === 'fishing' ? `You catch some ${lower(def.product).replace('raw ', '')}.` : `You get some ${lower(def.product)}.`);
+  g.message(def.kind === 'fishing' ? `You catch some ${lower(def.product).replace('raw ', '')}.`
+    : def.kind === 'herb' ? `You pick some ${lower(def.product)}.` : `You get some ${lower(def.product)}.`);
+  if (def.kind === 'herb') g.stat('herbs');
   g.giveXp(def.skill, def.xp * XP_RATE);
 
   if (node.depleted) {
     if (def.kind === 'tree') g.message('The tree falls.');
     if (def.kind === 'fishing') g.message('The fishing spot runs dry.');
+    if (def.kind === 'herb') g.message('The patch is bare.');
     return false;
   }
   const why = gatherBlocker(p, node);
@@ -87,11 +91,15 @@ export function processBlocker(p: Player, recipe: Recipe): string | null {
   const what = lower(recipe.output);
   if (recipe.station === 'anvil' && !p.tools.hammer) return 'You need a hammer to work the metal with. Unlock one between runs.';
   if (p.skills.level(recipe.skill) < recipe.level) {
-    const verb = recipe.station === 'fire' ? 'cook' : recipe.station === 'furnace' ? 'smelt' : 'make';
+    const verb = { fire: 'cook', furnace: 'smelt', anvil: 'make', mix: 'mix' }[recipe.station];
     return `You need a ${SKILL_LABELS[recipe.skill]} level of ${recipe.level} to ${verb} ${recipe.station === 'anvil' ? 'a ' : ''}${what}.`;
   }
   if (!hasInputs(p, recipe)) {
     if (recipe.station === 'anvil') return `You don't have enough bars to make a ${what}.`;
+    if (recipe.station === 'mix') {
+      const [herb, secondary] = recipe.inputs.map((i) => item(i.item).name.toLowerCase());
+      return `You need ${herb}, ${secondary} and a vial of water to mix a ${what}.`;
+    }
     return `You don't have the ${recipe.station === 'fire' ? 'food' : 'ore'} for that.`;
   }
   return null;
@@ -127,7 +135,8 @@ export function processStep(g: GameState, recipe: Recipe): void {
   g.message(
     recipe.station === 'fire' ? `You cook the ${what}.`
       : recipe.station === 'furnace' ? `You retrieve a bar of ${what.replace(' bar', '')}.`
-        : `You hammer the metal and make a ${what}.`,
+        : recipe.station === 'mix' ? `You mix the ingredients into a ${what}.`
+          : `You hammer the metal and make a ${what}.`,
   );
   g.giveXp(recipe.skill, recipe.xp * XP_RATE);
 }

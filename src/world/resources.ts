@@ -61,6 +61,7 @@ export function placeResources(map: FloorMap): ResourceNode[] {
   placeKind('rock', RNG.getUniformInt(4, 7));
   placeKind('tree', RNG.getUniformInt(2, 4));
   placeKind('fishing', RNG.getUniformInt(1, 3));
+  placeKind('herb', RNG.getUniformInt(1, 2));
 
   if (map.depth === 2 || RNG.getUniform() < FORGE_CHANCE) {
     const furnace = tryPlace((p) => new ResourceNode(p, 'furnace'));

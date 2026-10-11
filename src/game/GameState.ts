@@ -18,6 +18,11 @@ import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
 import { Drop, MIMIC_CHANCE, mimicFor } from '../data/npcs';
 import { chestLoot } from '../data/loot';
 import { PET_CHANCE } from '../data/collectionLog';
+import { ELITE_TOKENS } from '../data/elites';
+import { herbForDepth } from '../data/resources';
+
+/** Chance a regular monster drops a random herb for its depth. */
+export const HERB_DROP_CHANCE = 0.12;
 import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer';
 import { themeForDepth } from '../data/themes';
 import type { Counter } from '../data/achievements';
@@ -118,6 +123,7 @@ export class GameState {
   over = false;
   kills = 0;
   bossKills = 0;
+  eliteKills = 0;
   pendingHits: PendingHit[] = [];
   /** Effects of purchased skill-tree perks. */
   mods: RunMods;
@@ -205,7 +211,7 @@ export class GameState {
 
   /** Dungeoneering tokens this run is worth: depth reached, kills, bosses and carried coins. */
   get tokensEarned(): number {
-    const base = 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills
+    const base = 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills + ELITE_TOKENS * this.eliteKills
       + Math.floor(this.player.inventory.count('coins') / 20);
     return Math.floor(base * this.mods.tokenMult * (this.hasRelic('lucky_charm') ? 1.25 : 1));
   }
@@ -419,6 +425,18 @@ export class GameState {
     this.emit({ type: 'death' });
   }
 
+  /** Herblore: mix a potion from the inventory (herb + secondary + vial of water). */
+  mix(recipe: Recipe): void {
+    if (this.over) return;
+    const why = processBlocker(this.player, recipe);
+    if (why) {
+      this.message(why.replace('the ore for that', 'the ingredients for that'));
+      return;
+    }
+    processStep(this, recipe);
+    this.stat('potions');
+  }
+
   /** A drop's chance with your perks and relics (rare drops under 10% get boosted). */
   dropChance(d: Drop): number {
     if (d.chance >= 0.1) return d.chance;
@@ -524,6 +542,17 @@ export class GameState {
 
     if (def.burnTicks) {
       this.lightFire(slot);
+    } else if (def.boost) {
+      if (p.eatCooldown > 0) return;
+      p.inventory.take(slot, 1);
+      const b = def.boost;
+      for (const skill of b.skills) {
+        const amount = b.base + Math.floor(p.skills.level(skill) * b.pct);
+        p.boosts[skill] = Math.max(p.boosts[skill] ?? 0, amount);
+      }
+      p.eatCooldown = EAT_DELAY;
+      this.message(`You drink the ${def.name.toLowerCase()}. You feel your ${b.skills.map((s) => SKILL_LABELS[s]).join(', ')} rise.`);
+      this.sound('eat');
     } else if (def.restoresPrayer) {
       if (p.eatCooldown > 0) return;
       p.inventory.take(slot, 1);
@@ -640,6 +669,13 @@ export class GameState {
     this.drainPrayer();
 
     const p = this.player;
+    // Potion boosts fade by 1 level a minute (100 ticks), like OSRS.
+    if (this.tickCount % 100 === 0) {
+      for (const k of Object.keys(p.boosts) as SkillName[]) {
+        p.boosts[k] = Math.max(0, (p.boosts[k] ?? 0) - 1);
+        if (!p.boosts[k]) delete p.boosts[k];
+      }
+    }
     const regen = Math.round(this.mods.hpRegenTicks / (this.hasRelic('regen_bracelet') ? 2 : 1));
     if (this.tickCount % regen === 0 && p.hp < p.maxHp) p.hp++;
     this.updateFov();
@@ -956,7 +992,7 @@ export class GameState {
     const b = p.bonuses();
     const s = p.skills;
     const boosted = (skill: SkillName, group: PrayerGroup) =>
-      Math.floor(s.level(skill) * (1 + p.prayerBoost(group)));
+      Math.floor(p.boostedLevel(skill) * (1 + p.prayerBoost(group)));
     const mode = p.weaponType;
     let attackRoll: number;
     let max: number;
@@ -1132,7 +1168,17 @@ export class GameState {
       this.offerRelics();
     }
     this.player.intent = null;
-    for (const d of npc.def.drops) {
+    if (npc.elite) {
+      this.eliteKills++;
+      this.stat('eliteKills');
+      this.message(`You defeat the ${npc.name}! Elites drop double loot.`);
+    }
+    // Regular monsters sometimes drop a herb that grows at this depth; elites always do.
+    if (!npc.isBoss && npc.def.id !== 'mimic' && (npc.elite || rand() < HERB_DROP_CHANCE)) {
+      this.groundItems.push(new GroundItem(herbForDepth(this.depth, rand), 1, { ...npc.pos }));
+    }
+    // Elites roll their whole table twice.
+    for (const d of npc.elite ? [...npc.def.drops, ...npc.def.drops] : npc.def.drops) {
       if (rand() >= this.dropChance(d)) continue;
       const [lo, hi] = this.dropQuantity(d);
       const qty = lo + Math.floor(rand() * (hi - lo + 1));
@@ -1205,7 +1251,7 @@ export class GameState {
     const p = this.player;
     const d = npc.def;
     const style = npc.attackStyle;
-    const def = Math.floor(p.skills.level('defence') * (1 + p.prayerBoost('defence')));
+    const def = Math.floor(p.boostedLevel('defence') * (1 + p.prayerBoost('defence')));
     const attRoll = roll(d.attack + 9, d.attackBonus);
     const defRoll = roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence);
     const max = maxHit(d.strength + 9, d.strengthBonus);
@@ -1241,6 +1287,7 @@ export class GameState {
       this.message('You narrowly cheat death! (Undying)');
     }
     if (npc.isBoss && dmg > 0) this.bossDamage.set(npc, (this.bossDamage.get(npc) ?? 0) + dmg);
+    if (npc.elite?.id === 'vampiric' && dmg > 0) npc.hp = Math.min(npc.maxHp, npc.hp + Math.ceil(dmg / 2));
     this.applyHit(p, dmg);
     // Auto-retaliate when idle or skilling.
     const busy = p.intent?.kind;
