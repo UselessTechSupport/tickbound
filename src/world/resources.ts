@@ -3,6 +3,7 @@ import { ResourceDef, ResourceKind, resourcesFor } from '../data/resources';
 import { ResourceNode } from '../entities/ResourceNode';
 import { isBossFloor } from '../data/npcs';
 import { SHRINE_CHANCE } from '../data/relics';
+import { generateStock } from '../data/loot';
 import { FloorMap, Point, Tile, isWalkable, reachableCount, setTile, tileAt } from './tiles';
 
 /** Chance per floor of a furnace + anvil (floor 2 always has one). */
@@ -11,6 +12,10 @@ const FORGE_CHANCE = 0.5;
 const CAMPFIRE_CHANCE = 0.35;
 /** Chance per floor of an altar (boss floors always have one). */
 const ALTAR_CHANCE = 0.35;
+/** Chance per floor (2+, not boss floors) of a wandering merchant. */
+const MERCHANT_CHANCE = 0.3;
+/** Each of up to two chests per floor appears with this chance. */
+const CHEST_CHANCE = 0.45;
 
 const CARDINAL = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -64,6 +69,10 @@ export function placeResources(map: FloorMap): ResourceNode[] {
   if (RNG.getUniform() < CAMPFIRE_CHANCE) tryPlace((p) => new ResourceNode(p, 'fire'));
   if (isBossFloor(map.depth) || RNG.getUniform() < ALTAR_CHANCE) tryPlace((p) => new ResourceNode(p, 'altar'));
   if (!isBossFloor(map.depth) && RNG.getUniform() < SHRINE_CHANCE) tryPlace((p) => new ResourceNode(p, 'shrine'));
+  if (map.depth >= 2 && !isBossFloor(map.depth) && RNG.getUniform() < MERCHANT_CHANCE) {
+    tryPlace((p) => Object.assign(new ResourceNode(p, 'merchant'), { stock: generateStock(map.depth) }));
+  }
+  for (let i = 0; i < 2; i++) if (RNG.getUniform() < CHEST_CHANCE) tryPlace((p) => new ResourceNode(p, 'chest'));
   return nodes;
 }
 

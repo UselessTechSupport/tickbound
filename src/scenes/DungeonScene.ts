@@ -295,6 +295,8 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'mentor') return [{ label: 'Talk-to Mentor', action: () => g.talkTo(node) }];
     if (node.kind === 'toolsmith') return [{ label: 'Trade Toolsmith', action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
+    if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
+    if (node.kind === 'chest') return node.used ? [] : [{ label: 'Open Chest', action: () => g.talkTo(node) }];
     // Anvil: "Smith" opens a second menu listing what your bars can make.
     return [{
       label: 'Smith Anvil',
@@ -453,6 +455,9 @@ export class DungeonScene extends Phaser.Scene {
       case 'anvil':
         sprite(`gen_${n.kind}`);
         break;
+      case 'chest':
+        sprite(n.used ? 'chest_open' : 'chest');
+        break;
       case 'shrine':
         sprite('shrine', n.used ? 0x606060 : undefined);
         if (!n.used) fx.lineStyle(2, 0xffd040, 0.7).strokeCircle(cx, cy, 14);
@@ -537,7 +542,8 @@ export class DungeonScene extends Phaser.Scene {
     // when the frame rate drops, which would stretch the 600ms tick.
     const wall = performance.now();
     // The game waits while a relic choice is on screen.
-    if (this.lastFrameAt !== undefined && !this.state.pendingRelics) this.ticks.update(wall - this.lastFrameAt);
+    const paused = !!this.state.pendingRelics || this.ui.pausesGame;
+    if (this.lastFrameAt !== undefined && !paused) this.ticks.update(wall - this.lastFrameAt);
     this.lastFrameAt = wall;
     const g = this.state;
     const a = this.ticks.alpha;
@@ -561,7 +567,9 @@ export class DungeonScene extends Phaser.Scene {
       let v = this.npcViews.get(npc);
       if (!v) {
         const styled = npc.isBoss || npc.attackStyle !== 'melee';
-        v = this.makeActorView([this.add.image(0, 0, npcSprite(npc.def.id))], styled);
+        const img = this.add.image(0, 0, npcSprite(npc.def.id));
+        if (npc.def.id === 'mimic') img.setTint(0xff8080); // a chest with teeth
+        v = this.makeActorView([img], styled);
         if (npc.isBoss) v.body.setScale(1.3);
         this.npcViews.set(npc, v);
       }

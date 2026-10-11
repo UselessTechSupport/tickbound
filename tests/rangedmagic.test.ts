@@ -22,7 +22,8 @@ function range(seed: number, dist: number): { g: GameState; npc: Npc } {
       if (!line.every((t) => tileAt(g.map, t.x, t.y) === Tile.Floor)) continue;
       const t = line[dist - 1];
       if (dist <= 7 && !g.isVisible(t.x, t.y)) continue;
-      const npc = new Npc({ ...NPCS.moss_giant, aggroRadius: 0, hitpoints: 5000 }, t);
+      // Low defence so the tests measure mechanics, not lucky rolls.
+      const npc = new Npc({ ...NPCS.moss_giant, aggroRadius: 0, hitpoints: 5000, defence: 1, defenceBonus: 0 }, t);
       npc.hp = 5000;
       g.npcs.push(npc);
       return { g, npc };

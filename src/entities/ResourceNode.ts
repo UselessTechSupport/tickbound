@@ -1,9 +1,10 @@
 import { ResourceDef } from '../data/resources';
 import { Station } from '../data/recipes';
 import { Point } from '../world/tiles';
+import type { StockEntry } from '../data/loot';
 
 /** Non-resource node kinds: crafting stations, altars, and camp NPCs. */
-export type FixtureKind = Station | 'altar' | 'mentor' | 'toolsmith' | 'shrine';
+export type FixtureKind = Station | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest';
 export type NodeKind = 'resource' | FixtureKind;
 
 /** A blocking world object the player interacts with: a resource or a crafting station. */
@@ -12,8 +13,10 @@ export class ResourceNode {
   remaining = 0;
   /** Tick at which a player-lit fire burns out; undefined = permanent. */
   expiresAt?: number;
-  /** Relic shrines work once. */
+  /** Relic shrines and chests work once. */
   used = false;
+  /** Merchant's remaining wares. */
+  stock?: StockEntry[];
 
   constructor(
     public pos: Point,
@@ -30,7 +33,7 @@ export class ResourceNode {
       if (!this.depleted) return this.def.name;
       return this.def.kind === 'rock' ? 'Rocks' : this.def.kind === 'tree' ? 'Tree stump' : 'Still water';
     }
-    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine' }[this.kind as FixtureKind];
+    return { fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest' }[this.kind as FixtureKind];
   }
 
   get examine(): string {
@@ -47,6 +50,8 @@ export class ResourceNode {
       mentor: 'A grizzled dungeoneer. Maybe they can teach me a thing or two.',
       toolsmith: 'Makes and sells tools for the dungeon.',
       shrine: this.used ? 'Its power is spent.' : 'Something ancient and powerful slumbers here.',
+      merchant: 'Sells supplies to brave (or foolish) dungeoneers. Buys loot, too.',
+      chest: this.used ? "It's empty." : 'I wonder what is inside.',
     }[this.kind as FixtureKind];
   }
 }

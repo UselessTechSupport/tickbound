@@ -6,6 +6,7 @@ export interface Drop {
 }
 
 import { AttackType } from './prayers';
+import { gearForDepth } from './loot';
 
 export interface BossDef {
   /** Attack styles it cycles between. */
@@ -312,6 +313,24 @@ const list: NpcDef[] = [
 for (const n of list) {
   n.weakness = WEAKNESSES[n.id];
   n.drops.push(...(SUPPLY_DROPS[n.id] ?? []));
+}
+
+/** Chests on floor 3+ are sometimes Mimics. */
+export const MIMIC_CHANCE = 0.1;
+
+/** A Mimic scaled to the floor it ambushes you on. */
+export function mimicFor(depth: number): NpcDef {
+  return {
+    id: 'mimic', name: 'Mimic', color: 0xb04040,
+    attack: 4 + depth * 4, strength: 4 + depth * 4, defence: 2 + depth * 3, hitpoints: 10 + depth * 4,
+    attackBonus: depth * 2, strengthBonus: depth * 2, defenceBonus: depth * 2, attackSpeed: 4, aggroRadius: 8,
+    minDepth: 0, maxDepth: -1, weight: 0, examine: 'That was no chest!', weakness: 'magic',
+    drops: [
+      { item: 'coins', chance: 1, min: 50 * depth, max: 100 * depth },
+      { item: 'prayer_potion', chance: 1 },
+      { item: gearForDepth(depth), chance: 0.6 },
+    ],
+  };
 }
 
 export const BOSS_EVERY = 5;
