@@ -21,6 +21,7 @@ npm run dev        # then open http://localhost:5173
 | Right-click | OSRS-style "Choose Option" menu |
 | Minimap click | Walk there |
 | `1` `2` `3` | Protect from Magic / Missiles / Melee |
+| `R` | Toggle run (2 tiles per tick) / walk (1 tile) |
 | `M` | Mute sound |
 | `H` | Show controls in chat |
 | `Esc` | Close windows |

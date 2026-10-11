@@ -94,7 +94,10 @@ export class Player extends Actor {
     return b;
   }
 
-  /** Walk one tile along the queued path (OSRS walking speed: 1 tile per tick). */
+  /** Running covers 2 tiles per tick instead of 1, as in OSRS. */
+  running = true;
+
+  /** Move one tile along the queued path. */
   step(): void {
     const next = this.path.shift();
     if (next) this.pos = next;
