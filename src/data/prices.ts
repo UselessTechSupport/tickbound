@@ -11,7 +11,7 @@ const FIXED: Record<string, number> = {
   snapdragon: 120, torstol: 180, super_ranging: 500, super_magic: 520, super_combat: 1200,
   attack_potion: 40, strength_potion: 60, defence_potion: 70, super_attack: 150, super_strength: 200,
   super_defence: 220, ranging_potion: 250, magic_potion: 260,
-  shrimps: 5, trout: 15, lobster: 40, swordfish: 70, prayer_potion: 120,
+  shrimps: 5, trout: 15, lobster: 40, swordfish: 70, shark: 120, manta_ray: 180, raw_shark: 50, raw_manta_ray: 80, prayer_potion: 120,
   raw_shrimps: 2, raw_trout: 6, raw_lobster: 18, raw_swordfish: 30,
   bones: 2, big_bones: 8, logs: 3, oak_logs: 6, willow_logs: 12, maple_logs: 25, yew_logs: 60,
   copper_ore: 4, tin_ore: 4, iron_ore: 10, coal: 15, mithril_ore: 40, adamantite_ore: 80, runite_ore: 300,

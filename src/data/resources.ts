@@ -83,6 +83,8 @@ const list: ResourceDef[] = [
   spot('lure', 'Lure', 2, 12, 50, 'raw_trout', 4, 14),
   spot('cage', 'Cage', 3, 25, 90, 'raw_lobster', 9, 99),
   spot('harpoon', 'Harpoon', 4, 35, 100, 'raw_swordfish', 13, 99),
+  spot('shark', 'Harpoon', 4, 50, 110, 'raw_shark', 16, 999),
+  spot('manta', 'Harpoon', 4, 70, 130, 'raw_manta_ray', 25, 999),
 ];
 
 export const RESOURCES: Record<string, ResourceDef> = Object.fromEntries(list.map((r) => [r.id, r]));
