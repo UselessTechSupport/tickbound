@@ -12,11 +12,12 @@ export interface CatchUp {
 
 export function catchUpFor(depth: number, style: StartStyle): CatchUp {
   const d = Math.max(1, depth) - 1;
-  const combat = Math.min(70, 4 + 3 * d);
+  // Matches what the balance sim's bots have on arrival at each floor (about 50 by floor 11).
+  const combat = Math.min(85, 10 + 4 * d);
   const levels: Partial<Record<SkillName, number>> = {
     defence: combat,
-    hitpoints: Math.min(80, 10 + 3 * d),
-    prayer: Math.min(45, 1 + Math.round(1.5 * d)),
+    hitpoints: Math.min(90, 10 + 4 * d),
+    prayer: Math.min(50, 1 + 2 * d),
   };
   if (style === 'melee') Object.assign(levels, { attack: combat, strength: combat });
   if (style === 'ranged') levels.ranged = combat;
@@ -25,7 +26,7 @@ export function catchUpFor(depth: number, style: StartStyle): CatchUp {
   return {
     levels,
     items: [
-      { id: food, qty: Math.min(10, 3 + Math.floor(d / 2)) },
+      { id: food, qty: Math.min(12, 4 + Math.floor(d / 2)) },
       { id: 'prayer_potion', qty: Math.min(4, 1 + Math.floor(d / 5)) },
       { id: 'coins', qty: 40 * d },
     ],

@@ -34,6 +34,7 @@ npm run dev        # then open http://localhost:5173
 | `P` | Pause / resume |
 | `E` | Arm your weapon's special attack |
 | `K` | Skill mastery |
+| `J` | Progress journal: completion of every long-term system |
 | `O` | Settings: volume, toggles (auto-pickup, labels, warnings, toasts), zoom, keybinds |
 | Touch | Tap = left-click, long-press = right-click menu; small screens scale the layout to fit |
 | `M` | Mute sound |

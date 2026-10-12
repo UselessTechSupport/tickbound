@@ -14,6 +14,7 @@ import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/ac
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
+import { journal, journalSpent, overallCompletion } from '../meta/journal';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { CURSE_BY_ID } from '../data/curses';
 import { MODIFIERS, modifierBonus } from '../data/modifiers';
@@ -64,7 +65,7 @@ const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops'
-  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests' | 'mastery';
+  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests' | 'mastery' | 'journal';
 
 /** What the drop-table window is showing. */
 export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
@@ -233,6 +234,7 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-E', () => !this.modalKind && this.state.toggleSpec());
     this.input.keyboard?.on('keydown-L', () => this.toggleModal('log'));
     this.input.keyboard?.on('keydown-K', () => this.toggleModal('mastery'));
+    this.input.keyboard?.on('keydown-J', () => this.toggleModal('journal'));
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
     this.input.keyboard?.on('keydown-R', () => this.dungeon.setRunning(!this.dungeon.running));
@@ -622,7 +624,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
-      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board', mastery: 'Skill mastery',
+      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board', mastery: 'Skill mastery', journal: 'Progress journal',
       drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
@@ -641,6 +643,7 @@ export class UIScene extends Phaser.Scene {
       builder: `Tokens: ${meta.tokens}   Timber: ${meta.materials.timber}   Metal: ${meta.materials.metal}`,
       quests: `Quests complete: ${meta.questsDone.length}/${QUESTS.length}`,
       mastery: 'Every level you gain in a run adds mastery points to that skill, for good.',
+      journal: `Overall completion: ${(overallCompletion(journal(meta)) * 100).toFixed(1)}%   Runs: ${meta.runs}   Best floor: ${meta.bestDepth}`,
       startRun: `Best floor: ${meta.bestDepth}   Deepest boss beaten: ${meta.deepestBoss ? `floor ${meta.deepestBoss}` : 'none yet'}`,
       drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
     }[kind];
@@ -660,12 +663,13 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'builder') this.buildBuilder(add);
     else if (kind === 'quests') this.buildQuests(add);
     else if (kind === 'mastery') this.buildMastery(add);
+    else if (kind === 'journal') this.buildJournal(add);
     else if (kind === 'startRun') this.buildStartRun(add);
     else this.buildToolsmith(add);
   }
 
   /** Hotkeys toggle these windows; they never replace a shop or relic choice in progress. */
-  private toggleModal(kind: 'achievements' | 'log' | 'settings' | 'mastery'): void {
+  private toggleModal(kind: 'achievements' | 'log' | 'settings' | 'mastery' | 'journal'): void {
     if (this.modalKind === kind) this.closeModal();
     else if (!this.modalKind || ['achievements', 'log', 'settings'].includes(this.modalKind)) this.openModal(kind);
   }
@@ -861,6 +865,30 @@ export class UIScene extends Phaser.Scene {
     }
     add(this.add.text(x0, y + 6, s.bonusClaimed ? 'All three done today: bonus claimed!'
       : `Finish all three for a bonus of ${contractBonus(m.bestDepth)} tokens.`, { ...FONT, fontSize: '12px', color: s.bonusClaimed ? '#60ff60' : '#ffffff' }));
+  }
+
+  /** Progress journal: completion of every long-term system. */
+  private buildJournal(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const m = this.dungeon.meta;
+    const W = this.panelX;
+    const x0 = W / 2 - 300;
+    journal(m).forEach((line, i) => {
+      const y = 104 + i * 52;
+      const frac = Math.min(1, line.have / line.total);
+      add(this.add.text(x0, y, line.name, { ...FONT, fontSize: '14px', color: frac >= 1 ? '#60ff60' : '#ff981f' }));
+      add(this.add.text(x0 + 600, y, `${line.have.toLocaleString()} / ${line.total.toLocaleString()}  (${Math.floor(frac * 100)}%)`, {
+        ...FONT, fontSize: '12px', color: '#ffffff',
+      }).setOrigin(1, 0));
+      add(this.add.rectangle(x0, y + 22, 600, 8, 0x1c1812).setOrigin(0));
+      add(this.add.rectangle(x0, y + 22, 600 * frac, 8, frac >= 1 ? 0x40c040 : 0xc09030).setOrigin(0));
+    });
+    const lifetime = [
+      `Monsters killed: ${(m.lifetime.kills ?? 0).toLocaleString()}`,
+      `Bosses: ${Object.entries(m.killCounts).filter(([id]) => NPCS[id]?.boss).reduce((n, [, k]) => n + k, 0)}`,
+      `Treasure goblins: ${m.lifetime.goblins ?? 0}`,
+      `Tokens spent so far: about ${Math.max(0, journalSpent(m)).toLocaleString()}`,
+    ];
+    add(this.add.text(W / 2, 104 + 7 * 52 + 6, lifetime.join('    '), { ...FONT, fontSize: '11px', color: '#c8c8c8' }).setOrigin(0.5, 0));
   }
 
   /** Skill mastery: level, progress and bonus per skill, in two columns. */
@@ -1213,6 +1241,7 @@ export class UIScene extends Phaser.Scene {
       'Q            quick-prayers',
       'E            special attack',
       'K            skill mastery',
+      'J            progress journal',
       'R            run / walk',
       'G            go to stairs',
       'F            quick-eat',
