@@ -52,6 +52,8 @@ export interface MetaSave {
   startRelic: string | null;
   /** Floors each pet has come along for (pet levels). */
   petFloors: Record<string, number>;
+  /** Collection log milestones already paid (fractions, e.g. 0.25). */
+  logMilestones?: number[];
   /** Run modifiers you last chose at the ladder. */
   modifiers?: string[];
   /** Today's daily contracts (see data/contracts.ts). */
