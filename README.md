@@ -37,7 +37,7 @@ npm run dev        # then open http://localhost:5173
 | `J` | Progress journal: completion of every long-term system |
 | `B` | Bestiary: kill 10 / 100 / 1,000 of each monster for tokens |
 | `O` | Settings: volume, toggles (auto-pickup, labels, warnings, toasts), zoom, keybinds |
-| Touch | Tap = left-click, long-press = right-click menu; small screens scale the layout to fit |
+| Touch | Tap = left-click, long-press = right-click menu, pinch to zoom; on-screen Eat / Pause / Zoom / Fullscreen buttons. Phones: play in landscape (the layout fills the screen), or add to your home screen for fullscreen |
 | `M` | Mute sound |
 | `H` | Show controls in chat |
 | `Esc` | Close windows |
@@ -80,6 +80,9 @@ npm run dev        # then open http://localhost:5173
   adventurers trade supplies for relics, tokens or coins.
 - **Traps** (floor 2+): hidden pressure plates. Thieving helps you spot and disarm them, Agility to leap aside.
 - **Treasure maps** (rare drops): every floor you carry one to has buried treasure; dig it up.
+- **Hidden rooms** (about 1 in 5 floors from floor 2): a glinting *cracked wall* leads into a sealed room with an
+  Agility check. Inside: a forgotten cache (a double chest that's never a Mimic, plus coins), a relic shrine, or a
+  stash of food and prayer potions.
 
 ### Skills
 - 18 skills on the OSRS XP curve, reset every run: combat, Prayer, Mining, Woodcutting, Fishing, Cooking, Smithing,
@@ -104,7 +107,7 @@ npm run dev        # then open http://localhost:5173
 - **Skill mastery** (K, or click a skill): levels gained in runs become permanent mastery points; 10 mastery levels per
   skill, each a small bonus.
 - **Quest board**: 20 quests from the camp folk, plus three **daily contracts**.
-- **Goals and rewards**: 98 achievements, a collection log with milestone rewards, a bestiary (B) with kill-count
+- **Goals and rewards**: 100 achievements, a collection log with milestone rewards, a bestiary (B) with kill-count
   rewards, depth-record bonuses, a first-run-of-the-day bonus, and the progress journal (J) to see it all.
 
 ## Development

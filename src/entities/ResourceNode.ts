@@ -25,6 +25,8 @@ export class ResourceNode {
   deal?: WandererDeal;
   /** Locked chests: Thieving level to pick the lock (cleared once picked). */
   lockLevel?: number;
+  /** A hidden room's chest: never a Mimic, and holds a double share. */
+  cache?: boolean;
   /** Agility shortcuts: the floor tiles on either side of the wall, and the level needed. */
   shortcut?: { a: Point; b: Point; level: number; kind: number };
 

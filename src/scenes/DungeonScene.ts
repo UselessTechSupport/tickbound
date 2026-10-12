@@ -38,7 +38,7 @@ import { MASTERY_BONUS } from '../data/mastery';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { QUEST_BY_ID, describeReward } from '../data/quests';
 import { RELIC_BY_ID } from '../data/relics';
-import { SHORTCUT_KINDS } from '../data/agility';
+import { HIDDEN_ROOM_KIND, SHORTCUT_KINDS } from '../data/agility';
 import { clearRun, loadRun, saveRun } from '../save/runSave';
 
 /** Your first kill of this boss brings the Enchanter to camp. */
@@ -199,11 +199,9 @@ export class DungeonScene extends Phaser.Scene {
     });
     this.input.keyboard?.on('keydown-G', () => this.goToStairs());
     this.input.keyboard?.on('keydown-F', () => !this.state.isCamp && this.state.quickEat());
-    this.input.keyboard?.on('keydown-P', () => {
-      if (this.state.isCamp || this.state.over) return;
-      this.userPaused = !this.userPaused;
-      this.bus.emit('paused', this.userPaused);
-    });
+    this.input.keyboard?.on('keydown-P', () => this.togglePause());
+    // Touch: pinch with two fingers to zoom.
+    this.input.on('pointermove', () => this.pinchZoom());
     this.cameras.main.setZoom(settings.zoom);
     this.ticks.onTick(() => this.onTick());
 
@@ -752,6 +750,29 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  togglePause(): void {
+    if (this.state.isCamp || this.state.over) return;
+    this.userPaused = !this.userPaused;
+    this.bus.emit('paused', this.userPaused);
+  }
+
+  private pinch?: { dist: number; zoom: number };
+  private pinchZoom(): void {
+    const a = this.input.pointer1;
+    const b = this.input.pointer2;
+    if (!a?.isDown || !b?.isDown) {
+      this.pinch = undefined;
+      return;
+    }
+    // A second finger cancels the first one's tap / long-press.
+    window.clearTimeout(this.touchHold);
+    this.touchHold = undefined;
+    this.touchConsumed = true;
+    const dist = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
+    if (!this.pinch) this.pinch = { dist: Math.max(1, dist), zoom: settings.zoom };
+    else this.setZoom(this.pinch.zoom * dist / this.pinch.dist);
+  }
+
   /** Camera zoom, clamped to sensible steps and remembered. */
   setZoom(z: number): void {
     settings.zoom = Phaser.Math.Clamp(Math.round(z * 4) / 4, 0.5, 2);
@@ -1066,6 +1087,8 @@ export class DungeonScene extends Phaser.Scene {
           fx.fillCircle(cx + (across ? dx : dy), cy + (across ? dy : dx), 2.5);
         }
         fx.lineStyle(1, 0xffd040, 0.45).strokeRect(n.pos.x * TILE + 1, n.pos.y * TILE + 1, TILE - 2, TILE - 2);
+        // A cracked wall into a hidden room: a faint draught of light through the gap.
+        if (sc.kind === HIDDEN_ROOM_KIND && !n.used) fx.fillStyle(0xfff0b0, 0.8).fillCircle(cx + 1, cy - 1, 2).fillCircle(cx - 2, cy + 5, 1.5);
         break;
       }
       case 'buried_treasure':

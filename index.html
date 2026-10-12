@@ -4,15 +4,33 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Tickbound</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <meta name="theme-color" content="#2a241c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen" />
     <style>
       html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
       #game { width: 100%; height: 100%; }
       /* Touch: no browser panning, pinch-zoom or text-selection while playing. */
       canvas { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+      /* Phones held upright: the game needs landscape. */
+      #rotate { display: none; position: fixed; inset: 0; z-index: 10; background: #111; color: #ffd040;
+        font: 18px monospace; text-align: center; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; }
+      #rotate button { font: 14px monospace; color: #fff; background: #3e3529; border: 1px solid #5d5447; padding: 8px 16px; }
+      @media (orientation: portrait) and (pointer: coarse) { #rotate:not(.dismissed) { display: flex; } }
     </style>
   </head>
   <body oncontextmenu="return false">
     <div id="game"></div>
+    <div id="rotate">
+      <div style="font-size: 48px">&#x21bb;</div>
+      <div>Turn your phone sideways to play Tickbound.</div>
+      <div style="color: #c8c8c8; font-size: 13px">Tip: add it to your home screen to play fullscreen.</div>
+      <button onclick="this.parentElement.classList.add('dismissed')">Play anyway</button>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

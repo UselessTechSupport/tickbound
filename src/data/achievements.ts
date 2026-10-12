@@ -20,7 +20,7 @@ export const TIERS: Array<{ id: Tier; name: string; reward: number; color: numbe
 export type Counter =
   | 'kills' | 'gathers' | 'cooks' | 'smiths' | 'bones' | 'chests' | 'purchases' | 'blocks'
   | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills' | 'tasks' | 'fires'
-  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts' | 'goblins' | 'floorEvents' | 'trades' | 'treasures';
+  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts' | 'goblins' | 'floorEvents' | 'trades' | 'treasures' | 'hiddenRooms';
 
 export interface AchievementContext {
   meta: MetaSave;
@@ -112,6 +112,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'questing', name: 'Adventurer', desc: 'Complete 6 quests.', tier: 'medium', check: (c) => c.meta.questsDone.length >= 6 },
   { id: 'master_thief', name: 'Master Thief', desc: 'Pick 50 pockets.', tier: 'medium', ...count('pickpockets', 50) },
   { id: 'safecracker', name: 'Safecracker', desc: 'Pick the locks of 10 chests.', tier: 'medium', ...count('locks', 10) },
+  { id: 'secret_keeper', name: 'Secret Keeper', desc: 'Find a hidden room behind a cracked wall.', tier: 'easy', ...count('hiddenRooms', 1) },
+  { id: 'spelunker', name: 'Spelunker', desc: 'Find 15 hidden rooms.', tier: 'medium', ...count('hiddenRooms', 15) },
   { id: 'parkour', name: 'Parkour', desc: 'Use 25 Agility shortcuts.', tier: 'medium', ...count('shortcuts', 25) },
   { id: 'bowyer', name: 'Bowyer', desc: 'Fletch 50 times.', tier: 'medium', ...count('fletches', 50) },
   { id: 'elite_hunter', name: 'Elite Hunter', desc: 'Kill 10 elite monsters.', tier: 'medium', ...count('eliteKills', 10) },

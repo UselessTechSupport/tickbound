@@ -7,9 +7,10 @@ import { DARK_SHRINE_CHANCE, DARK_SHRINE_MIN_DEPTH } from '../data/curses';
 import { WANDERER_CHANCE, WANDERER_MIN_DEPTH, rollDeal } from '../data/wanderers';
 import { generateStock } from '../data/loot';
 import { LOCKED_CHEST_CHANCE, LOCKED_CHEST_MIN_DEPTH, lockLevelFor } from '../data/thieving';
-import { SHORTCUT_KINDS, SHORTCUT_MIN_SAVING, shortcutLevelFor } from '../data/agility';
+import { HIDDEN_ROOM_KIND, OPEN_SHORTCUT_KINDS, SHORTCUT_MIN_SAVING, shortcutLevelFor } from '../data/agility';
+import { HIDDEN_ROOM_CHANCE, HIDDEN_ROOM_MIN_DEPTH, HIDDEN_ROOM_VARIANTS, hiddenRoomLevel } from '../data/hiddenRooms';
 import { findPath } from './pathfinding';
-import { FloorMap, Point, Tile, isWalkable, reachableCount, setTile, tileAt } from './tiles';
+import { FloorMap, Point, Tile, inHiddenRoom, isWalkable, reachableCount, setTile, tileAt } from './tiles';
 
 /** Chance per floor of a furnace + anvil (floor 2 always has one). */
 const FORGE_CHANCE = 0.5;
@@ -90,6 +91,9 @@ export function placeResources(map: FloorMap): ResourceNode[] {
     tryPlace((p) => Object.assign(new ResourceNode(p, 'chest'), locked ? { lockLevel: lockLevelFor(map.depth) } : {}));
   }
   // Last, so nothing gets placed on a shortcut's landing spots afterwards.
+  if (map.depth >= HIDDEN_ROOM_MIN_DEPTH && !isBossFloor(map.depth) && RNG.getUniform() < HIDDEN_ROOM_CHANCE) {
+    nodes.push(...placeHiddenRoom(map));
+  }
   nodes.push(...placeShortcuts(map, RNG.getUniformInt(1, 2)));
   return nodes;
 }
@@ -109,6 +113,7 @@ function placeShortcuts(map: FloorMap, count: number): ResourceNode[] {
         const b = { x: x + dx, y: y + dy };
         // A straight 1-thick wall: floor on both sides, wall either end.
         if (tileAt(map, a.x, a.y) !== Tile.Floor || tileAt(map, b.x, b.y) !== Tile.Floor) continue;
+        if (inHiddenRoom(map, a.x, a.y) || inHiddenRoom(map, b.x, b.y)) continue;
         if (tileAt(map, x + dy, y + dx) !== Tile.Wall || tileAt(map, x - dy, y - dx) !== Tile.Wall) continue;
         spots.push({ wall: { x, y }, a, b });
       }
@@ -122,10 +127,60 @@ function placeShortcuts(map: FloorMap, count: number): ResourceNode[] {
     const around = findPath(map, s.a, s.b).length;
     if (around < SHORTCUT_MIN_SAVING) continue;
     out.push(Object.assign(new ResourceNode(s.wall, 'shortcut'), {
-      shortcut: { a: s.a, b: s.b, level: shortcutLevelFor(map.depth, RNG.getUniform()), kind: RNG.getUniformInt(0, SHORTCUT_KINDS.length - 1) },
+      shortcut: { a: s.a, b: s.b, level: shortcutLevelFor(map.depth, RNG.getUniform()), kind: RNG.getUniformInt(0, OPEN_SHORTCUT_KINDS - 1) },
     }));
   }
   return out;
+}
+
+/**
+ * A hidden room: a small room carved into solid rock, reached only through a cracked wall
+ * next to an existing corridor or room. Returns the crack and anything placed inside.
+ */
+function placeHiddenRoom(map: FloorMap): ResourceNode[] {
+  for (let tries = 0; tries < 300; tries++) {
+    const w = RNG.getUniformInt(3, 5);
+    const h = RNG.getUniformInt(3, 4);
+    const x = RNG.getUniformInt(2, map.width - w - 3);
+    const y = RNG.getUniformInt(2, map.height - h - 3);
+    // The room and a 1-tile shell around it must be solid rock.
+    let solid = true;
+    for (let yy = y - 1; yy <= y + h && solid; yy++) {
+      for (let xx = x - 1; xx <= x + w && solid; xx++) if (tileAt(map, xx, yy) !== Tile.Wall) solid = false;
+    }
+    if (!solid) continue;
+    // The crack: a shell tile with open floor right outside it.
+    const doors: Array<{ wall: Point; out: Point; inside: Point }> = [];
+    for (let xx = x; xx < x + w; xx++) {
+      doors.push({ wall: { x: xx, y: y - 1 }, out: { x: xx, y: y - 2 }, inside: { x: xx, y } });
+      doors.push({ wall: { x: xx, y: y + h }, out: { x: xx, y: y + h + 1 }, inside: { x: xx, y: y + h - 1 } });
+    }
+    for (let yy = y; yy < y + h; yy++) {
+      doors.push({ wall: { x: x - 1, y: yy }, out: { x: x - 2, y: yy }, inside: { x, y: yy } });
+      doors.push({ wall: { x: x + w, y: yy }, out: { x: x + w + 1, y: yy }, inside: { x: x + w - 1, y: yy } });
+    }
+    const open = doors.filter((d) => tileAt(map, d.out.x, d.out.y) === Tile.Floor
+      && !(d.out.x === map.spawn.x && d.out.y === map.spawn.y));
+    if (!open.length) continue;
+    const door = RNG.getItem(open)!;
+    const weights = Object.fromEntries(HIDDEN_ROOM_VARIANTS.map((v) => [v.id, v.weight]));
+    const variant = RNG.getWeightedValue(weights) as (typeof HIDDEN_ROOM_VARIANTS)[number]['id'];
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) setTile(map, xx, yy, Tile.Floor);
+    map.hidden = { x, y, w, h, variant };
+    const out: ResourceNode[] = [Object.assign(new ResourceNode(door.wall, 'shortcut'), {
+      shortcut: { a: door.out, b: door.inside, level: hiddenRoomLevel(shortcutLevelFor(map.depth, RNG.getUniform())), kind: HIDDEN_ROOM_KIND },
+    })];
+    // The prize sits in the corner farthest from the crack (a corner never splits the room).
+    const corners = [{ x, y }, { x: x + w - 1, y }, { x, y: y + h - 1 }, { x: x + w - 1, y: y + h - 1 }];
+    const far = corners.sort((p, q) => (Math.abs(q.x - door.inside.x) + Math.abs(q.y - door.inside.y))
+      - (Math.abs(p.x - door.inside.x) + Math.abs(p.y - door.inside.y)))[0];
+    if (variant === 'cache' || variant === 'shrine') {
+      setTile(map, far.x, far.y, Tile.Object);
+      out.push(Object.assign(new ResourceNode(far, variant === 'cache' ? 'chest' : 'shrine'), variant === 'cache' ? { cache: true } : {}));
+    }
+    return out;
+  }
+  return [];
 }
 
 function resourceNode(pos: Point, def: ResourceDef): ResourceNode {

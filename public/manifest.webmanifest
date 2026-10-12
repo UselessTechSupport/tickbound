@@ -1,0 +1,15 @@
+{
+  "name": "Tickbound",
+  "short_name": "Tickbound",
+  "description": "An Old School RuneScape-inspired roguelike.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#111111",
+  "theme_color": "#2a241c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -8,7 +8,7 @@ import { GameState } from '../src/game/GameState';
 import { burnChance } from '../src/game/skilling';
 import { generateFloor } from '../src/world/dungeonGen';
 import { placeResources } from '../src/world/resources';
-import { Tile, reachableCount, setTile, tileAt } from '../src/world/tiles';
+import { Tile, inHiddenRoom, reachableCount, setTile, tileAt } from '../src/world/tiles';
 
 const ALL_TOOLS: Toolbelt = { pickaxe: 6, axe: 6, fishing: 4, hammer: true, tinderbox: true, knife: true };
 
@@ -40,7 +40,9 @@ describe('resource placement', () => {
       const nodes = placeResources(map);
       expect(nodes.length, `seed ${seed}`).toBeGreaterThan(3);
       // Shortcuts sit in walls, so only the other nodes take up floor.
-      expect(reachableCount(map, map.spawn)).toBe(before - nodes.filter((n) => n.kind !== 'shortcut').length);
+      // (A hidden room is sealed off, so what's inside it doesn't count either.)
+      const inside = (n: { pos: { x: number; y: number } }) => inHiddenRoom(map, n.pos.x, n.pos.y);
+      expect(reachableCount(map, map.spawn)).toBe(before - nodes.filter((n) => n.kind !== 'shortcut' && !inside(n)).length);
       expect(tileAt(map, map.stairs.x, map.stairs.y)).toBe(Tile.StairsDown);
     }
   });
@@ -173,3 +175,49 @@ describe('meta unlocks', () => {
     expect(g.tokensEarned).toBe(5 + 2);
   });
 });
+
+describe('hidden rooms', () => {
+  it('are sealed rooms behind a cracked wall, with something inside', async () => {
+    const { HIDDEN_ROOM_KIND } = await import('../src/data/agility');
+    let found = 0;
+    for (let seed = 0; seed < 400; seed++) {
+      const map = generateFloor(seed, 2 + (seed % 12));
+      const nodes = placeResources(map);
+      const r = map.hidden;
+      if (!r) continue;
+      found++;
+      const crack = nodes.find((n) => n.shortcut?.kind === HIDDEN_ROOM_KIND)!;
+      expect(crack, `seed ${seed}`).toBeTruthy();
+      // Outside is part of the floor; inside can't be walked to without the crack.
+      expect(tileAt(map, crack.shortcut!.a.x, crack.shortcut!.a.y)).toBe(Tile.Floor);
+      expect(inHiddenRoom(map, crack.shortcut!.b.x, crack.shortcut!.b.y)).toBe(true);
+      const sealed = reachableCount(map, crack.shortcut!.b);
+      expect(sealed).toBeLessThan(r.w * r.h + 1);
+      if (r.variant !== 'stash') expect(nodes.some((n) => inHiddenRoom(map, n.pos.x, n.pos.y))).toBe(true);
+    }
+    expect(found).toBeGreaterThan(30);
+  });
+
+  it('a cache chest is never a mimic and the room pays out on entry', () => {
+    for (let seed = 1; seed < 400; seed++) {
+      const g = new GameState(seed, () => {}, {});
+      g.loadFloor(4);
+      if (!g.map.hidden) continue;
+      const crack = g.nodes.find((n) => n.shortcut && n.shortcut.kind === 3)!;
+      g.player.skills.xp.agility = 13_034_431;
+      g.player.pos = { ...crack.shortcut!.a };
+      for (let i = 0; i < 20 && !samePosition(g.player.pos, crack.shortcut!.b); i++) {
+        g.useShortcut(crack);
+        g.tick();
+      }
+      expect(g.player.pos).toEqual(crack.shortcut!.b);
+      expect(g.messages.some((m) => m.includes('hidden room'))).toBe(true);
+      return;
+    }
+    throw new Error('no hidden room in 400 seeds');
+  });
+});
+
+function samePosition(a: { x: number; y: number }, b: { x: number; y: number }): boolean {
+  return a.x === b.x && a.y === b.y;
+}
