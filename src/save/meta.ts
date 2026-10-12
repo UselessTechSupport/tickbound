@@ -1,7 +1,7 @@
 import { NO_TOOLS, Toolbelt } from '../data/tools';
 import { PerkRanks } from '../data/skillTree';
 import type { Counter } from '../data/achievements';
-import type { SlayerTask } from '../data/slayer';
+import { SLAYER_BY_ID, SlayerTask } from '../data/slayer';
 import { ArmouryRanks, NO_ARMOURY, StartStyle } from '../data/armoury';
 import type { Enchantments } from '../data/enchants';
 import type { Materials, StructureLevels } from '../data/construction';
@@ -122,11 +122,19 @@ export function loadMeta(): MetaSave {
       armoury.ranged = Math.max(armoury.ranged, perks.rangers_kit ?? 0);
       armoury.magic = Math.max(armoury.magic, perks.apprentice_kit ?? 0);
     }
+    // A task the bot finished during autoplay used to stay stuck at 0 left, unpaid: pay it now.
+    let slayerTask = parsed.slayerTask ?? null;
+    const lifetime = { ...parsed.lifetime };
+    if (slayerTask && slayerTask.remaining <= 0) {
+      tokens += (SLAYER_BY_ID[slayerTask.category]?.tokensPerKill ?? 0) * slayerTask.total;
+      lifetime.tasks = (lifetime.tasks ?? 0) + 1;
+      slayerTask = null;
+    }
     // Older saves lack the newer fields; fill them with defaults.
     return {
       ...freshMeta(), ...parsed, tokens, tools: { ...NO_TOOLS, ...parsed.tools }, perks,
-      collection: { ...parsed.collection }, killCounts: { ...parsed.killCounts }, lifetime: { ...parsed.lifetime },
-      made: { ...parsed.made }, slayerTask: parsed.slayerTask ?? null,
+      collection: { ...parsed.collection }, killCounts: { ...parsed.killCounts }, lifetime,
+      made: { ...parsed.made }, slayerTask,
       // Saves that already used Slayer (before it was gated) keep it.
       slayerUnlocked: parsed.slayerUnlocked ?? (!!parsed.slayerTask || (parsed.lifetime?.tasks ?? 0) > 0),
       armoury, kitsMovedToArmourer: true,

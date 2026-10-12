@@ -210,6 +210,11 @@ export class DungeonScene extends Phaser.Scene {
     // Pick up a run left by a refresh or closed tab, otherwise start at camp.
     const resumed = loadRun((e) => this.onGameEvent(e));
     if (resumed) {
+      // The restored run has its own copy of the task: share one again so kills reach the save.
+      // No task in the save means it was finished (and paid) before the refresh.
+      const task = this.meta.slayerTask;
+      if (task && resumed.slayerTask?.category === task.category) this.meta.slayerTask = resumed.slayerTask;
+      else resumed.slayerTask = task;
       this.setState(resumed);
       resumed.message('Welcome back! Your run has been restored.');
       this.checkResume = 180;
@@ -341,6 +346,7 @@ export class DungeonScene extends Phaser.Scene {
     // Autoplay fast-forwards: skip effects, popups and achievement tracking, keep the essentials.
     if (this.autoplay) {
       if (e.type === 'floor' && this.state) this.onFloorChanged();
+      if (e.type === 'slayerDone') this.finishSlayerTask(e.tokens);
       if (e.type === 'death') {
         // Dying before you take control pays nothing (no tokens, materials or kept items).
         this.autoplay = null;
@@ -375,13 +381,16 @@ export class DungeonScene extends Phaser.Scene {
     if (e.type === 'kill' && e.boss) this.meta.deepestBoss = Math.max(this.meta.deepestBoss, this.state.depth);
     if (e.type === 'kill' && e.npcId === ENCHANTER_UNLOCK_BOSS && !this.meta.enchanterUnlocked) this.unlockEnchanter();
     if (e.type === 'kill' && e.npcId === SLAYER_UNLOCK_BOSS && !this.meta.slayerUnlocked) this.unlockSlayer();
-    if (e.type === 'slayerDone') {
-      this.meta.tokens += e.tokens;
-      this.meta.slayerTask = null;
-      saveMeta(this.meta);
-    }
+    if (e.type === 'slayerDone') this.finishSlayerTask(e.tokens);
     this.bus.emit(e.type, e);
     if (this.state && !this.state.noRewards) this.announce(this.tracker.handle(e, this.state));
+  }
+
+  /** Pays a finished Slayer task and frees you to get another. */
+  private finishSlayerTask(tokens: number): void {
+    this.meta.tokens += tokens;
+    this.meta.slayerTask = null;
+    saveMeta(this.meta);
   }
 
   /** Chat lines and toasts for achievements, new collection log slots and pets. */
