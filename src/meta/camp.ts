@@ -5,6 +5,7 @@ import {
 import { NPCS } from '../data/npcs';
 import { SKILLS, SkillName } from '../data/skills';
 import { masteryLevel } from '../data/mastery';
+import { contractBonus, contractProgress } from '../data/contracts';
 import { QUESTS, QUEST_BY_ID, questClaimable } from '../data/quests';
 import { priceOf } from '../data/prices';
 import type { CampSetup, GameState } from '../game/GameState';
@@ -97,4 +98,32 @@ export function addMastery(m: MetaSave, g: GameState): Array<{ skill: SkillName;
 
 export function masteryLevels(m: MetaSave): Partial<Record<SkillName, number>> {
   return Object.fromEntries(SKILLS.map((s) => [s, masteryLevel(m.masteryPoints[s] ?? 0)]));
+}
+
+/** Claim a finished daily contract (and the all-three bonus when it's the last one). */
+export function claimContract(m: MetaSave, id: string): number {
+  const s = m.contracts;
+  const c = s?.contracts.find((x) => x.id === id);
+  if (!s || !c || s.claimed.includes(id)) return 0;
+  const [have, need] = contractProgress(c, m);
+  if (have < need) return 0;
+  s.claimed.push(id);
+  let paid = c.tokens;
+  if (!s.bonusClaimed && s.claimed.length === s.contracts.length) {
+    s.bonusClaimed = true;
+    paid += contractBonus(m.bestDepth);
+  }
+  m.tokens += paid;
+  return paid;
+}
+
+/** Record how deep you got today (skips and autoplay don't count). */
+export function noteContractDepth(m: MetaSave, g: GameState): void {
+  if (m.contracts && !g.assisted) m.contracts.bestDepthToday = Math.max(m.contracts.bestDepthToday, g.depth);
+}
+
+export function claimableContracts(m: MetaSave): number {
+  const s = m.contracts;
+  if (!s) return 0;
+  return s.contracts.filter((c) => !s.claimed.includes(c.id) && contractProgress(c, m)[0] >= contractProgress(c, m)[1]).length;
 }

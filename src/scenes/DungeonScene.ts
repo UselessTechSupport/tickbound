@@ -28,7 +28,10 @@ import { catchUpFor } from '../data/catchup';
 import { enchantCost } from '../data/enchants';
 import { PICKPOCKET } from '../data/thieving';
 import { Materials, STRUCTURES, STRUCTURE_BY_ID, StructureId, nextStructureLevel } from '../data/construction';
-import { addMastery, campSetupFor, claimQuest, claimableQuests, masteryLevels, settleRun } from '../meta/camp';
+import {
+  addMastery, campSetupFor, claimContract, claimableContracts, claimQuest, claimableQuests, masteryLevels, noteContractDepth, settleRun,
+} from '../meta/camp';
+import { ensureContracts } from '../data/contracts';
 import { MASTERY_BONUS } from '../data/mastery';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { QUEST_BY_ID, describeReward } from '../data/quests';
@@ -216,8 +219,12 @@ export class DungeonScene extends Phaser.Scene {
       armourerUnlocked: (this.meta.perks[ARMOURER_PERK] ?? 0) > 0, enchanterUnlocked: this.meta.enchanterUnlocked,
       built: STRUCTURES.filter((s) => (this.meta.structures[s.id] ?? 0) > 0).map((s) => s.id),
     }));
-    const claimable = claimableQuests(this.meta);
-    if (claimable) this.state.message(`You have ${claimable} quest reward${claimable > 1 ? 's' : ''} to claim at the quest board.`);
+    if (ensureContracts(this.meta)) {
+      saveMeta(this.meta);
+      this.state.message("New daily contracts are posted on the quest board.");
+    }
+    const claimable = claimableQuests(this.meta) + claimableContracts(this.meta);
+    if (claimable) this.state.message(`You have ${claimable} reward${claimable > 1 ? 's' : ''} to claim at the quest board.`);
   }
 
   /** Start a fresh dungeon run with every unlock and perk applied. */
@@ -401,6 +408,16 @@ export class DungeonScene extends Phaser.Scene {
     return true;
   }
 
+  /** Quest board: claim a finished daily contract. */
+  claimContractReward(id: string): boolean {
+    const paid = claimContract(this.meta, id);
+    if (!paid) return false;
+    saveMeta(this.meta);
+    sfx.play('levelup');
+    this.state.message(`Contract complete! +${paid} Dungeoneering tokens.`);
+    return true;
+  }
+
   /** Relic altar: step to the next relic you've found (or none). */
   cycleStartRelic(): void {
     const m = this.meta;
@@ -414,6 +431,7 @@ export class DungeonScene extends Phaser.Scene {
     const g = this.state;
     this.lastMaterials = null;
     if (!g.noRewards) {
+      noteContractDepth(this.meta, g);
       this.settleCamp(g);
       for (const { skill, level } of addMastery(this.meta, g)) {
         const text = `${SKILL_LABELS[skill]} mastery is now level ${level}: ${MASTERY_BONUS[skill].per} per level.`;
@@ -914,7 +932,7 @@ export class DungeonScene extends Phaser.Scene {
         fx.fillStyle(0x7a5228, 1).fillRect(cx - 13, cy - 12, 26, 18);
         fx.lineStyle(2, 0x3a2410, 1).strokeRect(cx - 13, cy - 12, 26, 18);
         fx.fillStyle(0xe8e0c8, 1).fillRect(cx - 10, cy - 9, 8, 6).fillRect(cx + 1, cy - 8, 9, 5).fillRect(cx - 6, cy - 1, 10, 5);
-        if (claimableQuests(this.meta) > 0) {
+        if (claimableQuests(this.meta) + claimableContracts(this.meta) > 0) {
           const bang = this.add.text(cx + 12, cy - 20, '!', { fontFamily: 'monospace', fontSize: '16px', color: '#ffd040', stroke: '#000000', strokeThickness: 3 })
             .setOrigin(0.5).setDepth(7);
           this.dynamic.push(bang);

@@ -146,3 +146,16 @@ describe('skill perks', () => {
     expect(b.player.skills.xp.slayer / a.player.skills.xp.slayer).toBeCloseTo(1.2);
   });
 });
+
+describe('token economy', () => {
+  it('coins convert at 20:1 up to 2,000, then taper', async () => {
+    const { coinTokens } = await import('../src/game/GameState');
+    expect(coinTokens(500)).toBe(25);
+    expect(coinTokens(2000)).toBe(100);
+    expect(coinTokens(2100)).toBeGreaterThan(100);
+    expect(coinTokens(10000)).toBeLessThan(250);
+    expect(coinTokens(165000)).toBeLessThan(1000);
+    // Never decreasing.
+    for (let c = 0; c < 50000; c += 777) expect(coinTokens(c + 777)).toBeGreaterThanOrEqual(coinTokens(c));
+  });
+});
