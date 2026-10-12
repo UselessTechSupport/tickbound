@@ -20,7 +20,7 @@ export const TIERS: Array<{ id: Tier; name: string; reward: number; color: numbe
 export type Counter =
   | 'kills' | 'gathers' | 'cooks' | 'smiths' | 'bones' | 'chests' | 'purchases' | 'blocks'
   | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills' | 'tasks' | 'fires'
-  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts' | 'goblins' | 'floorEvents' | 'trades';
+  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts' | 'goblins' | 'floorEvents' | 'trades' | 'treasures';
 
 export interface AchievementContext {
   meta: MetaSave;
@@ -101,6 +101,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'masochist', name: 'Masochist', desc: 'Reach floor 20 with all six run modifiers on.', tier: 'elite', check: unassisted((g) => g.depth >= 20 && g.modifiers.length >= 6) },
   { id: 'cursed_collector', name: 'Cursed Collector', desc: 'Carry 3 dark shrine curses in one run.', tier: 'medium', check: inRun((g) => g.curses.length >= 3) },
   { id: 'jeweller', name: 'Dragon Jeweller', desc: 'Craft a dragonstone amulet.', tier: 'hard', check: made((id) => id === 'dragonstone_amulet') },
+  { id: 'x_marks', name: 'X Marks the Spot', desc: 'Dig up buried treasure.', tier: 'easy', ...count('treasures', 1) },
   { id: 'eventful', name: 'Eventful', desc: 'Arrive on 25 floors with an event.', tier: 'medium', ...count('floorEvents', 25) },
   { id: 'adept', name: 'Adept', desc: 'Reach mastery 5 in any skill.', tier: 'medium', check: (c) => masteries(c).some((l) => l >= 5) },
   { id: 'questing', name: 'Adventurer', desc: 'Complete 6 quests.', tier: 'medium', check: (c) => c.meta.questsDone.length >= 6 },

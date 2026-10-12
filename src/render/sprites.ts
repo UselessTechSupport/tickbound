@@ -7,7 +7,7 @@ const TILE_KEYS = [
   'floor_0', 'floor_1', 'floor_2', 'floor_3', 'wall_0', 'wall_1', 'wall_2', 'wall_3',
   'grass_0', 'grass_1', 'grass_2', 'herb_patch', 'item_attack_potion', 'item_strength_potion', 'item_defence_potion',
   'item_super_attack', 'item_super_strength', 'item_super_defence', 'item_ranging_potion', 'item_magic_potion',
-  'item_vial_of_water', 'armourer', 'enchanter', 'builder', 'wanderer', 'bank_chest', 'trophy_room', 'pet_kennel', 'chest_locked', 'shrine', 'chest', 'chest_open', 'merchant', 'npc_mimic', 'stairs', 'ladder', 'water', 'boulder', 'tree', 'fire', 'altar',
+  'item_vial_of_water', 'armourer', 'enchanter', 'builder', 'wanderer', 'item_treasure_map', 'bank_chest', 'trophy_room', 'pet_kennel', 'chest_locked', 'shrine', 'chest', 'chest_open', 'merchant', 'npc_mimic', 'stairs', 'ladder', 'water', 'boulder', 'tree', 'fire', 'altar',
   'mentor', 'toolsmith',
   'npc_rat', 'npc_goblin', 'npc_giant_rat', 'npc_zombie',
   'npc_ghoul', 'npc_wight', 'npc_mummy', 'npc_hellhound', 'npc_fire_elemental', 'npc_salamander',
@@ -79,6 +79,7 @@ function rangedMagicSprite(id: string, layer: 'item' | 'pd'): SpriteRef | null {
 
 export function itemSprite(id: string): SpriteRef {
   if (id === 'coins') return { key: 'item_coins' };
+  if (id === 'treasure_map') return { key: 'item_treasure_map' };
   if (id === 'bones' || id === 'big_bones') return { key: 'item_bones' };
   if (id === 'prayer_potion') return { key: 'item_prayer_potion' };
   if (POTION_SPRITES.has(id)) return { key: `item_${id}` };

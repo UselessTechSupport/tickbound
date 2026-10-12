@@ -28,6 +28,7 @@ import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, STYLE_ARMOUR, STYLE_SHIELD, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
 import { CURSES } from '../data/curses';
+import { gemForDepth } from './skilling';
 import { modifierBonus } from '../data/modifiers';
 import { REWARD_TEXT } from '../data/wanderers';
 import { DARKNESS_FOV, FLOOR_EVENT_BY_ID, FloorEventId, GOBLIN_ESCAPE_TICKS, rollFloorEvent, treasureGoblin } from '../data/floorEvents';
@@ -456,6 +457,62 @@ export class GameState {
     return this.modifiers.includes(id);
   }
 
+  /** Carrying a treasure map: bury a treasure in a room on this floor and hint which way it lies. */
+  private placeBuriedTreasure(): void {
+    if (!this.player.inventory.count('treasure_map') || this.isCamp) return;
+    // A room interior tile with floor all around never blocks a path.
+    const spots: Point[] = [];
+    for (const r of this.map.rooms) {
+      for (let y = r.top + 1; y < r.bottom; y++) {
+        for (let x = r.left + 1; x < r.right; x++) {
+          const open = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]
+            .every(([dx, dy]) => tileAt(this.map, x + dx, y + dy) === Tile.Floor);
+          const far = Math.max(Math.abs(x - this.map.spawn.x), Math.abs(y - this.map.spawn.y)) >= 8;
+          if (open && far && !this.npcAt(x, y)) spots.push({ x, y });
+        }
+      }
+    }
+    if (!spots.length) return;
+    const spot = spots[Math.floor(rand() * spots.length)];
+    setTile(this.map, spot.x, spot.y, Tile.Object);
+    this.nodes.push(new ResourceNode(spot, 'buried_treasure'));
+    const dx = spot.x - this.map.spawn.x;
+    const dy = spot.y - this.map.spawn.y;
+    const ns = dy < -4 ? 'north' : dy > 4 ? 'south' : '';
+    const ew = dx < -4 ? 'west' : dx > 4 ? 'east' : '';
+    this.message(`Your treasure map points ${ns}${ns && ew ? '-' : ''}${ew || (ns ? '' : 'nearby')} of the stairs you arrived by.`);
+  }
+
+  /** Dig up buried treasure: uses the map. */
+  private digTreasure(node: ResourceNode): void {
+    if (node.used) {
+      this.message('You already dug here.');
+      return;
+    }
+    const inv = this.player.inventory;
+    if (!inv.count('treasure_map')) {
+      this.message("You'd need the map to know exactly where to dig.");
+      return;
+    }
+    inv.remove('treasure_map', 1);
+    node.used = true;
+    const d = this.depth;
+    const loot: Array<{ id: string; qty: number }> = [{ id: 'coins', qty: 80 * d + Math.floor(rand() * 40 * d) }];
+    loot.push({ id: gemForDepth(d, rand()), qty: 1 });
+    loot.push({ id: d >= 15 ? 'rune_bar' : d >= 8 ? 'adamant_bar' : 'mithril_bar', qty: 1 + Math.floor(rand() * 2) });
+    const specs = specWeaponsFor(d);
+    if (specs.length && rand() < 0.05) loot.push({ id: specs[Math.floor(rand() * specs.length)].weapon, qty: 1 });
+    const tokens = 20 + 5 * d;
+    this.bonusTokens += tokens;
+    for (const { id, qty } of loot) {
+      this.emit({ type: 'obtain', item: id, qty, source: 'treasure' });
+      if (!inv.add(id, qty)) this.dropHere(id, qty);
+    }
+    this.stat('treasures');
+    this.sound('buy');
+    this.message(`You dig up a buried chest! ${loot.map((l) => `${l.qty > 1 ? `${l.qty} x ` : ''}${item(l.id).name}`).join(', ')}, and ${tokens} tokens.`);
+  }
+
   hasCurse(id: string): boolean {
     return this.curses.includes(id);
   }
@@ -599,6 +656,7 @@ export class GameState {
     for (const n of this.nodes) if (n.kind === 'resource') n.remaining += this.perkRank('bountiful');
     this.npcs = spawnMonsters(this.map);
     this.startFloorEvent(depth);
+    this.placeBuriedTreasure();
     if (this.hasModifier('hardened')) {
       this.npcs = this.npcs.map((n) => Object.assign(new Npc({ ...n.def, hitpoints: Math.round(n.def.hitpoints * 1.25) }, n.pos), { elite: n.elite }));
     }
@@ -1506,6 +1564,8 @@ export class GameState {
           this.emit({ type: 'campMenu', kind: 'merchant' });
         } else if (node.kind === 'chest') {
           this.openChest(node);
+        } else if (node.kind === 'buried_treasure') {
+          this.digTreasure(node);
         } else if (node.kind === 'wanderer') {
           this.tradeWithWanderer(node);
         } else if (node.kind === 'dark_shrine') {
@@ -1958,6 +2018,11 @@ export class GameState {
     // Regular monsters sometimes drop a herb that grows at this depth; elites always do.
     if (!npc.isBoss && npc.def.id !== 'mimic' && (npc.elite || rand() < HERB_DROP_CHANCE * (1 + 0.25 * this.perkRank('forager')) * (this.hasRelic('scavengers_pouch') ? 2 : 1))) {
       this.groundItems.push(new GroundItem(herbForDepth(this.depth, rand), 1, { ...npc.pos }));
+    }
+    // Treasure maps (floor 3+): rare, more often from elites.
+    if (this.depth >= 3 && !npc.isBoss && npc.def.id !== 'mimic' && rand() < (npc.elite ? 1 / 25 : 1 / 150)) {
+      this.groundItems.push(new GroundItem('treasure_map', 1, { ...npc.pos }));
+      this.message('The monster dropped a tattered treasure map!');
     }
     // Rarely, a special attack weapon.
     const specChance = npc.isBoss ? SPEC_DROP_CHANCE.boss : npc.elite ? SPEC_DROP_CHANCE.elite : SPEC_DROP_CHANCE.normal;

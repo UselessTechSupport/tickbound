@@ -164,3 +164,22 @@ describe('wandering adventurers', () => {
     expect(g.tokensEarned).toBeGreaterThan(before);
   });
 });
+
+describe('treasure maps', () => {
+  it('carrying a map buries treasure on each new floor; digging uses the map and pays out', () => {
+    const g = new GameState(48);
+    g.player.inventory.add('treasure_map');
+    g.loadFloor(6);
+    const mound = g.nodes.find((n) => n.kind === 'buried_treasure');
+    expect(mound).toBeDefined();
+    expect(g.messages.some((m) => m.startsWith('Your treasure map points'))).toBe(true);
+    const before = g.tokensEarned;
+    (g as unknown as { digTreasure(n: unknown): void }).digTreasure(mound);
+    expect(g.player.inventory.count('treasure_map')).toBe(0);
+    expect(g.player.inventory.count('coins')).toBeGreaterThan(0);
+    expect(g.tokensEarned).toBeGreaterThan(before);
+    // No map, no mound.
+    g.loadFloor(7);
+    expect(g.nodes.some((n) => n.kind === 'buried_treasure')).toBe(false);
+  });
+});

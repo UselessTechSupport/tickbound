@@ -754,6 +754,7 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'quest_board') return [{ label: 'Read Quest board', action: () => g.talkTo(node) }];
     if (node.kind in STRUCTURE_BY_ID) return [{ label: `Use ${node.name}`, action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
+    if (node.kind === 'buried_treasure') return node.used ? [] : [{ label: 'Dig Mound of earth', action: () => g.talkTo(node) }];
     if (node.kind === 'wanderer') return node.used ? [] : [{ label: 'Trade-with Wandering adventurer', action: () => g.talkTo(node) }];
     if (node.kind === 'dark_shrine') return node.used ? [] : [{ label: 'Bargain-with Dark shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
@@ -1010,6 +1011,14 @@ export class DungeonScene extends Phaser.Scene {
         fx.lineStyle(1, 0xffd040, 0.45).strokeRect(n.pos.x * TILE + 1, n.pos.y * TILE + 1, TILE - 2, TILE - 2);
         break;
       }
+      case 'buried_treasure':
+        fx.fillStyle(0x000000, 0.35).fillEllipse(cx, cy + 7, 26, 10);
+        fx.fillStyle(n.used ? 0x1a120a : 0x3a2614, 1).fillEllipse(cx, cy + 4, 24, 14);
+        if (!n.used) {
+          fx.fillStyle(0x5a3e22, 1).fillEllipse(cx - 2, cy + 1, 14, 7);
+          fx.lineStyle(3, 0xd04030, 1).lineBetween(cx - 6, cy - 4, cx + 6, cy + 6).lineBetween(cx + 6, cy - 4, cx - 6, cy + 6);
+        }
+        break;
       case 'dark_shrine':
         sprite('altar', n.used ? 0x404040 : 0xa02030);
         if (!n.used) fx.lineStyle(2, 0xc02040, 0.8).strokeCircle(cx, cy, 14);
