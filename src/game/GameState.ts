@@ -215,6 +215,10 @@ export class GameState {
   noRewards = false;
   /** This run used skip-ahead or autoplay (in-run challenge achievements don't count). */
   assisted = false;
+  /** Autoplay played part of this run: dying pays nothing (forfeit to bank). */
+  autoplayed = false;
+  /** Token-related progress at the start of an autoplay run, put back if the run dies. */
+  autoplaySnapshot: Record<string, unknown> | null = null;
   /** Raw tokens earned before handing control to the player; these count half. */
   private tokenBaseline = 0;
   /** Relics picked this run. */
@@ -715,8 +719,10 @@ export class GameState {
   /** Autoplay handover: everything earned so far counts half from here on. */
   endAutoplay(): void {
     this.assisted = true;
+    this.autoplayed = true;
     this.tokenBaseline = this.rawTokens();
     this.message(`Autoplay hands over on floor ${this.depth}. Autoplayed floors pay half tokens. Good luck!`);
+    this.message('Careful: if you die on an autoplayed run you get no tokens at all. Forfeit to bank them.');
   }
 
   private loadCamp(slayerUnlocked = false, armourerUnlocked = false, enchanterUnlocked = false, built: StructureId[] = []): void {

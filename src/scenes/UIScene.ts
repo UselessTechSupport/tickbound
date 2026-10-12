@@ -1456,7 +1456,7 @@ export class UIScene extends Phaser.Scene {
       `Loot picked up: ${r.itemsLooted} items, ${r.coinsLooted.toLocaleString()} coins   Relics: ${g.relics.length}`,
       `XP gained: ${xp.join(', ') || 'none'}`,
       '',
-      g.noRewards ? 'Autoplay died before handing over: no rewards from this run.'
+      g.noRewards ? (g.autoplayed ? 'You died on an autoplayed run: no rewards. (Forfeit to bank your tokens.)' : 'Autoplay died before handing over: no rewards from this run.')
         : `This run earned ${this.dungeon.lastEarned} Dungeoneering tokens (total ${this.dungeon.meta.tokens}).`,
       ...(this.dungeon.lastDailyBonus ? [`First run of the day: +${this.dungeon.lastDailyBonus} bonus tokens included!`] : []),
       ...(this.dungeon.lastRecordBonus ? [`New depth record! +${this.dungeon.lastRecordBonus} tokens.`] : []),

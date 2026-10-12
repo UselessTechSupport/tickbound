@@ -53,7 +53,7 @@ npm run dev        # then open http://localhost:5173
   (20 coins = 1 token up to 2,000 coins, tapering after). **Forfeit** any time to bank early.
 - **Resume**: a run in progress is saved in your browser, so a refresh or closed tab picks up where you left off.
 - **Starting a run**: floor 1, a skip past any boss you've beaten (catch-up levels and supplies, half tokens for
-  skipped floors), or autoplay to your best floor (the bot plays fast, then hands over; if it dies, no rewards).
+  skipped floors), or autoplay to your best floor (the bot plays fast, then hands over; dying on an autoplayed run pays nothing, so forfeit to bank).
 - **Run modifiers** (after the Goblin Warlord): optional handicaps for more tokens: Hardened, Frenzied, Fragile,
   Famished, Relicless, Ironman (+10% to +30% each, stacking).
 

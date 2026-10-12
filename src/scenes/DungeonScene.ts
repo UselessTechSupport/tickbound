@@ -272,6 +272,13 @@ export class DungeonScene extends Phaser.Scene {
       logSlots: ALL_LOG_SLOTS.filter((id) => (this.meta.collection[id] ?? 0) > 0 || this.meta.pets.includes(id)).length,
     }));
     if (opts.autoplayTo && opts.autoplayTo > 1) {
+      // Dying on an autoplayed run pays nothing, including achievements, bestiary kills,
+      // collection log entries and Slayer progress gained during it (they can be earned again).
+      const m = this.meta;
+      this.state.autoplaySnapshot = structuredClone({
+        tokens: m.tokens, achievements: m.achievements, killCounts: m.killCounts, collection: m.collection,
+        lifetime: m.lifetime, made: m.made, slayerTask: m.slayerTask,
+      });
       this.autoplay = { target: opts.autoplayTo, memo: newBotMemory(), floorTicks: 0, floor: 1 };
       this.bus.emit('autoplay', this.autoplay);
     }
@@ -351,7 +358,14 @@ export class DungeonScene extends Phaser.Scene {
       // Saved after the tick that changed floor, once the new floor is fully set up.
       this.time.delayedCall(0, () => this.saveRunNow());
     }
-    if (e.type === 'death') this.bankRun();
+    if (e.type === 'death') {
+      // Dying on an autoplayed run pays nothing; forfeiting banks it as normal.
+      if (this.state.autoplayed && !this.state.forfeited) {
+        this.state.noRewards = true;
+        this.state.message('You died on an autoplayed run: no rewards from this run.');
+      }
+      this.bankRun();
+    }
     // Swap to the run after the current tick finishes rather than mid-tick.
     if (e.type === 'enterDungeon') this.startPending = true;
     if (e.type === 'kill' && e.boss) this.meta.deepestBoss = Math.max(this.meta.deepestBoss, this.state.depth);
@@ -363,7 +377,7 @@ export class DungeonScene extends Phaser.Scene {
       saveMeta(this.meta);
     }
     this.bus.emit(e.type, e);
-    if (this.state) this.announce(this.tracker.handle(e, this.state));
+    if (this.state && !this.state.noRewards) this.announce(this.tracker.handle(e, this.state));
   }
 
   /** Chat lines and toasts for achievements, new collection log slots and pets. */
@@ -466,6 +480,7 @@ export class DungeonScene extends Phaser.Scene {
     clearRun();
     const g = this.state;
     this.lastMaterials = null;
+    if (g.noRewards && g.autoplaySnapshot) Object.assign(this.meta, structuredClone(g.autoplaySnapshot));
     if (!g.noRewards) {
       noteContractDepth(this.meta, g);
       this.settleCamp(g);
@@ -589,7 +604,7 @@ export class DungeonScene extends Phaser.Scene {
     if (settings.allowAutoplay && this.meta.bestDepth > 1) {
       opts.push({
         label: `Autoplay to floor ${this.meta.bestDepth}`,
-        detail: 'The bot plays fast until your best floor, then hands over. It can die! Autoplayed floors pay half tokens.',
+        detail: 'The bot plays fast until your best floor, then hands over. Autoplayed floors pay half tokens, and dying on this run pays nothing: forfeit to bank.',
         start: () => this.startRun({ autoplayTo: this.meta.bestDepth }),
       });
     }
