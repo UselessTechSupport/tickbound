@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: 10,
+    date: '2026-10-12',
+    title: 'One-bar smithing and off-hands',
+    items: [
+      'Smith a dagger from a single bar of any metal from bronze to rune.',
+      'Arrows now take two steps: smith 15 arrowtips from a bar at the anvil, then fletch them onto logs.',
+      'Fletch a buckler (a ranged off-hand) from two logs, from a wooden buckler up to a magic one.',
+      'Cut a gem into an orb (a magic off-hand) instead of an amulet, from sapphire up to dragonstone.',
+      'Archers and wizards now sometimes drop bucklers, orbs and tomes.',
+    ],
+  },
+  {
     id: 9,
     date: '2026-10-12',
     title: 'Smithing and Fletching are worth it',

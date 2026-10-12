@@ -24,10 +24,10 @@ describe('Fletching', () => {
     }
   });
 
-  it('needs a knife, then turns logs into a bow and bar + logs into 15 arrows', () => {
+  it('needs a knife, then turns logs into a bow and arrowtips + logs into 15 arrows', () => {
     const g = new GameState(301);
     g.player.inventory.add('logs', 2);
-    g.player.inventory.add('iron_bar');
+    g.player.inventory.add('iron_arrowtips', 15);
     g.player.skills.xp.fletching = xpForLevel(15);
     g.fletch(bow);
     expect(g.player.inventory.count('shortbow')).toBe(0);
@@ -36,7 +36,52 @@ describe('Fletching', () => {
     expect(g.player.inventory.count('shortbow')).toBe(1);
     g.fletch(arrows);
     expect(g.player.inventory.count('iron_arrow')).toBe(15);
-    expect(g.player.inventory.count('iron_bar')).toBe(0);
+    expect(g.player.inventory.count('iron_arrowtips')).toBe(0);
+  });
+
+  it('two logs make a wooden buckler, a ranged off-hand', () => {
+    const g = new GameState(302);
+    g.player.tools = { ...NO_TOOLS, knife: true };
+    g.player.inventory.add('oak_logs', 2);
+    g.player.skills.xp.fletching = xpForLevel(20);
+    g.fletch(RECIPES.find((r) => r.id === 'fletch_oak_buckler')!);
+    expect(g.player.inventory.count('oak_buckler')).toBe(1);
+    expect(ITEMS.oak_buckler.equip).toMatchObject({ slot: 'shield', req: { skill: 'ranged' } });
+  });
+});
+
+describe('one-bar smithing and off-hands', () => {
+  it('every metal smiths a 1-bar dagger (but not dragon) and 15 arrowtips', () => {
+    for (const m of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune']) {
+      const dagger = RECIPES.find((r) => r.id === `smith_${m}_dagger`)!;
+      expect(dagger.inputs).toEqual([{ item: `${m}_bar`, qty: 1 }]);
+      expect(ITEMS[dagger.output].equip?.slot).toBe('weapon');
+    }
+    expect(RECIPES.some((r) => r.output === 'dragon_dagger')).toBe(false);
+    for (const m of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon']) {
+      const tips = RECIPES.find((r) => r.id === `smith_${m}_arrowtips`)!;
+      expect(tips.outputQty).toBe(15);
+      expect(RECIPES.find((r) => r.id === `fletch_${m}_arrow`)!.inputs[0]).toEqual({ item: `${m}_arrowtips`, qty: 15 });
+    }
+  });
+
+  it('every recipe uses and makes real items', () => {
+    for (const r of RECIPES) for (const id of [r.output, ...r.inputs.map((i) => i.item)]) expect(ITEMS[id], id).toBeDefined();
+  });
+
+  it('each gem cuts into an orb, a magic off-hand', () => {
+    for (const gem of ['sapphire', 'emerald', 'ruby', 'diamond', 'dragonstone']) {
+      const orb = RECIPES.find((r) => r.output === `${gem}_orb`)!;
+      expect(orb.inputs[0].item).toBe(gem);
+      expect(ITEMS[orb.output].equip).toMatchObject({ slot: 'shield', req: orb.output === 'sapphire_orb' ? undefined : { skill: 'magic' } });
+      expect(ITEMS[orb.output].equip!.magicBonus).toBeGreaterThan(0);
+    }
+  });
+
+  it('ranged and magic monsters drop off-hands', () => {
+    const drops = (id: string) => NPCS[id].drops.map((d) => d.item);
+    expect(drops('skeleton_archer')).toContain('oak_buckler');
+    expect(drops('dark_wizard')).toContain('sapphire_orb');
   });
 });
 

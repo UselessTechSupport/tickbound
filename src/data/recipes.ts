@@ -45,10 +45,15 @@ const bow = (logs: string, output: string, level: number, xp: number): Recipe =>
   id: `fletch_${output}`, station: 'fletch', skill: 'fletching', level, xp, output, inputs: [{ item: logs, qty: 1 }],
 });
 
-/** A bar for the arrowheads plus logs for the shafts -> 15 arrows. */
+/** Two logs -> a wooden buckler (ranged off-hand). */
+const buckler = (logs: string, output: string, level: number, xp: number): Recipe => ({
+  id: `fletch_${output}`, station: 'fletch', skill: 'fletching', level, xp, output, inputs: [{ item: logs, qty: 2 }],
+});
+
+/** 15 smithed arrowtips plus logs for the shafts -> 15 arrows. */
 const arrows = (metal: string, logs: string, level: number, xpEach: number): Recipe => ({
   id: `fletch_${metal}_arrow`, station: 'fletch', skill: 'fletching', level, xp: xpEach * 15, output: `${metal}_arrow`, outputQty: 15,
-  inputs: [{ item: `${metal}_bar`, qty: 1 }, { item: logs, qty: 1 }],
+  inputs: [{ item: `${metal}_arrowtips`, qty: 15 }, { item: logs, qty: 1 }],
 });
 
 /**
@@ -59,8 +64,8 @@ const METALS: Array<[string, number, number]> = [
   ['bronze', 1, 20], ['iron', 10, 35], ['steel', 20, 50], ['mithril', 30, 80], ['adamant', 40, 100], ['rune', 50, 125],
   ['dragon', 70, 160],
 ];
-/** [item suffix, bars, level offset] */
-const SMITHABLES: Array<[string, number, number]> = [['scimitar', 2, 0], ['kiteshield', 3, 2], ['platebody', 5, 5]];
+/** [item suffix, bars, level offset]. No dragon dagger: that one is a rare special weapon. */
+const SMITHABLES: Array<[string, number, number]> = [['dagger', 1, 0], ['scimitar', 2, 0], ['kiteshield', 3, 2], ['platebody', 5, 5]];
 
 export const RECIPES: Recipe[] = [
   cook('raw_shrimps', 'shrimps', 1, 30, 20),
@@ -91,22 +96,36 @@ export const RECIPES: Recipe[] = [
   smelt('rune', 50, 100, 'runite_ore', 4),
   smelt('dragon', 70, 130, 'dragonite_ore', 5),
 
-  ...METALS.flatMap(([metal, base, xp]) => SMITHABLES.map(([thing, bars, offset]): Recipe => ({
-    id: `smith_${metal}_${thing}`, station: 'anvil', skill: 'smithing', level: base + offset, xp: xp * bars,
-    inputs: [{ item: `${metal}_bar`, qty: bars }], output: `${metal}_${thing}`,
-  }))),
+  ...METALS.flatMap(([metal, base, xp]) => [
+    { id: `smith_${metal}_arrowtips`, station: 'anvil', skill: 'smithing', level: base, xp, inputs: [{ item: `${metal}_bar`, qty: 1 }], output: `${metal}_arrowtips`, outputQty: 15 } as Recipe,
+    ...SMITHABLES.filter(([thing]) => !(metal === 'dragon' && thing === 'dagger')).map(([thing, bars, offset]): Recipe => ({
+      id: `smith_${metal}_${thing}`, station: 'anvil', skill: 'smithing', level: base + offset, xp: xp * bars,
+      inputs: [{ item: `${metal}_bar`, qty: bars }], output: `${metal}_${thing}`,
+    })),
+  ]),
 
   craft('sapphire', 'amulet_of_magic', 1, 50),
   craft('emerald', 'amulet_of_accuracy', 20, 70),
   craft('ruby', 'amulet_of_strength', 40, 85),
   craft('diamond', 'amulet_of_power', 55, 100),
   craft('dragonstone', 'dragonstone_amulet', 70, 150),
+  craft('sapphire', 'sapphire_orb', 1, 50),
+  craft('emerald', 'emerald_orb', 20, 70),
+  craft('ruby', 'ruby_orb', 40, 85),
+  craft('diamond', 'diamond_orb', 55, 100),
+  craft('dragonstone', 'dragonstone_orb', 70, 150),
   bow('logs', 'shortbow', 5, 25),
   bow('oak_logs', 'oak_shortbow', 20, 40),
   bow('willow_logs', 'willow_shortbow', 35, 70),
   bow('maple_logs', 'maple_shortbow', 50, 100),
   bow('yew_logs', 'yew_shortbow', 65, 160),
   bow('magic_logs', 'magic_shortbow', 80, 230),
+  buckler('logs', 'wooden_buckler', 5, 50),
+  buckler('oak_logs', 'oak_buckler', 20, 80),
+  buckler('willow_logs', 'willow_buckler', 35, 140),
+  buckler('maple_logs', 'maple_buckler', 50, 200),
+  buckler('yew_logs', 'yew_buckler', 65, 320),
+  buckler('magic_logs', 'magic_buckler', 80, 460),
   arrows('bronze', 'logs', 1, 2.5),
   arrows('iron', 'logs', 15, 4),
   arrows('steel', 'oak_logs', 30, 6),

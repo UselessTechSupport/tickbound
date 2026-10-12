@@ -89,7 +89,7 @@ describe('perk effects', () => {
   it('Fine Fletching adds arrows', () => {
     const g = run({ fine_fletching: 3 });
     g.player.tools = { ...NO_TOOLS, knife: true };
-    g.player.inventory.add('bronze_bar');
+    g.player.inventory.add('bronze_arrowtips', 15);
     g.player.inventory.add('logs');
     g.fletch(RECIPES.find((r) => r.id === 'fletch_bronze_arrow')!);
     expect(g.player.inventory.count('bronze_arrow')).toBe(21);
