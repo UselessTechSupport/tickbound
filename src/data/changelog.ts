@@ -12,6 +12,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: 8,
+    date: '2026-10-12',
+    title: 'Thieving and Agility catch-up',
+    items: [
+      "Every floor's first Agility shortcut and first locked chest are now at or below your level, so a low Thieving or Agility can still be trained deep down. The rest still scale with depth.",
+      'Cracked walls into hidden rooms are never above your Agility level.',
+      'Spotting a trap gives a little Thieving XP, and anyone can leap aside from a trap (15% at level 1, up from almost nothing).',
+    ],
+  },
+  {
     id: 7,
     date: '2026-10-12',
     title: 'Ranged and magic balance',

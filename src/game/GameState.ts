@@ -550,6 +550,7 @@ export class GameState {
       if (!t.found && chebyshev(t, p.pos) <= 2 && rand() < spot) {
         t.found = true;
         this.message('You notice a trap on the floor nearby.');
+        this.giveXp('thieving', (3 + this.depth) * XP_RATE);
       }
     }
     const stepped = [p.via, p.pos].filter((q): q is Point => !!q && !samePos(q, p.prev));
@@ -557,7 +558,7 @@ export class GameState {
       const trap = this.traps.find((t) => t.x === q.x && t.y === q.y);
       if (!trap) continue;
       this.traps.splice(this.traps.indexOf(trap), 1);
-      if (rand() < Math.min(0.6, 0.008 * p.skills.level('agility'))) {
+      if (rand() < Math.min(0.6, 0.15 + 0.008 * p.skills.level('agility'))) {
         this.message('A trap clicks underfoot, but you leap aside!');
         this.giveXp('agility', 10 * XP_RATE);
         continue;
@@ -788,7 +789,8 @@ export class GameState {
     this.map = generateFloor(this.seed * 1000 + depth, depth);
     this.explored = new Uint8Array(this.map.width * this.map.height);
     // Resources first so monsters only spawn on tiles left free.
-    this.nodes = placeResources(this.map);
+    const lv = this.player.skills;
+    this.nodes = placeResources(this.map, { agility: lv.level('agility'), thieving: lv.level('thieving') });
     // Bountiful: resources last longer.
     for (const n of this.nodes) if (n.kind === 'resource') n.remaining += this.perkRank('bountiful');
     this.npcs = spawnMonsters(this.map);
