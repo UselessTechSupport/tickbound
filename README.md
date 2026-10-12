@@ -42,96 +42,69 @@ npm run dev        # then open http://localhost:5173
 | `H` | Show controls in chat |
 | `Esc` | Close windows |
 
-## How a run works
+## How the game works
 
-- **First run of the day**: +50% tokens.
-- **Depth records**: every floor deeper than your best ever pays 10 x that floor in tokens, once.
-- **Daily contracts** (quest board): three new goals every day (kill a monster type, reach a floor, gather, cook,
-  thieve...), each paying tokens that scale with your best floor, plus a bonus for all three.
-- **The Abyss** (floor 21+): a new theme with abyssal fiends, shadow reapers, soul eaters and tormentors (plus a new
-  Slayer category). Past floor 20, monsters keep getting 4% stronger per floor, so there's always further to go.
-  Bosses: the Lich (25), the Ancient Wyrm (30), the Hollow King (35) and the Void Titan (40), then ever-stronger Titans.
-- **Boss mechanics**: the Goblin Warlord calls guards at half HP, the Chaos Elemental throws you across the room,
-  the Lich raises skeletons at 2/3 and 1/3 HP, and the Ancient Wyrm's dragonfire (every 5th attack) gets through
-  protection prayers at half strength. The Demonic gorilla prays against any style you use three times in a row.
-- **Tokens from coins**: 20 coins = 1 token up to 2,000 coins; bigger piles taper off, so hoarding can't flood the economy.
-- **Run modifiers** (after your first Goblin Warlord kill, at the ladder): optional handicaps for more tokens:
-  Hardened (+30%), Frenzied (+20%), Fragile (+25%), Famished (+15%), Relicless (+20%), Ironman (+10%). They stack.
-- **Treasure maps** (rare drops, floor 3+): every floor you carry one to has buried treasure; the map hints which way.
-  Dig it up for coins, a gem, bars, bonus tokens and a small chance at a special weapon.
-- **Wandering adventurers** (floor 2+): trade a few supplies (fish, bars, logs, herbs or bones) for a relic, tokens
-  or coins.
-- **Dark shrines** (floor 4+): pick a relic, but take a random curse for the run (Frailty, Exposure, Famine or Unrest).
-- **Floor events** (from floor 3, about 1 in 4 non-boss floors): Gilded Halls (double coins, tougher monsters),
-  Infested (more monsters, +1 token per kill), Cursed (monsters hit harder, +2 tokens per kill), Darkness (short sight,
-  +50% XP), Blessed Ground (slow prayer drain, slow healing), Merchant Caravan (cheap merchant), Elite Den (all
-  elites), Overgrown (longer-lasting resources) and the Treasure Goblin (catch it before it escapes).
-- **Skill mastery** (K, or click a skill): every level you gain in a run adds permanent mastery points to that
-  skill. 10 mastery levels per skill (50 to 4,000 points), each a small bonus (e.g. +2% mining success, 3% less
-  burning, 0.5% dodge chance from Agility).
-- **Mentor's skill tree**: 113 perks in 11 branches (Melee, Ranged, Magic, Mastery, Defence, Survival, Prayer,
-  Gathering, Crafting, Rogue, Fortune). Tiers open as you put ranks into a branch; each branch ends in a capstone.
-  Perks give levels, bonuses and new mechanics, never gear. The full tree costs about 427,000 tokens.
-- **Camp**: talk to the **Mentor** (skill tree perks) and the **Toolsmith** (pickaxe, axe, fishing gear,
-  hammer, tinderbox). Climb down the ladder to start a run. A new save has no tools.
-- **Armourer** (camp, unlocked by the Mentor's Veteran's Kit perk): permanent starting-gear tiers: melee, ranged
-  (with arrows) and magic (with runes) weapons; melee (platebodies), ranged (leather to blue d'hide) and magic (wizard
-  robe to Ahrim's) armour; and off-hands per style (kiteshields, bucklers, spellbooks). Pick a starting style and you start in its weapon and armour; gear above your
-  level starts in your pack until you can wield it. Beating the Ancient Wyrm (floor 30) opens a final
-  dragon-era tier for every line (dragon platebody/kiteshield/scimitar, dark bow, staff of light, black d'hide,
-  ancestral robe top). (Mentor perks give levels and bonuses; the Armourer gives gear.)
-- **Enchanter** (camp, arrives after your first TzTok-Jad kill): one enchantment per Armourer gear line, ranks I-III.
-  Weapons: Keen, Brutal, Leeching, Flaming, Slayer's. Armour: Fortified, Thorns, Renewal, Blessed. Switching costs a fee.
-- **Fletching** (needs a knife from the Toolsmith): use logs to fletch shortbows, or a bar + logs to fletch 15 arrows.
-- **Crafting** (needs a chisel from the Toolsmith): mining sometimes turns up gems (sapphire, emerald, ruby, diamond,
-  dragonstone; rarer gems deeper). Craft them into amulets for the new amulet slot: magic, accuracy, strength, power
-  and dragonstone.
-- **Thieving**: pickpocket goblins, dark wizards, mummies, infernal mages and dark archers (getting caught stuns and
-  hurts you; pockets run dry after 3 picks), and pick the locks of locked chests for double loot (fail = trap).
-- **Agility**: cracked walls, narrow gaps and loose rocks are shortcuts through walls that save a long walk.
-  Higher Agility = fewer slips.
+### The basics
+- **Camp** is the hub between runs. Climb down the ladder to start; a new save has no tools.
+- **Floors**: find the stairs. Every 5th floor a boss guards them. Themes change every 5 floors (Dungeon, Crypt,
+  Volcanic depths, Frozen caverns), and from floor 21 it's **the Abyss**, where monsters keep getting 4% stronger
+  per floor, so there's always further to go.
+- **Death** ends the run and banks Dungeoneering tokens: 15 per floor, 1 per kill, 25 per boss, plus carried coins
+  (20 coins = 1 token up to 2,000 coins, tapering after). **Forfeit** any time to bank early.
+- **Resume**: a run in progress is saved in your browser, so a refresh or closed tab picks up where you left off.
+- **Starting a run**: floor 1, a skip past any boss you've beaten (catch-up levels and supplies, half tokens for
+  skipped floors), or autoplay to your best floor (the bot plays fast, then hands over; if it dies, no rewards).
+- **Run modifiers** (after the Goblin Warlord): optional handicaps for more tokens: Hardened, Frenzied, Fragile,
+  Famished, Relicless, Ironman (+10% to +30% each, stacking).
+
+### Combat
+- **Styles**: melee, ranged (bows + arrows you can pick back up) or magic (staffs + runes; strikes to Surges).
+  Monsters have weaknesses; plate armour hurts magic and ranged accuracy.
+- **Prayer**: 22 prayers up to Piety, Rigour and Augury. Protection prayers block a style; ranged and magic hits are
+  checked when they *land*. Recharge at altars, with potions, or partly on each descent.
 - **Special attacks**: rare weapons (dragon dagger, granite maul, magic shortbow, ancient staff, dragon warhammer,
-  dragon claws) have a special move. Click the spec bar or press E to arm it; energy refills 10% every 30 seconds.
-- **Builder** (camp): spend tokens plus timber and metal (from the logs, ores and bars you carry when a run ends) on
-  camp structures: Bank chest (keeps your best carried items for the next run), Herb garden (start with potions),
-  Trophy room (+max hit per boss beaten), Workbench (+crafting XP), Relic altar (start with a relic you've found)
-  Pet kennel (your pet gives a bonus that grows with the floors it comes along for) and Library (+10-30% mastery).
-- **Quest board** (camp): 20 quests from the camp folk (reach floors, bring home logs, ores and gems, beat bosses, Slayer
-  tasks, building, thieving, agility, fletching). Lifetime progress counts. Rewards are tokens, materials and four
-  quest-only relics (Fire Cape, Thieves' Gloves, Boots of Lightness, Fletcher's Kit) that join the relic pool.
-- **Resume**: a run in progress is saved in your browser (every few seconds and when you close the tab), so a
-  refresh or closed tab picks up where you left off.
-- **Starting a run**: the ladder offers floor 1, a skip to the floor after any boss you've beaten (with catch-up
-  levels and supplies), or autoplay to your best floor (the bot plays fast, then hands over; it can die). Skipped or
-  autoplayed floors pay half tokens and don't count toward run challenges. Autoplay can be turned off in Settings.
-- **Floors**: find the stairs. Every 5th floor a boss guards them; the way down is sealed until it dies.
-  Floors get harder and food drops get rarer, so fishing, cooking and smithing keep you alive.
-- **Prayer**: bury bones to level it. Protection prayers block a whole attack style; ranged and magic hits are
-  checked when the projectile *lands*, so you can switch in time. Bosses show their current style as a
-  coloured outline (red melee, green ranged, blue magic). Recharge at altars, with potions, or partly on
-  each descent.
-- **Combat styles**: melee, ranged (bows + arrows, which you can pick back up) or magic (staffs + runes, autocast from
-  the Magic tab). Monsters have weaknesses (examine them); plate armour hurts magic and ranged accuracy.
-- **Relics**: after every boss, and at the occasional glowing relic shrine, pick 1 of 3 run-long boons
-  (lifesteal, recoil, auto-burying bones, bonus XP and more). The game pauses while you choose.
-- **Merchants & chests**: some floors have a wandering merchant (buy supplies and gear, sell loot; the game pauses
-  while trading) and treasure chests. Careful: about 1 in 10 chests from floor 3 down is a Mimic.
-- **Forfeit** any time with the [Forfeit run] button (bottom of the side panel); it asks first and banks tokens the
-  same as dying.
-- **Themed floors**: every 5 floors the dungeon changes (the Crypt from floor 6, the Volcanic depths from 11, the
-  Frozen caverns from 16), each with its own monsters.
-- **Slayer** (unlocks after your first Goblin Warlord kill): the Slayer master at camp gives a kill task that carries across runs. Task kills give Slayer XP (which
-  boosts your accuracy and max hit against task monsters) and finishing pays tokens.
-- **Herblore**: pick herbs from herb patches or loot them, then Mix them (right-click the herb) with a secondary
-  ingredient and a vial of water into Attack/Strength/Defence/Prayer potions, Super versions, Ranging and Magic
-  potions. Potions boost your levels (shown in green) and fade by 1 a minute.
-- **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric, Savage, Regenerating or Splitting variants in a gold aura. Tougher, but
-  they roll their loot twice, always drop a herb and give bonus tokens.
-- **Achievements**: 93 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
-  challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
-- **Collection log**: every notable drop from bosses, monsters and chests, with kill counts. Bosses have a 1/50
-  pet drop; choose which pet follows you from the log.
-- **Death** ends the run and banks tokens: 15 per floor, 1 per kill, 25 per boss, plus carried coins.
+  dragon claws). Click the spec bar or press E.
+- **Bosses**: Goblin Warlord (5, calls guards), TzTok-Jad (10), Chaos Elemental (15, throws you around), Demonic
+  gorilla (20, prays against a style you repeat), the Lich (25, raises skeletons), Ancient Wyrm (30, dragonfire
+  through prayers), Hollow King (35, drains prayer), Void Titan (40, summons void spawn), then ever-stronger Titans.
+  Each has a 1/50 pet; the deep ones drop unique gear.
+- **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric, Savage, Regenerating or Splitting, in a gold
+  aura. Tougher, but double loot and bonus tokens.
+
+### During a run
+- **Relics**: pick 1 of 3 run-long boons after bosses and at relic shrines (26 relics, 4 of them quest rewards).
+- **Dark shrines** (floor 4+): a relic for a curse (Frailty, Exposure, Famine or Unrest).
+- **Floor events** (about 1 in 4 floors from floor 3): Gilded Halls, Infested, Cursed, Darkness, Blessed Ground,
+  Merchant Caravan, Elite Den, Overgrown, or a Treasure Goblin to chase.
+- **Merchants, chests and wanderers**: buy and sell; chests can be Mimics or locked (Thieving); wandering
+  adventurers trade supplies for relics, tokens or coins.
+- **Treasure maps** (rare drops): every floor you carry one to has buried treasure; dig it up.
+
+### Skills
+- 18 skills on the OSRS XP curve, reset every run: combat, Prayer, Mining, Woodcutting, Fishing, Cooking, Smithing,
+  Herblore, Fletching, Thieving, Agility, Crafting and Slayer.
+- **Gathering and crafting** keep you alive: fish and cook (up to sharks and manta rays), mine and smith (up to dragon),
+  chop and fletch (up to magic logs, the magic shortbow and dragon arrows), mix potions (up to super combat), cut gems
+  into amulets (new amulet slot). Tools come from the Toolsmith.
+- **Thieving**: pickpocket humanoids and pick locked chests. **Agility**: shortcuts through walls.
+- **Slayer** (after the Goblin Warlord): kill tasks from the Slayer master that carry across runs, plus permanent
+  Slayer rewards (longer tasks, elite task monsters, treasure maps, restoration).
+
+### Camp and long-term progression
+- **Mentor's skill tree**: 113 perks in 11 branches; tiers open as you invest in a branch; each ends in a capstone.
+  Perks give levels, bonuses and mechanics, never gear. The full tree costs about 427,000 tokens.
+- **Toolsmith**: pickaxes and axes (bronze to dragon), fishing gear, hammer, tinderbox, knife, chisel.
+- **Armourer** (Veteran's Kit perk): permanent starting gear for every style, weapons, armour and off-hands, with a
+  final dragon-era tier after the Ancient Wyrm. You start in your chosen style's gear.
+- **Enchanter** (after TzTok-Jad): enchant Armourer gear (Keen, Brutal, Leeching, Flaming, Slayer's, Fortified,
+  Thorns, Renewal, Blessed), ranks I-III.
+- **Builder**: camp structures from tokens plus timber and metal (logs, ores and bars you carry home): Bank chest,
+  Herb garden, Trophy room, Workbench, Relic altar, Pet kennel, Library.
+- **Skill mastery** (K, or click a skill): levels gained in runs become permanent mastery points; 10 mastery levels per
+  skill, each a small bonus.
+- **Quest board**: 20 quests from the camp folk, plus three **daily contracts**.
+- **Goals and rewards**: 93 achievements, a collection log with milestone rewards, a bestiary (B) with kill-count
+  rewards, depth-record bonuses, a first-run-of-the-day bonus, and the progress journal (J) to see it all.
 
 ## Development
 
