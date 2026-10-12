@@ -30,6 +30,7 @@ import { PICKPOCKET } from '../data/thieving';
 import { Materials, STRUCTURES, STRUCTURE_BY_ID, StructureId, nextStructureLevel } from '../data/construction';
 import { addMastery, campSetupFor, claimQuest, claimableQuests, masteryLevels, settleRun } from '../meta/camp';
 import { MASTERY_BONUS } from '../data/mastery';
+import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { QUEST_BY_ID, describeReward } from '../data/quests';
 import { RELIC_BY_ID } from '../data/relics';
 import { SHORTCUT_KINDS } from '../data/agility';
@@ -302,6 +303,8 @@ export class DungeonScene extends Phaser.Scene {
     if (e.type === 'projectile') this.fireProjectile(e.from, e.to, e.style, e.ticks);
     if (e.type === 'floor' && this.state) {
       this.onFloorChanged();
+      const ev = this.state.floorEvent;
+      if (ev) this.bus.emit('notice', { kind: 'unlock', name: `${FLOOR_EVENT_BY_ID[ev].name}: ${FLOOR_EVENT_BY_ID[ev].desc}` });
       // Saved after the tick that changed floor, once the new floor is fully set up.
       this.time.delayedCall(0, () => this.saveRunNow());
     }
@@ -1097,6 +1100,7 @@ export class DungeonScene extends Phaser.Scene {
         const styled = npc.isBoss || npc.attackStyle !== 'melee';
         const img = this.add.image(0, 0, npcSprite(npc.def.id));
         if (npc.def.id === 'mimic') img.setTint(0xff8080); // a chest with teeth
+        if (npc.def.id === 'treasure_goblin') img.setTint(0xffd040);
         // Elites stand in a gold aura.
         const aura = npc.elite ? [this.add.ellipse(0, 10, TILE + 4, 14, 0xffc040, 0.55).setStrokeStyle(2, 0xffe080)] : [];
         v = this.makeActorView([...aura, img], styled);
