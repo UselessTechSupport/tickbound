@@ -54,7 +54,9 @@ const MINIMAP_SCALE = 3;
 /** Skills panel: 3 columns so all 17 skills fit. */
 const SKILL_COLS = 3;
 const SKILL_COL_W = 72;
-const SKILL_ROW_H = 17;
+const SKILL_ROW_H = 16;
+/** Equipment lines under the skills (5 slots). */
+const EQUIP_ROW_H = 13;
 
 const FONT = { fontFamily: 'monospace', fontSize: '13px', color: '#ffff00' };
 const PANEL_BG = 0x3e3529;
@@ -87,7 +89,7 @@ const STYLE_INFO: Record<'melee' | 'ranged' | 'magic', Array<[string, string]>> 
 const SKILL_SHORT: Record<SkillName, string> = {
   attack: 'Atk', strength: 'Str', defence: 'Def', hitpoints: 'HP', ranged: 'Rng', magic: 'Mage', prayer: 'Pray',
   mining: 'Mine', woodcutting: 'WC', fishing: 'Fish', cooking: 'Cook', smithing: 'Smith', herblore: 'Herb',
-  fletching: 'Flet', thieving: 'Thie', agility: 'Agil', slayer: 'Slay',
+  fletching: 'Flet', thieving: 'Thie', agility: 'Agil', crafting: 'Craf', slayer: 'Slay',
 };
 
 interface SlotView {
@@ -373,8 +375,8 @@ export class UIScene extends Phaser.Scene {
     });
     y += Math.ceil(SKILLS.length / SKILL_COLS) * SKILL_ROW_H + 4;
 
-    (['weapon', 'ammo', 'body', 'shield'] as EquipSlot[]).forEach((slot, i) => {
-      const t = this.add.text(px + 10, y + i * 15, '', { ...FONT, fontSize: '12px', color: '#c8c8c8' })
+    (['weapon', 'ammo', 'body', 'shield', 'amulet'] as EquipSlot[]).forEach((slot, i) => {
+      const t = this.add.text(px + 10, y + i * EQUIP_ROW_H, '', { ...FONT, fontSize: '11px', color: '#c8c8c8' })
         .setInteractive({ useHandCursor: true });
       t.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPanelClick(p, this.equipmentOptions(slot)));
       this.hoverable(t, () => this.describe(this.equipmentOptions(slot)));
@@ -382,7 +384,7 @@ export class UIScene extends Phaser.Scene {
       this.equipTexts.set(slot, t);
       root.add(t);
     });
-    y += 4 * 15 + 4;
+    y += 5 * EQUIP_ROW_H + 3;
 
     this.toolText = this.add.text(px + 10, y, '', { ...FONT, fontSize: '12px', color: '#9fd0ff', lineSpacing: 2 });
     root.add(this.toolText);
@@ -1640,6 +1642,10 @@ export class UIScene extends Phaser.Scene {
       const ready = mixes.find((r) => r.inputs.every((i) => g.player.inventory.count(i.item) >= i.qty)) ?? mixes[0];
       opts.push({ label: `Mix ${item(ready.output).name}`, action: () => g.mix(ready) });
     }
+    // Gems: Craft the amulet they make (needs a chisel).
+    for (const r of recipesFor('craft').filter((r) => r.inputs[0].item === stack.id)) {
+      opts.push({ label: `Craft ${item(r.output).name}`, action: () => g.fletch(r) });
+    }
     // Logs and bars: Fletch what they make (bows from logs; arrows from a bar + logs).
     for (const r of recipesFor('fletch').filter((r) => r.inputs[0].item === stack.id)) {
       opts.push({ label: `Fletch ${r.outputQty ? `${r.outputQty} ` : ''}${item(r.output).name}${r.outputQty ? 's' : ''}`, action: () => g.fletch(r) });
@@ -1937,7 +1943,7 @@ export class UIScene extends Phaser.Scene {
     const metal = (tier: number) => (tier ? TOOL_TIERS[tier - 1].name : '-');
     this.toolText.setText([
       `Pick: ${metal(t.pickaxe).padEnd(8)} Axe: ${metal(t.axe)}`,
-      `Fish: ${(['-', 'Net', 'Rod', 'Pot', 'Harpoon'][t.fishing]).padEnd(8)} ${t.hammer ? 'Hammer ' : ''}${t.tinderbox ? 'Tinder ' : ''}${t.knife ? 'Knife' : ''}`,
+      `Fish: ${(['-', 'Net', 'Rod', 'Pot', 'Harpoon'][t.fishing]).padEnd(8)} ${t.hammer ? 'Hammer ' : ''}${t.tinderbox ? 'Tinder ' : ''}${t.knife ? 'Knife ' : ''}${t.chisel ? 'Chisel' : ''}`,
     ].join('\n'));
 
     p.inventory.slots.forEach((stack, i) => {

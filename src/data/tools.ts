@@ -12,6 +12,8 @@ export interface Toolbelt {
   tinderbox: boolean;
   /** Fletching. */
   knife: boolean;
+  /** Crafting gems into amulets. */
+  chisel?: boolean;
 }
 
 export const NO_TOOLS: Toolbelt = { pickaxe: 0, axe: 0, fishing: 0, hammer: false, tinderbox: false, knife: false };
@@ -37,7 +39,7 @@ export function usableTier(unlocked: number, level: number): number {
   return 0;
 }
 
-export type UnlockKey = 'pickaxe' | 'axe' | 'fishing' | 'hammer' | 'tinderbox' | 'knife';
+export type UnlockKey = 'pickaxe' | 'axe' | 'fishing' | 'hammer' | 'tinderbox' | 'knife' | 'chisel';
 
 const METAL_COSTS = [25, 60, 120, 250, 450, 800];
 const FISHING_COSTS = [25, 80, 200, 400];
@@ -75,10 +77,11 @@ export function nextUnlocks(tools: Toolbelt): UnlockOffer[] {
   if (!tools.tinderbox) offers.push({ key: 'tinderbox', label: 'Tinderbox', cost: 20, detail: 'Light logs to cook on' });
   if (!tools.hammer) offers.push({ key: 'hammer', label: 'Hammer', cost: 30, detail: 'Smith gear at anvils' });
   if (!tools.knife) offers.push({ key: 'knife', label: 'Knife', cost: 30, detail: 'Fletch bows and arrows from logs' });
+  if (!tools.chisel) offers.push({ key: 'chisel', label: 'Chisel', cost: 40, detail: 'Craft gems you find while mining into amulets' });
   return offers;
 }
 
 export function applyUnlock(tools: Toolbelt, key: UnlockKey): void {
-  if (key === 'hammer' || key === 'tinderbox' || key === 'knife') tools[key] = true;
+  if (key === 'hammer' || key === 'tinderbox' || key === 'knife' || key === 'chisel') tools[key] = true;
   else tools[key]++;
 }

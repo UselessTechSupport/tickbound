@@ -64,6 +64,11 @@ export function gatherRoll(g: GameState, node: ResourceNode): boolean {
   p.inventory.add(product);
   if (cooked) g.message('Field Cook: you sear the fish on the spot.');
   p.hp = Math.min(p.maxHp, p.hp + g.perkRank('earthbound'));
+  // Mining sometimes turns up a gem (rarer gems deeper down).
+  if (def.kind === 'rock' && RNG.getUniform() < GEM_CHANCE + g.masteryOf('crafting')) {
+    const gem = gemForDepth(g.depth, RNG.getUniform());
+    if (p.inventory.add(gem)) g.message(`You find a ${lower(gem)}!`);
+  }
   g.sound(def.kind === 'rock' ? 'mine' : def.kind === 'tree' ? 'chop' : 'fish');
   g.stat('gathers');
   g.made(def.product);
@@ -105,12 +110,14 @@ export function processBlocker(p: Player, recipe: Recipe): string | null {
   const what = lower(recipe.output);
   if (recipe.station === 'anvil' && !p.tools.hammer) return 'You need a hammer to work the metal with. Unlock one between runs.';
   if (recipe.station === 'fletch' && !p.tools.knife) return 'You need a knife to fletch. Buy one from the Toolsmith between runs.';
+  if (recipe.station === 'craft' && !p.tools.chisel) return 'You need a chisel to cut gems. Buy one from the Toolsmith between runs.';
   if (p.skills.level(recipe.skill) < recipe.level) {
-    const verb = { fire: 'cook', furnace: 'smelt', anvil: 'make', mix: 'mix', fletch: 'fletch' }[recipe.station];
+    const verb = { fire: 'cook', furnace: 'smelt', anvil: 'make', mix: 'mix', fletch: 'fletch', craft: 'craft' }[recipe.station];
     return `You need a ${SKILL_LABELS[recipe.skill]} level of ${recipe.level} to ${verb} ${recipe.station === 'anvil' ? 'a ' : ''}${what}.`;
   }
   if (!hasInputs(p, recipe)) {
     if (recipe.station === 'anvil') return `You don't have enough bars to make a ${what}.`;
+    if (recipe.station === 'craft') return `You need a ${item(recipe.inputs[0].item).name.toLowerCase()} to craft that.`;
     if (recipe.station === 'fletch') {
       return `You need ${recipe.inputs.map((i) => item(i.item).name.toLowerCase()).join(' and ')} to fletch that.`;
     }
@@ -178,10 +185,28 @@ export function processStep(g: GameState, recipe: Recipe): void {
     recipe.station === 'fire' ? `You cook the ${what}.`
       : recipe.station === 'furnace' ? `You retrieve a bar of ${what.replace(' bar', '')}.`
         : recipe.station === 'mix' ? `You mix the ingredients into a ${what}.`
+          : recipe.station === 'craft' ? `You cut the gem and craft the ${what}.`
           : recipe.station === 'fletch' ? (qty > 1 ? `You fletch ${qty} ${what}s.` : `You carefully cut the wood into a ${what}.`)
           : `You hammer the metal and make a ${what}.`,
   );
   g.giveXp(recipe.skill, recipe.xp * XP_RATE);
+}
+
+/** Chance a successful mining roll also finds a gem. */
+export const GEM_CHANCE = 0.04;
+
+/** [gem, first floor, weight] */
+const GEMS: Array<[string, number, number]> = [['sapphire', 1, 10], ['emerald', 4, 6], ['ruby', 8, 4], ['diamond', 13, 2], ['dragonstone', 21, 1]];
+
+export function gemForDepth(depth: number, roll: number): string {
+  const pool = GEMS.filter(([, d]) => depth >= d);
+  const total = pool.reduce((n, [, , w]) => n + w, 0);
+  let r = roll * total;
+  for (const [gem, , w] of pool) {
+    r -= w;
+    if (r < 0) return gem;
+  }
+  return pool[0][0];
 }
 
 const METAL_ORDER = ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune'];
