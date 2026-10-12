@@ -32,6 +32,7 @@ import {
   addMastery, campSetupFor, claimContract, claimableContracts, claimQuest, claimableQuests, masteryLevels, noteContractDepth, settleRun,
 } from '../meta/camp';
 import { ensureContracts } from '../data/contracts';
+import { campAdvice } from '../meta/advice';
 import { MASTERY_BONUS } from '../data/mastery';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { QUEST_BY_ID, describeReward } from '../data/quests';
@@ -144,6 +145,8 @@ export class DungeonScene extends Phaser.Scene {
   private hoverTile = { x: -1, y: -1 };
   private lastFrameAt?: number;
   private startPending = false;
+  /** P: the player paused the game. */
+  userPaused = false;
   /** Materials the last run brought home (shown on the death screen). */
   lastMaterials: Materials | null = null;
   /** Autoplay in progress: target floor and the bot's memory. */
@@ -188,6 +191,12 @@ export class DungeonScene extends Phaser.Scene {
       if (!this.ui.isOverUi(p.x, p.y)) this.setZoom(settings.zoom + (dy > 0 ? -0.25 : 0.25));
     });
     this.input.keyboard?.on('keydown-G', () => this.goToStairs());
+    this.input.keyboard?.on('keydown-F', () => !this.state.isCamp && this.state.quickEat());
+    this.input.keyboard?.on('keydown-P', () => {
+      if (this.state.isCamp || this.state.over) return;
+      this.userPaused = !this.userPaused;
+      this.bus.emit('paused', this.userPaused);
+    });
     this.cameras.main.setZoom(settings.zoom);
     this.ticks.onTick(() => this.onTick());
 
@@ -225,6 +234,8 @@ export class DungeonScene extends Phaser.Scene {
     }
     const claimable = claimableQuests(this.meta) + claimableContracts(this.meta);
     if (claimable) this.state.message(`You have ${claimable} reward${claimable > 1 ? 's' : ''} to claim at the quest board.`);
+    const tip = campAdvice(this.meta);
+    if (tip) this.state.message(tip);
   }
 
   /** Start a fresh dungeon run with every unlock and perk applied. */
@@ -264,6 +275,10 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private setState(state: GameState): void {
+    if (this.userPaused) {
+      this.userPaused = false;
+      this.bus.emit('paused', false);
+    }
     for (const v of this.npcViews.values()) this.destroyView(v);
     this.npcViews.clear();
     state.setRunning(settings.run);
@@ -1090,7 +1105,7 @@ export class DungeonScene extends Phaser.Scene {
       this.stepAutoplay();
       return;
     }
-    const paused = !!this.state.pendingRelics || this.ui.pausesGame;
+    const paused = !!this.state.pendingRelics || this.ui.pausesGame || this.userPaused;
     if (this.lastFrameAt !== undefined && !paused) this.ticks.update(wall - this.lastFrameAt);
     this.lastFrameAt = wall;
     const g = this.state;

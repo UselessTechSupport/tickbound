@@ -159,3 +159,21 @@ describe('token economy', () => {
     for (let c = 0; c < 50000; c += 777) expect(coinTokens(c + 777)).toBeGreaterThanOrEqual(coinTokens(c));
   });
 });
+
+describe('quick-eat', () => {
+  it('eats the smallest food that fills your missing HP, else the biggest', () => {
+    const g = run({});
+    const p = g.player;
+    p.inventory.slots.fill(null);
+    p.inventory.add('shrimps');
+    p.inventory.add('swordfish');
+    p.skills.xp.hitpoints = xpForLevel(40);
+    p.hp = p.maxHp - 2;
+    g.quickEat();
+    expect(p.inventory.count('shrimps')).toBe(0);
+    p.eatCooldown = 0;
+    p.hp = 5;
+    g.quickEat();
+    expect(p.inventory.count('swordfish')).toBe(0);
+  });
+});

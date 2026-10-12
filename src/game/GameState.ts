@@ -978,6 +978,23 @@ export class GameState {
   }
 
   /** Left-click action on an inventory slot: eat, bury, or wield. */
+  /** Quick-eat (F): the food that best fits your missing HP (the smallest that fills it, else the biggest). */
+  quickEat(): void {
+    const p = this.player;
+    const missing = p.maxHp - p.hp;
+    const foods = p.inventory.slots
+      .map((s, i) => ({ s, i }))
+      .filter(({ s }) => s && item(s.id).heal)
+      .map(({ s, i }) => ({ i, heal: item(s!.id).heal! }));
+    if (!foods.length) {
+      this.message("You don't have any food.");
+      return;
+    }
+    const fits = foods.filter((f) => f.heal >= missing).sort((a, b) => a.heal - b.heal)[0];
+    const best = fits ?? foods.sort((a, b) => b.heal - a.heal)[0];
+    this.useItem(best.i);
+  }
+
   useItem(slot: number): void {
     if (this.over) return;
     const p = this.player;
