@@ -106,3 +106,43 @@ describe('perk effects', () => {
     expect(g.messages.some((m) => m.startsWith('Saint'))).toBe(true);
   });
 });
+
+describe('skill perks', () => {
+  it('Masterwork upgrades one metal tier, never past rune', async () => {
+    const { masterworkOf } = await import('../src/game/skilling');
+    expect(masterworkOf('steel_scimitar')).toBe('mithril_scimitar');
+    expect(masterworkOf('rune_platebody')).toBeNull();
+  });
+
+  it('Bulk Smelting gives coal back', async () => {
+    const g = run({ bulk_smelting: 2 });
+    g.player.tools = { ...NO_TOOLS };
+    g.player.skills.xp.smithing = xpForLevel(50);
+    g.player.inventory.add('runite_ore');
+    g.player.inventory.add('coal', 4);
+    const { processStep } = await import('../src/game/skilling');
+    processStep(g, RECIPES.find((r) => r.id === 'smelt_rune')!);
+    expect(g.player.inventory.count('rune_bar')).toBeGreaterThanOrEqual(1);
+    expect(g.player.inventory.count('coal')).toBe(2);
+  });
+
+  it('Lumberjack and Surveyor add camp materials', async () => {
+    const { settleRun } = await import('../src/meta/camp');
+    const { freshMeta } = await import('../src/save/meta');
+    const m = freshMeta();
+    m.perks = { lumberjack: 2, surveyor: 1 };
+    const g = run({});
+    g.player.inventory.add('logs', 10);
+    g.player.inventory.add('iron_bar', 4);
+    expect(settleRun(m, g)).toEqual({ timber: 15, metal: 15 });
+  });
+
+  it('Thieving, Agility and Slayer XP perks', () => {
+    const a = run({});
+    const b = run({ cutpurse: 3, parkour: 2, slayer_lore: 1 });
+    for (const g of [a, b]) for (const s of ['thieving', 'agility', 'slayer'] as const) g.giveXp(s, 1000);
+    expect(b.player.skills.xp.thieving / a.player.skills.xp.thieving).toBeCloseTo(1.6);
+    expect(b.player.skills.xp.agility / a.player.skills.xp.agility).toBeCloseTo(1.5);
+    expect(b.player.skills.xp.slayer / a.player.skills.xp.slayer).toBeCloseTo(1.2);
+  });
+});

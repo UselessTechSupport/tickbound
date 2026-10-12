@@ -4,7 +4,7 @@ import { ResourceNode } from '../entities/ResourceNode';
 import { isBossFloor } from '../data/npcs';
 import { SHRINE_CHANCE } from '../data/relics';
 import { generateStock } from '../data/loot';
-import { LOCKED_CHEST_CHANCE, lockLevelFor } from '../data/thieving';
+import { LOCKED_CHEST_CHANCE, LOCKED_CHEST_MIN_DEPTH, lockLevelFor } from '../data/thieving';
 import { SHORTCUT_KINDS, SHORTCUT_MIN_SAVING, shortcutLevelFor } from '../data/agility';
 import { findPath } from './pathfinding';
 import { FloorMap, Point, Tile, isWalkable, reachableCount, setTile, tileAt } from './tiles';
@@ -78,7 +78,7 @@ export function placeResources(map: FloorMap): ResourceNode[] {
   }
   for (let i = 0; i < 2; i++) {
     if (RNG.getUniform() >= CHEST_CHANCE) continue;
-    const locked = map.depth >= 2 && RNG.getUniform() < LOCKED_CHEST_CHANCE;
+    const locked = map.depth >= LOCKED_CHEST_MIN_DEPTH && RNG.getUniform() < LOCKED_CHEST_CHANCE;
     tryPlace((p) => Object.assign(new ResourceNode(p, 'chest'), locked ? { lockLevel: lockLevelFor(map.depth) } : {}));
   }
   // Last, so nothing gets placed on a shortcut's landing spots afterwards.

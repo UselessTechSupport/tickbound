@@ -58,7 +58,12 @@ export function gatherRoll(g: GameState, node: ResourceNode): boolean {
   const sure = g.perkRank('master_gatherer') > 0;
   if (!sure && RNG.getUniform() >= gatherChance(p.skills.level(def.skill), def, toolTier(p, def), g.mods.gatherBonus)) return true;
 
-  p.inventory.add(def.product);
+  // Field Cook: a fish comes out already cooked.
+  const cooked = def.kind === 'fishing' && RNG.getUniform() < 0.1 * g.perkRank('field_cook');
+  const product = cooked ? def.product.replace('raw_', '') : def.product;
+  p.inventory.add(product);
+  if (cooked) g.message('Field Cook: you sear the fish on the spot.');
+  p.hp = Math.min(p.maxHp, p.hp + g.perkRank('earthbound'));
   g.sound(def.kind === 'rock' ? 'mine' : def.kind === 'tree' ? 'chop' : 'fish');
   g.stat('gathers');
   g.made(def.product);
@@ -143,10 +148,22 @@ export function processStep(g: GameState, recipe: Recipe): void {
   let qty = Math.floor((recipe.outputQty ?? 1) * kit) + (arrows ? 2 * g.perkRank('fine_fletching') : 0);
   if (recipe.station === 'furnace' && RNG.getUniform() < 0.1 * g.perkRank('efficient_smelting')) qty++;
   if (recipe.station === 'mix' && RNG.getUniform() < 0.1 * g.perkRank('herbalist')) qty++;
+  // Bulk Smelting gives coal back.
+  const coal = recipe.station === 'furnace' ? recipe.inputs.find((i) => i.item === 'coal')?.qty ?? 0 : 0;
+  if (coal) p.inventory.add('coal', Math.min(coal, g.perkRank('bulk_smelting')));
+  // Masterwork: smithed gear sometimes comes out a metal tier better.
+  let output = recipe.output;
+  if (recipe.station === 'anvil' && RNG.getUniform() < 0.05 * g.perkRank('masterwork')) {
+    const better = masterworkOf(output);
+    if (better) {
+      output = better;
+      g.message(`Masterwork! It comes out as a ${lower(better)}.`);
+    }
+  }
   // Chef's Touch keeps the raw fish; Grandmaster Crafter can keep any craft's materials.
   if (recipe.station === 'fire' && RNG.getUniform() < 0.1 * g.perkRank('chefs_touch')) p.inventory.add(recipe.inputs[0].item);
   else if (RNG.getUniform() < 0.1 * g.perkRank('grandmaster_crafter')) for (const i of recipe.inputs) p.inventory.add(i.item, i.qty);
-  if (!p.inventory.add(recipe.output, qty)) g.dropHere(recipe.output, qty);
+  if (!p.inventory.add(output, qty)) g.dropHere(output, qty);
   g.sound(recipe.station === 'fire' ? 'cook' : 'smith');
   if (recipe.station === 'fletch') g.stat('fletches');
   g.made(recipe.output);
@@ -164,4 +181,13 @@ export function processStep(g: GameState, recipe: Recipe): void {
           : `You hammer the metal and make a ${what}.`,
   );
   g.giveXp(recipe.skill, recipe.xp * XP_RATE);
+}
+
+const METAL_ORDER = ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune'];
+
+/** The same smithed item one metal tier up, or null for rune. */
+export function masterworkOf(id: string): string | null {
+  const [metal, ...rest] = id.split('_');
+  const i = METAL_ORDER.indexOf(metal);
+  return i >= 0 && i < METAL_ORDER.length - 1 ? [METAL_ORDER[i + 1], ...rest].join('_') : null;
 }

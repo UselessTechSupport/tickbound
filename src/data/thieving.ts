@@ -45,16 +45,18 @@ export const PICKPOCKET: Record<string, PickpocketDef> = {
 export const POCKET_LIMIT = 3;
 /** Ticks you're stunned after being caught. */
 export const STUN_TICKS = 4;
-/** Share of chests (from floor 2) that are locked. */
+/** Share of chests (from floor 3) that are locked. */
 export const LOCKED_CHEST_CHANCE = 0.35;
+export const LOCKED_CHEST_MIN_DEPTH = 3;
 
 /** Success chance: at least `base` at the required level, +3.5% per level above, up to 95%. */
 export function thievingChance(level: number, req: number, base = 0.55): number {
   return Math.min(0.95, base + 0.035 * Math.max(0, level - req));
 }
 
+/** Thieving 3 on floor 3, 9 on floor 5: reachable by pickpocketing goblins and dark wizards. */
 export function lockLevelFor(depth: number): number {
-  return Math.min(90, depth * 3);
+  return Math.min(90, Math.max(1, (depth - 2) * 3));
 }
 
 export function lockXpFor(depth: number): number {

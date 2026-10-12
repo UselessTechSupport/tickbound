@@ -189,6 +189,8 @@ export class GameState {
   private bossDamage = new Map<Npc, number>();
   /** The run ended by choice rather than death. */
   forfeited = false;
+  /** Autoplay died before handing over: the run pays nothing. */
+  noRewards = false;
   /** This run used skip-ahead or autoplay (in-run challenge achievements don't count). */
   assisted = false;
   /** Raw tokens earned before handing control to the player; these count half. */
@@ -377,6 +379,13 @@ export class GameState {
     return { acc, dmg };
   }
 
+  /** Preservation: a potion sometimes isn't used up. */
+  private preserved(): boolean {
+    if (rand() >= 0.1 * this.perkRank('preservation')) return false;
+    this.message('Preservation: the potion is not used up.');
+    return true;
+  }
+
   /** Undying (and Phoenix) charges left this run. */
   private undyingLeft(): number {
     return (this.mods.undying ? 1 + this.perkRank('phoenix') : 0) - this.undyingTimes;
@@ -431,6 +440,7 @@ export class GameState {
 
   /** Dungeoneering tokens this run is worth: depth reached, kills, bosses and carried coins. */
   get tokensEarned(): number {
+    if (this.noRewards) return 0;
     // Tokens from skipped or autoplayed floors (the baseline) only count half.
     const base = this.rawTokens() - this.tokenBaseline / 2;
     const collector = 1 + 0.002 * this.perkRank('collector') * this.logSlots;
@@ -610,7 +620,7 @@ export class GameState {
     if (!this.perkRank('shadowstep') && rand() >= thievingChance(level, def.level) + this.thievingBonus()) {
       this.message(`You fail to pick the ${npc.name.toLowerCase()}'s pocket. "What do you think you're doing?!"`);
       this.message("You've been stunned!");
-      p.stunnedUntil = this.tickCount + STUN_TICKS;
+      p.stunnedUntil = this.tickCount + Math.max(1, STUN_TICKS - this.perkRank('escape_artist'));
       p.path = [];
       npc.target = p;
       this.sound('hurt');
@@ -921,7 +931,7 @@ export class GameState {
       this.lightFire(slot);
     } else if (def.boost) {
       if (p.eatCooldown > 0) return;
-      p.inventory.take(slot, 1);
+      if (!this.preserved()) p.inventory.take(slot, 1);
       const b = def.boost;
       for (const skill of b.skills) {
         const amount = b.base + Math.floor(p.skills.level(skill) * b.pct);
@@ -933,7 +943,7 @@ export class GameState {
       this.sound('eat');
     } else if (def.restoresPrayer) {
       if (p.eatCooldown > 0) return;
-      p.inventory.take(slot, 1);
+      if (!this.preserved()) p.inventory.take(slot, 1);
       const restore = potionRestore(p.maxPrayer) * (this.hasRelic('holy_wrench') ? 1.5 : 1) * (1 + 0.1 * this.perkRank('potent_brews'));
       p.hp = Math.min(p.maxHp, p.hp + 2 * this.perkRank('field_medic'));
       p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + Math.floor(restore));
@@ -1049,7 +1059,8 @@ export class GameState {
 
     const p = this.player;
     // Potion boosts fade by 1 level a minute (100 ticks), like OSRS.
-    if (this.tickCount % 100 === 0) {
+    const fade = Math.round(100 * (1 + 0.5 * this.perkRank('herbal_infusion')));
+    if (this.tickCount % fade === 0) {
       for (const k of Object.keys(p.boosts) as SkillName[]) {
         p.boosts[k] = Math.max(0, (p.boosts[k] ?? 0) - 1);
         if (!p.boosts[k]) delete p.boosts[k];
@@ -1765,6 +1776,9 @@ export class GameState {
     if (WORKBENCH_SKILLS.includes(skill)) amount *= 1 + this.campBonus.workbench;
     if (GATHER_SKILLS.includes(skill)) amount *= 1 + 0.1 * this.perkRank('gatherers_lore');
     if (COMBAT_SKILLS.includes(skill)) amount *= 1 + 0.1 * this.perkRank('battle_hardened');
+    if (skill === 'thieving') amount *= 1 + 0.2 * this.perkRank('cutpurse');
+    if (skill === 'agility') amount *= 1 + 0.25 * this.perkRank('parkour');
+    if (skill === 'slayer') amount *= 1 + 0.2 * this.perkRank('slayer_lore');
     this.runStats.xp[skill] = (this.runStats.xp[skill] ?? 0) + amount;
     const gained = p.skills.addXp(skill, amount);
     this.emit({ type: 'xp', skill, amount });
