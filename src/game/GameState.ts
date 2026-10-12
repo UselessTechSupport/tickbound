@@ -1,5 +1,5 @@
 import { RNG } from 'rot-js';
-import { EAT_DELAY, FOV_RADIUS, XP_RATE } from '../data/balance';
+import { EAT_DELAY, FOV_RADIUS, XP_RATE, SLAYER_XP_RATE } from '../data/balance';
 import { PerkRanks, RunMods, computeMods } from '../data/skillTree';
 import { xpForLevel } from '../systems/xp';
 import type { SoundName } from '../audio/sfx';
@@ -152,6 +152,8 @@ export interface RunSetup {
   startDepth?: number;
   /** The save's Slayer task; progress is written straight into it. */
   slayerTask?: SlayerTask | null;
+  /** Slayer XP kept between runs. */
+  slayerXp?: number;
 }
 
 /** Chance a regular kill drops arrows or runes for the style you're fighting with. */
@@ -278,6 +280,7 @@ export class GameState {
     this.slayerTask = setup.slayerTask ?? null;
     this.player = new Player({ x: 0, y: 0 });
     this.player.tools = { ...(setup.tools ?? NO_TOOLS) };
+    this.player.skills.xp.slayer = setup.slayerXp ?? 0;
     if (setup.camp) {
       this.loadCamp(setup.slayerUnlocked, setup.armourerUnlocked, setup.enchanterUnlocked, setup.built);
       return;
@@ -852,7 +855,7 @@ export class GameState {
     const task = this.slayerTask!;
     const cat = SLAYER_BY_ID[task.category];
     task.remaining--;
-    this.giveXp('slayer', npc.def.hitpoints * XP_RATE);
+    this.giveXp('slayer', npc.def.hitpoints * SLAYER_XP_RATE);
     if (task.remaining === 0) {
       const tokens = Math.round(cat.tokensPerKill * task.total * (1 + 0.15 * this.perkRank('slayer_studies') + this.masteryOf('slayer')));
       this.message(`You have completed your Slayer task! (+${tokens} Dungeoneering tokens) See the Slayer master at camp for another.`);

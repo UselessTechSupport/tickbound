@@ -42,7 +42,7 @@ export const SLAYER_UNLOCK_BOSS = 'goblin_warlord';
 export const SKIP_TASK_COST = 15;
 
 /** Slayer-helm style bonus to accuracy and max hit on task, per Slayer level. */
-export const SLAYER_BONUS_PER_LEVEL = 0.005;
+export const SLAYER_BONUS_PER_LEVEL = 0.0025;
 
 /** A fresh task suited to how deep you've been; avoids repeating `previous` when possible. */
 /** Permanent Slayer master unlocks, bought with tokens. */

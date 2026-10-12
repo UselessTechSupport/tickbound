@@ -86,7 +86,7 @@ npm run dev        # then open http://localhost:5173
   stash of food and prayer potions.
 
 ### Skills
-- 18 skills on the OSRS XP curve, reset every run: combat, Prayer, Mining, Woodcutting, Fishing, Cooking, Smithing,
+- 18 skills on the OSRS XP curve, reset every run except Slayer, which keeps its level and levels slowly: combat, Prayer, Mining, Woodcutting, Fishing, Cooking, Smithing,
   Herblore, Fletching, Thieving, Agility, Crafting and Slayer.
 - **Gathering and crafting** keep you alive: fish and cook (up to sharks and manta rays), mine and smith (up to dragon),
   chop and fletch (up to magic logs, the magic shortbow and dragon arrows from smithed arrowtips), fletch wooden
