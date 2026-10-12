@@ -15,6 +15,7 @@ import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
+import { CURSE_BY_ID } from '../data/curses';
 import { MASTERY_BONUS, MASTERY_THRESHOLDS, MAX_MASTERY, masteryLevel, nextMasteryAt } from '../data/mastery';
 import { QUESTS, describeReward, isQuestPosted, questProgress } from '../data/quests';
 import { contractBonus, contractProgress, describeContract, ensureContracts } from '../data/contracts';
@@ -1841,7 +1842,8 @@ export class UIScene extends Phaser.Scene {
       .setPosition(this.hoverLabel.x + this.hoverLabel.width + 10, this.hoverLabel.y);
     this.updateLowHp(g);
     const ev = g.floorEvent && !g.isCamp ? FLOOR_EVENT_BY_ID[g.floorEvent] : null;
-    this.eventLabel.setText(ev ? `${ev.name}: ${ev.desc}` : '');
+    const curses = g.isCamp ? '' : g.curses.map((c) => CURSE_BY_ID[c].name).join(', ');
+    this.eventLabel.setText([ev ? `${ev.name}: ${ev.desc}` : '', curses ? `Cursed: ${curses}` : ''].filter(Boolean).join('\n'));
 
     this.header.setText(g.isCamp ? `Camp  Tokens ${this.dungeon.meta.tokens}` : `Floor ${g.depth}  Combat ${p.combatLevel}`);
     const running = this.dungeon.running;

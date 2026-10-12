@@ -3,6 +3,7 @@ import { ResourceDef, ResourceKind, resourcesFor } from '../data/resources';
 import { ResourceNode } from '../entities/ResourceNode';
 import { isBossFloor } from '../data/npcs';
 import { SHRINE_CHANCE } from '../data/relics';
+import { DARK_SHRINE_CHANCE, DARK_SHRINE_MIN_DEPTH } from '../data/curses';
 import { generateStock } from '../data/loot';
 import { LOCKED_CHEST_CHANCE, LOCKED_CHEST_MIN_DEPTH, lockLevelFor } from '../data/thieving';
 import { SHORTCUT_KINDS, SHORTCUT_MIN_SAVING, shortcutLevelFor } from '../data/agility';
@@ -73,6 +74,9 @@ export function placeResources(map: FloorMap): ResourceNode[] {
   if (RNG.getUniform() < CAMPFIRE_CHANCE) tryPlace((p) => new ResourceNode(p, 'fire'));
   if (isBossFloor(map.depth) || RNG.getUniform() < ALTAR_CHANCE) tryPlace((p) => new ResourceNode(p, 'altar'));
   if (!isBossFloor(map.depth) && RNG.getUniform() < SHRINE_CHANCE) tryPlace((p) => new ResourceNode(p, 'shrine'));
+  if (!isBossFloor(map.depth) && map.depth >= DARK_SHRINE_MIN_DEPTH && RNG.getUniform() < DARK_SHRINE_CHANCE) {
+    tryPlace((p) => new ResourceNode(p, 'dark_shrine'));
+  }
   if (map.depth >= 2 && !isBossFloor(map.depth) && RNG.getUniform() < MERCHANT_CHANCE) {
     tryPlace((p) => Object.assign(new ResourceNode(p, 'merchant'), { stock: generateStock(map.depth) }));
   }

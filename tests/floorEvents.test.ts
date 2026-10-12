@@ -105,3 +105,35 @@ describe('the Abyss', () => {
     expect(npcsForDepth(20).some((n) => n.id === 'abyssal_fiend')).toBe(false);
   });
 });
+
+describe('dark shrines', () => {
+  it('a dark shrine gives a relic choice and a curse that bites', async () => {
+    const { ResourceNode } = await import('../src/entities/ResourceNode');
+    const { Tile, setTile } = await import('../src/world/tiles');
+    const g = new GameState(44);
+    g.npcs.length = 0;
+    const p = g.player;
+    const spot = { x: p.pos.x + 1, y: p.pos.y };
+    setTile(g.map, spot.x, spot.y, Tile.Object);
+    const shrine = new ResourceNode(spot, 'dark_shrine');
+    g.nodes.push(shrine);
+    g.talkTo(shrine);
+    g.tick();
+    expect(shrine.used).toBe(true);
+    expect(g.curses).toHaveLength(1);
+    expect(g.pendingRelics?.length).toBeGreaterThan(0);
+  });
+
+  it('Unrest stops regeneration; Famine weakens food', () => {
+    const g = new GameState(45);
+    g.npcs.length = 0;
+    g.curses.push('unrest', 'famine');
+    g.player.skills.xp.hitpoints = 1e6; // plenty of room above 3 HP
+    g.player.hp = 3;
+    for (let i = 0; i < 300; i++) g.tick();
+    expect(g.player.hp).toBe(3);
+    g.player.inventory.add('swordfish');
+    g.quickEat();
+    expect(g.player.hp).toBe(3 + Math.floor(14 * 0.8));
+  });
+});
