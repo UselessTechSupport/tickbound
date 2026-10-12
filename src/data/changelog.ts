@@ -12,6 +12,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: 9,
+    date: '2026-10-12',
+    title: 'Smithing and Fletching are worth it',
+    items: [
+      'Smithing XP roughly doubled: smelting and smithing a bar now pay about what mining its ore did.',
+      'Fletching XP raised a lot: a shortbow pays about what chopping its log did (5 XP to 25 for a plain one), and arrows pay more too.',
+      'Furnaces and anvils now turn up on 70% of floors, up from 50%.',
+    ],
+  },
+  {
     id: 8,
     date: '2026-10-12',
     title: 'Thieving and Agility catch-up',

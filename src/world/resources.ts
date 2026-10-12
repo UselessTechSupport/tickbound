@@ -13,7 +13,7 @@ import { findPath } from './pathfinding';
 import { FloorMap, Point, Tile, inHiddenRoom, isWalkable, reachableCount, setTile, tileAt } from './tiles';
 
 /** Chance per floor of a furnace + anvil (floor 2 always has one). */
-const FORGE_CHANCE = 0.5;
+const FORGE_CHANCE = 0.7;
 /** Chance per floor of a permanent campfire. */
 const CAMPFIRE_CHANCE = 0.35;
 /** Chance per floor of an altar (boss floors always have one). */
