@@ -91,6 +91,7 @@ const SPIDERS = new Set(['giant_spider']);
 
 export function npcSprite(npcId: string): string {
   if (settings.arachnophobia && SPIDERS.has(npcId)) return 'npc_blob';
+  if (npcId === 'treasure_goblin') return 'npc_goblin';
   return `npc_${npcId}`;
 }
 

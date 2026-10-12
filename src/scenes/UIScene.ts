@@ -14,6 +14,7 @@ import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/ac
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
+import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { MASTERY_BONUS, MASTERY_THRESHOLDS, MAX_MASTERY, masteryLevel, nextMasteryAt } from '../data/mastery';
 import { QUESTS, describeReward, isQuestPosted, questProgress } from '../data/quests';
 import { PET_BUFFS, PET_MAX_LEVEL, STRUCTURES, TROPHY_BONUS, TROPHY_MOUNTS, nextStructureLevel, petBonus, petLevel } from '../data/construction';
@@ -103,6 +104,7 @@ export class UIScene extends Phaser.Scene {
   private menu!: ContextMenu;
   private consumedFrame = -1;
   private hoverLabel!: Phaser.GameObjects.Text;
+  private eventLabel!: Phaser.GameObjects.Text;
   private header!: Phaser.GameObjects.Text;
   private hpText!: Phaser.GameObjects.Text;
   private hpBar!: Phaser.GameObjects.Rectangle;
@@ -266,6 +268,9 @@ export class UIScene extends Phaser.Scene {
     const root = (this.root = this.add.container(0, 0));
 
     this.hoverLabel = this.add.text(8, 6, '', { ...FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3 });
+    // Current floor event, under the hover line.
+    this.eventLabel = this.add.text(8, 24, '', { ...FONT, fontSize: '11px', color: '#ffd040', stroke: '#000000', strokeThickness: 3 });
+    root.add(this.eventLabel);
     this.hoverDetail = this.add.text(0, 6, '', { ...FONT, stroke: '#000000', strokeThickness: 3 });
     root.add(this.hoverDetail);
     // Pulsing red edge when HP is low.
@@ -1770,6 +1775,8 @@ export class UIScene extends Phaser.Scene {
     this.hoverDetail.setText(detail ? detail.text : '').setColor(detail?.color ?? '#ffffff')
       .setPosition(this.hoverLabel.x + this.hoverLabel.width + 10, this.hoverLabel.y);
     this.updateLowHp(g);
+    const ev = g.floorEvent && !g.isCamp ? FLOOR_EVENT_BY_ID[g.floorEvent] : null;
+    this.eventLabel.setText(ev ? `${ev.name}: ${ev.desc}` : '');
 
     this.header.setText(g.isCamp ? `Camp  Tokens ${this.dungeon.meta.tokens}` : `Floor ${g.depth}  Combat ${p.combatLevel}`);
     const running = this.dungeon.running;

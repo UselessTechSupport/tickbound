@@ -13,7 +13,7 @@ import { placeResources } from '../world/resources';
 import { SKILLS, SKILL_LABELS, SkillName } from '../data/skills';
 import { AttackType, DRAIN_RESISTANCE, PRAYER_BY_ID, PrayerGroup, potionRestore } from '../data/prayers';
 import { SPELLS, SPELL_BY_ID, SpellDef } from '../data/spells';
-import { WEAKNESS_PENALTY } from '../data/npcs';
+import { isBossFloor, WEAKNESS_PENALTY } from '../data/npcs';
 import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
 import { Drop, MIMIC_CHANCE, mimicFor } from '../data/npcs';
 import { chestLoot } from '../data/loot';
@@ -27,6 +27,7 @@ import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer
 import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, STYLE_ARMOUR, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
+import { DARKNESS_FOV, FLOOR_EVENT_BY_ID, FloorEventId, GOBLIN_ESCAPE_TICKS, rollFloorEvent, treasureGoblin } from '../data/floorEvents';
 import { MasteryLevels, masteryValue } from '../data/mastery';
 import { GARDEN_POOL, GARDEN_SUPER_POOL, STRUCTURE_BY_ID, StructureId, WORKBENCH_SKILLS } from '../data/construction';
 import { SPEC_BY_WEAPON, SPEC_DROP_CHANCE, SPEC_REGEN, SPEC_REGEN_TICKS, SpecDef, specWeaponsFor } from '../data/specials';
@@ -208,6 +209,9 @@ export class GameState {
   activeMerchant: ResourceNode | null = null;
   /** Quest relics unlocked so far (they join the relic pool). */
   questRelics: string[] = [];
+  /** This floor's event, if any; bonus tokens earned from events this run. */
+  floorEvent: FloorEventId | null = null;
+  bonusTokens = 0;
   /** Skill mastery levels, and levels at the start of the run (mastery counts levels gained). */
   mastery: MasteryLevels = {};
   levelsAtStart: Partial<Record<SkillName, number>> = {};
@@ -359,6 +363,29 @@ export class GameState {
     return this.enchanted.get(itemId);
   }
 
+  /** Roll and set up this floor's event (see data/floorEvents.ts). */
+  private startFloorEvent(depth: number): void {
+    this.floorEvent = isBossFloor(depth) ? null : rollFloorEvent(depth, rand);
+    const free = () => {
+      const taken = (p: Point) => this.npcs.some((n) => samePos(n.pos, p));
+      return spawnMonsters(this.map).map((n) => n.pos).filter((p) => !taken(p));
+    };
+    if (this.floorEvent === 'gilded') {
+      this.npcs = this.npcs.map((n) => {
+        if (n.isBoss) return n;
+        const tougher = Object.assign(new Npc({ ...n.def, hitpoints: Math.round(n.def.hitpoints * 1.15) }, n.pos), { elite: n.elite });
+        return tougher;
+      });
+    } else if (this.floorEvent === 'infested') {
+      const extra = spawnMonsters(this.map).filter((n) => !n.isBoss && !this.npcs.some((o) => samePos(o.pos, n.pos)));
+      this.npcs.push(...extra.slice(0, Math.ceil(this.npcs.length / 2)));
+    } else if (this.floorEvent === 'treasure_goblin') {
+      const spot = free()[0];
+      if (spot) this.npcs.push(new Npc(treasureGoblin(depth), spot));
+      else this.floorEvent = null;
+    }
+  }
+
   /** Rank of a Mentor perk this run (0 if not bought). */
   perkRank(id: string): number {
     return this.mods.perkRanks?.[id] ?? 0;
@@ -465,7 +492,7 @@ export class GameState {
 
   /** Token value before multipliers and the half-rate for skipped floors. */
   private rawTokens(): number {
-    return 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills
+    return 15 * (this.depth - 1) + this.kills + this.bonusTokens + this.mods.bossTokens * this.bossKills
       + (ELITE_TOKENS + 10 * this.perkRank('elite_hunter')) * this.eliteKills
       + Math.floor(this.player.inventory.count('coins') / 20) * (this.perkRank('midas') ? 2 : 1);
   }
@@ -482,6 +509,7 @@ export class GameState {
     // Bountiful: resources last longer.
     for (const n of this.nodes) if (n.kind === 'resource') n.remaining += this.perkRank('bountiful');
     this.npcs = spawnMonsters(this.map);
+    this.startFloorEvent(depth);
     this.floorKills = 0;
     this.hitThisFloor = false;
     this.saintUsedFloor = false;
@@ -505,6 +533,10 @@ export class GameState {
     }
     const boss = this.npcs.find((n) => n.isBoss);
     if (boss) this.message(`You sense a powerful presence guarding the stairs: ${boss.name}.`);
+    if (this.floorEvent) {
+      const ev = FLOOR_EVENT_BY_ID[this.floorEvent];
+      this.message(`${ev.name}! ${ev.desc}`);
+    }
     this.emit({ type: 'floor', depth });
   }
 
@@ -852,7 +884,7 @@ export class GameState {
     const lo = d.min ?? 1;
     const hi = d.max ?? lo;
     if (d.item !== 'coins') return [lo, hi];
-    const mult = this.mods.coinMult * (this.hasRelic('ring_of_wealth') ? 2 : 1);
+    const mult = this.mods.coinMult * (this.hasRelic('ring_of_wealth') ? 2 : 1) * (this.floorEvent === 'gilded' ? 2 : 1);
     return [Math.floor(lo * mult), Math.floor(hi * mult)];
   }
 
@@ -1087,6 +1119,7 @@ export class GameState {
     }
     const regen = Math.round(this.mods.hpRegenTicks / (this.hasRelic('regen_bracelet') ? 2 : 1));
     if (this.tickCount % regen === 0 && p.hp < p.maxHp) p.hp++;
+    if (this.floorEvent === 'blessed' && this.tickCount % 10 === 0 && p.hp < p.maxHp) p.hp++;
     const renewal = this.enchantPower('renewal');
     if (renewal && this.tickCount % renewal === 0 && p.hp < p.maxHp) p.hp++;
     this.updateFov();
@@ -1094,7 +1127,8 @@ export class GameState {
 
   private updateFov(): void {
     const { x, y } = this.player.pos;
-    this.visible = computeVisible(this.map, x, y, this.isCamp ? CAMP_FOV : FOV_RADIUS);
+    const radius = this.isCamp ? CAMP_FOV : this.floorEvent === 'darkness' ? DARKNESS_FOV : FOV_RADIUS;
+    this.visible = computeVisible(this.map, x, y, radius);
     for (const i of this.visible) this.explored[i] = 1;
   }
 
@@ -1103,7 +1137,7 @@ export class GameState {
     if (!p.activePrayers.size) return;
     for (const id of p.activePrayers) p.prayerDrain += PRAYER_BY_ID[id].drain;
     const resistance = DRAIN_RESISTANCE * this.mods.drainResistMult * (this.hasRelic('holy_wrench') ? 1.15 : 1)
-      / (1 - this.masteryOf('prayer'))
+      / (1 - this.masteryOf('prayer')) * (this.floorEvent === 'blessed' ? 2 : 1)
       / (1 - Math.min(0.6, this.enchantPower('blessed')));
     while (p.prayerDrain >= resistance) {
       p.prayerDrain -= resistance;
@@ -1721,6 +1755,12 @@ export class GameState {
     this.npcs.splice(this.npcs.indexOf(npc), 1);
     this.kills++;
     this.floorKills++;
+    if (this.floorEvent === 'infested') this.bonusTokens += 1;
+    if (this.floorEvent === 'cursed') this.bonusTokens += 2;
+    if (npc.def.id === 'treasure_goblin') {
+      this.message('You catch the treasure goblin! Coins spill everywhere.');
+      this.floorEvent = null;
+    }
     const style = this.player.weaponType;
     // Bloodlust, Soul Siphon, Divine Favour.
     const p = this.player;
@@ -1794,6 +1834,7 @@ export class GameState {
     if (GATHER_SKILLS.includes(skill)) amount *= 1 + 0.1 * this.perkRank('gatherers_lore');
     if (COMBAT_SKILLS.includes(skill)) amount *= 1 + 0.1 * this.perkRank('battle_hardened');
     if (skill === 'thieving') amount *= 1 + 0.2 * this.perkRank('cutpurse');
+    if (this.floorEvent === 'darkness') amount *= 1.5;
     if (skill === 'agility') amount *= 1 + 0.25 * this.perkRank('parkour');
     if (skill === 'slayer') amount *= 1 + 0.2 * this.perkRank('slayer_lore');
     this.runStats.xp[skill] = (this.runStats.xp[skill] ?? 0) + amount;
@@ -1819,6 +1860,10 @@ export class GameState {
   private processNpc(npc: Npc): void {
     const p = this.player;
     if (npc.attackCooldown > 0) npc.attackCooldown--;
+    if (npc.def.id === 'treasure_goblin') {
+      this.treasureGoblinTick(npc);
+      return;
+    }
 
     if (!npc.target) {
       const d = chebyshev(npc.pos, p.pos);
@@ -1856,7 +1901,7 @@ export class GameState {
     const petDefence = this.campBonus.pet?.kind === 'defence' ? this.campBonus.pet.amount : 0;
     const defRoll = Math.floor(roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence)
       * (1 + this.enchantPower('fortified') + petDefence + 0.03 * this.perkRank('toughness') + this.masteryOf('defence')));
-    const max = maxHit(d.strength + 9, d.strengthBonus);
+    const max = Math.floor(maxHit(d.strength + 9, d.strengthBonus) * (this.floorEvent === 'cursed' ? 1.2 : 1));
     const dmg = rollDamage(hitChance(attRoll, defRoll), max, rand);
     npc.attackCooldown = d.attackSpeed;
 
@@ -1967,6 +2012,38 @@ export class GameState {
       if (this.canNpcStep(npc.pos, o)) {
         npc.pos = o;
         return;
+      }
+    }
+  }
+
+  /** The treasure goblin runs from you once it spots you, and escapes if you take too long. */
+  private treasureGoblinTick(npc: Npc): void {
+    const p = this.player;
+    if (!npc.target && chebyshev(npc.pos, p.pos) <= npc.def.aggroRadius && this.isVisible(npc.pos.x, npc.pos.y)) {
+      npc.target = p;
+      this.message('The treasure goblin squeals and runs!');
+    }
+    if (!npc.target) {
+      this.wander(npc);
+      return;
+    }
+    if (++npc.fleeTicks >= GOBLIN_ESCAPE_TICKS) {
+      this.npcs.splice(this.npcs.indexOf(npc), 1);
+      this.floorEvent = null;
+      this.message('The treasure goblin escapes through a crack in the wall!');
+      return;
+    }
+    // Run directly away; if cornered, try any step that increases the distance.
+    const away = { x: npc.pos.x * 2 - p.pos.x, y: npc.pos.y * 2 - p.pos.y };
+    const before = { ...npc.pos };
+    this.stepToward(npc, away);
+    if (samePos(before, npc.pos)) {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const to = { x: npc.pos.x + dx, y: npc.pos.y + dy };
+        if (chebyshev(to, p.pos) > chebyshev(npc.pos, p.pos) && this.canNpcStep(npc.pos, to)) {
+          npc.pos = to;
+          break;
+        }
       }
     }
   }
