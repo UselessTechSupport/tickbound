@@ -18,7 +18,7 @@ const TILE_KEYS = [
   'frozen_floor_0', 'frozen_floor_1', 'frozen_floor_2', 'frozen_floor_3',
   'frozen_wall_0', 'frozen_wall_1', 'frozen_wall_2', 'frozen_wall_3', 'npc_skeleton', 'npc_giant_spider', 'npc_hill_giant', 'npc_moss_giant',
   'npc_lesser_demon', 'npc_greater_demon', 'npc_dark_wizard', 'npc_skeleton_archer', 'npc_infernal_mage',
-  'npc_dark_archer', 'npc_goblin_warlord', 'npc_tztok_jad', 'npc_chaos_elemental', 'npc_demonic_gorilla',
+  'npc_dark_archer', 'npc_goblin_warlord', 'npc_tztok_jad', 'npc_chaos_elemental', 'npc_demonic_gorilla', 'npc_lich', 'npc_ancient_wyrm',
   'pd_base', 'pd_plate', 'pd_dagger', 'pd_sword', 'pd_scimitar', 'pd_wooden_shield', 'pd_kiteshield',
   'item_coins', 'item_bones', 'item_prayer_potion', 'item_dagger', 'item_sword', 'item_scimitar',
   'item_platebody', 'item_wooden_shield', 'pd_jacket',
@@ -61,6 +61,8 @@ function rangedMagicSprite(id: string, layer: 'item' | 'pd'): SpriteRef | null {
   if (id === 'mystic_robe_top') return layer === 'item' ? { key: 'item_robe', tint: 0x9090ff } : { key: 'pd_mystic_robe' };
   if (id === 'leather_body') return { key: `${layer}_leather_body` };
   if (id === 'green_dhide_body') return { key: `${layer}_dhide_body` };
+  if (id === 'wyrmhide_body') return layer === 'pd' ? { key: 'pd_blue_dhide_body' } : { key: 'item_dhide_body', tint: 0x6a6a9a };
+  if (id === 'staff_of_the_dead') return { key: `${layer}_mystic_staff`, tint: 0x70c070 };
   // Newer armour: own paperdoll sprites; inventory icons reuse a tinted base icon.
   const pd: Record<string, [string, number]> = {
     hardleather_body: ['leather_body', 0x9a7050], studded_body: ['leather_body', 0xb0a090], blue_dhide_body: ['dhide_body', 0x80a0ff],

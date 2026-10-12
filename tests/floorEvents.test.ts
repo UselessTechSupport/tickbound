@@ -81,3 +81,17 @@ describe('the endless deep', () => {
     expect(g.npcs.length).toBeGreaterThan(0);
   });
 });
+
+describe('deep bosses', () => {
+  it('floor 25 is the Lich, floor 30 the Ancient Wyrm, deeper bosses scale from the Wyrm', async () => {
+    const { bossForDepth } = await import('../src/data/npcs');
+    const { PETS } = await import('../src/data/collectionLog');
+    const { ITEMS } = await import('../src/data/items');
+    expect(bossForDepth(25).id).toBe('lich');
+    expect(bossForDepth(30).id).toBe('ancient_wyrm');
+    expect(bossForDepth(35).hitpoints).toBeGreaterThan(bossForDepth(30).hitpoints);
+    for (const id of ['lich', 'ancient_wyrm']) expect(PETS.some((p) => p.bossId === id)).toBe(true);
+    expect(ITEMS.staff_of_the_dead.equip?.slot).toBe('weapon');
+    expect(ITEMS.wyrmhide_body.equip?.slot).toBe('body');
+  });
+});

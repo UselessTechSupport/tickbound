@@ -8,7 +8,7 @@ import type { Materials, StructureLevels } from '../data/construction';
 import type { SkillName } from '../data/skills';
 import type { ContractState } from '../data/contracts';
 
-const BOSS_FLOORS: Record<string, number> = { goblin_warlord: 5, tztok_jad: 10, chaos_elemental: 15, demonic_gorilla: 20 };
+const BOSS_FLOORS: Record<string, number> = { goblin_warlord: 5, tztok_jad: 10, chaos_elemental: 15, demonic_gorilla: 20, lich: 25, ancient_wyrm: 30 };
 
 /** Progress that survives between runs. */
 export interface MetaSave {

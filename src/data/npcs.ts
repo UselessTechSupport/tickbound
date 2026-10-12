@@ -56,7 +56,7 @@ export const WEAKNESS_PENALTY = 30;
 const WEAKNESSES: Record<string, AttackType> = {
   zombie: 'magic', skeleton: 'magic', hill_giant: 'magic', moss_giant: 'magic', lesser_demon: 'magic',
   greater_demon: 'magic', goblin_warlord: 'magic',
-  dark_wizard: 'ranged', infernal_mage: 'ranged', giant_spider: 'ranged', tztok_jad: 'ranged',
+  dark_wizard: 'ranged', infernal_mage: 'ranged', lich: 'ranged', giant_spider: 'ranged', tztok_jad: 'ranged',
   skeleton_archer: 'melee', dark_archer: 'melee',
   ghoul: 'magic', mummy: 'magic', wight: 'ranged', hellhound: 'ranged', fire_elemental: 'ranged', salamander: 'melee',
   ice_beast: 'magic', frost_giant: 'magic', freezing_wraith: 'ranged',
@@ -418,6 +418,34 @@ const list: NpcDef[] = [
       { item: 'prayer_potion', chance: 1, min: 4, max: 5 },
       { item: 'swordfish', chance: 1, min: 4, max: 6 },
       { item: 'rune_platebody', chance: 0.6 },
+    ],
+  },
+  {
+    id: 'lich', name: 'The Lich', color: 0x6a5a9a, attack: 88, strength: 85, defence: 72, hitpoints: 210,
+    attackBonus: 100, strengthBonus: 140, defenceBonus: 80, attackSpeed: 5, aggroRadius: 9, attackRange: 8,
+    minDepth: 0, maxDepth: -1, weight: 0, examine: 'It traded its life for power. It does not intend to give either back.',
+    boss: { styles: ['magic', 'melee'], switchEvery: 2, floor: 25 },
+    drops: [
+      { item: 'big_bones', chance: 1, min: 3, max: 4 },
+      { item: 'coins', chance: 1, min: 1500, max: 3500 },
+      { item: 'prayer_potion', chance: 1, min: 4, max: 6 },
+      { item: 'swordfish', chance: 1, min: 4, max: 6 },
+      { item: 'death_rune', chance: 1, min: 40, max: 80 },
+      { item: 'staff_of_the_dead', chance: 0.12 },
+    ],
+  },
+  {
+    id: 'ancient_wyrm', name: 'Ancient Wyrm', color: 0x2a2a3a, attack: 100, strength: 100, defence: 86, hitpoints: 260,
+    attackBonus: 110, strengthBonus: 160, defenceBonus: 95, attackSpeed: 5, aggroRadius: 9, attackRange: 8,
+    minDepth: 0, maxDepth: -1, weight: 0, examine: 'The oldest thing in the dungeon. Its scales are older than the stone.',
+    boss: { styles: ['melee', 'ranged', 'magic'], switchEvery: 2, floor: 30 },
+    drops: [
+      { item: 'big_bones', chance: 1, min: 4, max: 5 },
+      { item: 'coins', chance: 1, min: 2000, max: 5000 },
+      { item: 'prayer_potion', chance: 1, min: 4, max: 6 },
+      { item: 'swordfish', chance: 1, min: 5, max: 7 },
+      { item: 'rune_bar', chance: 1, min: 2, max: 4 },
+      { item: 'wyrmhide_body', chance: 0.12 },
     ],
   },
 ];

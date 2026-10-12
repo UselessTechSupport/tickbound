@@ -96,6 +96,9 @@ const list: ItemDef[] = [
   { id: 'dragon_claws', name: 'Dragon claws', color: 0xd03020, equip: weapon(57, 56, 50), examine: 'A set of fighting claws. Special: Slice and Dice.' },
   { id: 'magic_shortbow', name: 'Magic shortbow', color: 0x4a7ab0, equip: { ...bow(69, 30), attackSpeed: 3 }, examine: 'Short and magical, but still effective. Special: Snapshot.' },
   { id: 'ancient_staff', name: 'Ancient staff', color: 0x3a2a5a, equip: staff(15, 30), examine: 'A staff of ancient power. Special: Soul Blast.' },
+  // Boss uniques (floor 25 Lich, floor 30 Ancient Wyrm).
+  { id: 'staff_of_the_dead', name: 'Staff of the dead', color: 0x4a6a3a, equip: staff(28, 65), examine: 'A staff that hums with the Lich\'s stolen life.' },
+  { id: 'wyrmhide_body', name: 'Wyrmhide body', color: 0x3a3a5a, equip: robe(-12, 32, 65, 'ranged', 65), examine: 'Scales from the oldest thing in the dungeon.' },
   { id: 'dragon_scimitar', name: 'Dragon scimitar', color: 0xd03020, equip: weapon(67, 66, 60), examine: 'A vicious, curved sword of dragon metal.' },
   { id: 'iron_scimitar', name: 'Iron scimitar', color: IRON, equip: weapon(10, 9, 1), examine: 'A vicious, curved sword.' },
   { id: 'steel_scimitar', name: 'Steel scimitar', color: STEEL, equip: weapon(15, 14, 5), examine: 'A vicious, curved sword.' },
