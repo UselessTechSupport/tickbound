@@ -44,7 +44,7 @@ const spot = (id: string, verb: string, fishingTier: number, level: number, xp: 
 export const HERBS: Array<[string, number, number, number]> = [
   ['guam_leaf', 1, 1, 5], ['tarromin', 5, 2, 7], ['harralander', 10, 4, 9], ['ranarr_weed', 15, 6, 12],
   ['irit_leaf', 20, 8, 14], ['kwuarm', 25, 10, 16], ['cadantine', 30, 12, 18], ['dwarf_weed', 30, 14, 20],
-  ['lantadyme', 35, 16, 22],
+  ['lantadyme', 35, 16, 22], ['snapdragon', 45, 18, 26], ['torstol', 60, 21, 30],
 ];
 
 /** Herb patches: no tool needed, you just pick them. */

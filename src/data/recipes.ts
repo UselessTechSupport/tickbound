@@ -73,6 +73,9 @@ export const RECIPES: Recipe[] = [
   mix('super_defence', 30, 150, 'cadantine', 'white_berries'),
   mix('ranging_potion', 30, 162.5, 'dwarf_weed', 'wine_of_zamorak'),
   mix('magic_potion', 35, 172.5, 'lantadyme', 'potato_cactus'),
+  mix('super_ranging', 50, 200, 'snapdragon', 'wine_of_zamorak'),
+  mix('super_magic', 55, 215, 'snapdragon', 'potato_cactus'),
+  mix('super_combat', 70, 260, 'torstol', 'super_defence'),
 
   smelt('bronze', 1, 6.25, 'copper_ore', 0, 'tin_ore'),
   smelt('iron', 10, 12.5, 'iron_ore', 0),

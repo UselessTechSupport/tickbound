@@ -82,6 +82,9 @@ export function itemSprite(id: string): SpriteRef {
   if (id === 'treasure_map') return { key: 'item_treasure_map' };
   if (id === 'bones' || id === 'big_bones') return { key: 'item_bones' };
   if (id === 'prayer_potion') return { key: 'item_prayer_potion' };
+  if (id === 'super_ranging') return { key: 'item_ranging_potion', tint: 0x90ffc0 };
+  if (id === 'super_magic') return { key: 'item_magic_potion', tint: 0xff90d0 };
+  if (id === 'super_combat') return { key: 'item_super_strength', tint: 0x80ff80 };
   if (POTION_SPRITES.has(id)) return { key: `item_${id}` };
   if (id === 'wooden_shield') return { key: 'item_wooden_shield' };
   if (id.endsWith('_kiteshield')) return { key: 'gen_kiteshield', tint: metalOf(id) };
