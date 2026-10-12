@@ -52,6 +52,8 @@ export interface MetaSave {
   startRelic: string | null;
   /** Floors each pet has come along for (pet levels). */
   petFloors: Record<string, number>;
+  /** Day ("2026-10-11") the first-run-of-the-day bonus was last paid. */
+  dailyBonusDay?: string;
   /** Bestiary kill milestones already paid ("npcId:kills"). */
   bestiaryPaid?: string[];
   /** The last few runs, newest first (for the journal). */

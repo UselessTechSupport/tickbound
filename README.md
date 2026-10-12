@@ -44,6 +44,7 @@ npm run dev        # then open http://localhost:5173
 
 ## How a run works
 
+- **First run of the day**: +50% tokens.
 - **Daily contracts** (quest board): three new goals every day (kill a monster type, reach a floor, gather, cook,
   thieve...), each paying tokens that scale with your best floor, plus a bonus for all three.
 - **The Abyss** (floor 21+): a new theme with abyssal fiends, shadow reapers, soul eaters and tormentors (plus a new
