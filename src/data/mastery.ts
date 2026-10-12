@@ -39,6 +39,7 @@ export const MASTERY_BONUS: Record<SkillName, { per: string; value: number }> = 
   herblore: { per: '1% chance to mix an extra potion', value: 0.01 },
   fletching: { per: '+1 arrow per fletch every 2 levels', value: 0.5 },
   thieving: { per: '+1% pickpocket and lock success', value: 0.01 },
+  crafting: { per: '+0.5% chance to find a gem while mining', value: 0.005 },
   agility: { per: '+1% shortcut success and 0.5% chance to dodge attacks', value: 0.01 },
   slayer: { per: '+2% Slayer task tokens', value: 0.02 },
 };

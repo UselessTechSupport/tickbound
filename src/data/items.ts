@@ -1,6 +1,6 @@
 import { SkillName } from './skills';
 
-export type EquipSlot = 'weapon' | 'body' | 'shield' | 'ammo';
+export type EquipSlot = 'weapon' | 'body' | 'shield' | 'ammo' | 'amulet';
 
 export interface EquipStats {
   slot: EquipSlot;
@@ -75,6 +75,9 @@ const robe = (magicBonus: number, rangedBonus: number, defenceBonus: number, ski
   req: level > 1 ? { skill, level } : undefined,
 });
 
+/** Amulets: small all-round equipment bonuses in their own slot. */
+const amulet = (b: Partial<EquipStats>): EquipStats => ({ slot: 'amulet', attackBonus: 0, strengthBonus: 0, defenceBonus: 0, ...b });
+
 const BRONZE = 0x9c6b3c, IRON = 0x7d7d7d, STEEL = 0xa8a8b0, MITHRIL = 0x4a5a9c, ADAMANT = 0x4a7c4a, RUNE = 0x4fb3c4;
 
 const list: ItemDef[] = [
@@ -99,6 +102,17 @@ const list: ItemDef[] = [
   // Boss uniques (floor 25 Lich, floor 30 Ancient Wyrm).
   { id: 'staff_of_the_dead', name: 'Staff of the dead', color: 0x4a6a3a, equip: staff(28, 65), examine: 'A staff that hums with the Lich\'s stolen life.' },
   { id: 'wyrmhide_body', name: 'Wyrmhide body', color: 0x3a3a5a, equip: robe(-12, 32, 65, 'ranged', 65), examine: 'Scales from the oldest thing in the dungeon.' },
+  // Crafting: gems found while mining, cut into amulets with a chisel.
+  { id: 'sapphire', name: 'Sapphire', color: 0x3050e0, examine: 'A blue gem. A chisel could shape it.' },
+  { id: 'emerald', name: 'Emerald', color: 0x30c050, examine: 'A green gem. A chisel could shape it.' },
+  { id: 'ruby', name: 'Ruby', color: 0xe03040, examine: 'A red gem. A chisel could shape it.' },
+  { id: 'diamond', name: 'Diamond', color: 0xe0f0ff, examine: 'A brilliant gem. A chisel could shape it.' },
+  { id: 'dragonstone', name: 'Dragonstone', color: 0xa040e0, examine: 'A rare and powerful gem.' },
+  { id: 'amulet_of_magic', name: 'Amulet of magic', color: 0x3050e0, equip: amulet({ magicBonus: 10 }), examine: 'A sapphire amulet that aids spellcasting.' },
+  { id: 'amulet_of_accuracy', name: 'Amulet of accuracy', color: 0x30c050, equip: amulet({ attackBonus: 8, rangedBonus: 8 }), examine: 'An emerald amulet that steadies your aim.' },
+  { id: 'amulet_of_strength', name: 'Amulet of strength', color: 0xe03040, equip: amulet({ strengthBonus: 10 }), examine: 'A ruby amulet that lends you strength.' },
+  { id: 'amulet_of_power', name: 'Amulet of power', color: 0xe0f0ff, equip: amulet({ attackBonus: 6, strengthBonus: 6, defenceBonus: 6, rangedBonus: 6, magicBonus: 6 }), examine: 'A diamond amulet humming with power.' },
+  { id: 'dragonstone_amulet', name: 'Dragonstone amulet', color: 0xa040e0, equip: amulet({ attackBonus: 10, strengthBonus: 10, defenceBonus: 10, rangedBonus: 10, magicBonus: 10 }), examine: 'A dragonstone amulet. Its power is unmistakable.' },
   // Late-game Armourer tier (after the Ancient Wyrm).
   { id: 'dragon_platebody', name: 'Dragon platebody', color: 0xd03020, equip: body(110, 60), examine: 'Forged from the scales of something enormous.' },
   { id: 'dragon_kiteshield', name: 'Dragon kiteshield', color: 0xd03020, equip: shield(60, 60), examine: 'A shield of dragon metal.' },

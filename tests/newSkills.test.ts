@@ -157,3 +157,29 @@ describe('autoplay death', () => {
     expect(g.tokensEarned).toBe(0);
   });
 });
+
+describe('Crafting', () => {
+  it('gems get rarer gems deeper down', async () => {
+    const { gemForDepth } = await import('../src/game/skilling');
+    expect(gemForDepth(1, 0.99)).toBe('sapphire');
+    const deep = new Set(Array.from({ length: 200 }, (_, i) => gemForDepth(25, i / 200)));
+    expect(deep.has('dragonstone')).toBe(true);
+  });
+
+  it('a chisel turns a gem into an amulet that adds equipment bonuses', () => {
+    const g = new GameState(310);
+    const p = g.player;
+    const recipe = RECIPES.find((r) => r.id === 'craft_amulet_of_strength')!;
+    p.inventory.add('ruby');
+    p.skills.xp.crafting = xpForLevel(40);
+    g.fletch(recipe);
+    expect(p.inventory.count('amulet_of_strength')).toBe(0); // no chisel yet
+    p.tools = { ...NO_TOOLS, chisel: true };
+    g.fletch(recipe);
+    expect(p.inventory.count('amulet_of_strength')).toBe(1);
+    const before = p.bonuses().strength;
+    g.useItem(p.inventory.slots.findIndex((s) => s?.id === 'amulet_of_strength'));
+    expect(p.equipment.amulet).toBe('amulet_of_strength');
+    expect(p.bonuses().strength).toBe(before + 10);
+  });
+});

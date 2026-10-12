@@ -171,6 +171,35 @@ const BAR = [
   '..ooooooooooo',
 ];
 
+const GEM = [
+  '', '', '', '', '',
+  '.......oooo',
+  '......oXwXxo',
+  '.....oXwXXxxo',
+  '....oXXXXxxxdo',
+  '....oxxxxxxddo',
+  '.....oxxxxddo',
+  '......oxxddo',
+  '.......oddo',
+  '........oo',
+];
+
+const AMULET = [
+  '', '', '',
+  '.....ooo....ooo',
+  '....oGgo....ogGo',
+  '.....oGgo..ogGo',
+  '......oGgoogGo',
+  '.......oGggGo',
+  '........oggo',
+  '.......oXXxxo',
+  '......oXwXxxdo',
+  '......oXXxxxdo',
+  '.......oxxxdo',
+  '........oddo',
+  '.........oo',
+];
+
 const LOGS = [
   '', '', '',
   '....ooooooo',
@@ -379,6 +408,8 @@ export function generateSprites(scene: Phaser.Scene): void {
     } else if (def.id.endsWith('_rune')) paint(scene, `gen_${def.id}`, RUNE, { o: 0x1a1a1a, m: 0x8a8a92, d: 0x5a5a62, x: c });
     else if (def.id.endsWith('_ore') || def.id === 'coal') paint(scene, `gen_${def.id}`, ORE, { ...ROCK, x: c, X: shade(c, 1.4) });
     else if (def.id.endsWith('_bar')) paint(scene, `gen_${def.id}`, BAR, tones);
+    else if (['sapphire', 'emerald', 'ruby', 'diamond', 'dragonstone'].includes(def.id)) paint(scene, `gen_${def.id}`, GEM, { ...tones, w: 0xffffff });
+    else if (def.equip?.slot === 'amulet') paint(scene, `gen_${def.id}`, AMULET, { ...tones, g: 0xe0c040, G: 0xa08020, w: 0xffffff });
     else if (def.id.endsWith('logs')) paint(scene, `gen_${def.id}`, LOGS, tones);
     else if (def.id.includes('shrimps')) paint(scene, `gen_${def.id}`, SHRIMP, tones);
     else if (def.heal || def.id.startsWith('raw_') || def.id === 'burnt_fish') paint(scene, `gen_${def.id}`, FISH, tones);

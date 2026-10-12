@@ -73,6 +73,9 @@ npm run dev        # then open http://localhost:5173
 - **Enchanter** (camp, arrives after your first TzTok-Jad kill): one enchantment per Armourer gear line, ranks I-III.
   Weapons: Keen, Brutal, Leeching, Flaming, Slayer's. Armour: Fortified, Thorns, Renewal, Blessed. Switching costs a fee.
 - **Fletching** (needs a knife from the Toolsmith): use logs to fletch shortbows, or a bar + logs to fletch 15 arrows.
+- **Crafting** (needs a chisel from the Toolsmith): mining sometimes turns up gems (sapphire, emerald, ruby, diamond,
+  dragonstone; rarer gems deeper). Craft them into amulets for the new amulet slot: magic, accuracy, strength, power
+  and dragonstone.
 - **Thieving**: pickpocket goblins, dark wizards, mummies, infernal mages and dark archers (getting caught stuns and
   hurts you; pockets run dry after 3 picks), and pick the locks of locked chests for double loot (fail = trap).
 - **Agility**: cracked walls, narrow gaps and loose rocks are shortcuts through walls that save a long walk.

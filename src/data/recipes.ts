@@ -4,7 +4,7 @@ import { SkillName } from './skills';
  * 'mix' (Herblore) and 'fletch' (Fletching, needs a knife) recipes are made straight
  * from the inventory, no station needed.
  */
-export type Station = 'fire' | 'furnace' | 'anvil' | 'mix' | 'fletch';
+export type Station = 'fire' | 'furnace' | 'anvil' | 'mix' | 'fletch' | 'craft';
 
 export interface Recipe {
   id: string;
@@ -33,6 +33,11 @@ const mix = (output: string, level: number, xp: number, herb: string, secondary:
 const smelt = (metal: string, level: number, xp: number, ore: string, coal: number, extra?: string): Recipe => ({
   id: `smelt_${metal}`, station: 'furnace', skill: 'smithing', level, xp, output: `${metal}_bar`,
   inputs: [{ item: ore, qty: 1 }, ...(extra ? [{ item: extra, qty: 1 }] : []), ...(coal ? [{ item: 'coal', qty: coal }] : [])],
+});
+
+/** Gem -> amulet (needs a chisel). */
+const craft = (gem: string, output: string, level: number, xp: number): Recipe => ({
+  id: `craft_${output}`, station: 'craft', skill: 'crafting', level, xp, output, inputs: [{ item: gem, qty: 1 }],
 });
 
 /** Logs -> shortbow. */
@@ -81,6 +86,11 @@ export const RECIPES: Recipe[] = [
     inputs: [{ item: `${metal}_bar`, qty: bars }], output: `${metal}_${thing}`,
   }))),
 
+  craft('sapphire', 'amulet_of_magic', 1, 50),
+  craft('emerald', 'amulet_of_accuracy', 20, 70),
+  craft('ruby', 'amulet_of_strength', 40, 85),
+  craft('diamond', 'amulet_of_power', 55, 100),
+  craft('dragonstone', 'dragonstone_amulet', 70, 150),
   bow('logs', 'shortbow', 5, 5),
   bow('oak_logs', 'oak_shortbow', 20, 16.5),
   bow('willow_logs', 'willow_shortbow', 35, 33.3),

@@ -7,7 +7,7 @@ import { REWARD_TEXT, WandererDeal } from '../data/wanderers';
 import { STRUCTURE_BY_ID, StructureId } from '../data/construction';
 
 /** Non-resource node kinds: crafting stations, altars, and camp NPCs. */
-export type FixtureKind = Exclude<Station, 'mix' | 'fletch'> | 'shortcut' | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer' | 'enchanter'
+export type FixtureKind = Exclude<Station, 'mix' | 'fletch' | 'craft'> | 'shortcut' | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer' | 'enchanter'
   | 'builder' | 'quest_board' | 'dark_shrine' | 'wanderer' | StructureId;
 export type NodeKind = 'resource' | FixtureKind;
 
