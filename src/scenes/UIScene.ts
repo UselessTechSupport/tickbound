@@ -235,15 +235,15 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-M', () => sfx.toggleMute());
     this.input.keyboard?.on('keydown-A', () => this.toggleModal('achievements'));
     this.input.keyboard?.on('keydown-O', () => this.toggleModal('settings'));
-    this.input.keyboard?.on('keydown-Q', () => this.state.toggleQuickPrayers(settings.quickPrayers));
-    this.input.keyboard?.on('keydown-E', () => !this.modalKind && this.state.toggleSpec());
+    this.input.keyboard?.on('keydown-Q', () => !this.blocksHotkeys && this.state.toggleQuickPrayers(settings.quickPrayers));
+    this.input.keyboard?.on('keydown-E', () => !this.blocksHotkeys && this.state.toggleSpec());
     this.input.keyboard?.on('keydown-L', () => this.toggleModal('log'));
     this.input.keyboard?.on('keydown-K', () => this.toggleModal('mastery'));
     this.input.keyboard?.on('keydown-J', () => this.toggleModal('journal'));
     this.input.keyboard?.on('keydown-B', () => this.toggleModal('bestiary'));
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
-    this.input.keyboard?.on('keydown-R', () => this.dungeon.setRunning(!this.dungeon.running));
+    this.input.keyboard?.on('keydown-R', () => !this.blocksHotkeys && this.dungeon.setRunning(!this.dungeon.running));
     this.input.keyboard?.on('keydown-H', () => {
       for (const line of CONTROLS) this.state.message(line);
     });
@@ -258,7 +258,7 @@ export class UIScene extends Phaser.Scene {
 
     // 1/2/3 toggle Protect from Magic / Missiles / Melee for quick switching and flicking.
     (['ONE', 'TWO', 'THREE'] as const).forEach((key, i) => {
-      this.input.keyboard?.on(`keydown-${key}`, () => this.state.togglePrayer(PROTECTION_HOTKEYS[i]));
+      this.input.keyboard?.on(`keydown-${key}`, () => !this.blocksHotkeys && this.state.togglePrayer(PROTECTION_HOTKEYS[i]));
     });
   }
 
@@ -560,11 +560,17 @@ export class UIScene extends Phaser.Scene {
     this.deathTitle = title;
     const stats = this.add.text(gameW / 2, H / 2 + 10, '', { ...FONT, fontSize: '14px', color: '#ffffff', align: 'center', lineSpacing: 4 }).setOrigin(0.5);
     title.setY(H / 2 - 170);
-    const back = this.add.text(gameW / 2, H / 2 + 170, '[ Return to camp ]', {
-      ...FONT, fontSize: '18px', backgroundColor: '#2a241c', padding: { x: 14, y: 8 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    back.on('pointerdown', () => this.dungeon.toCamp());
-    this.deathOverlay = this.add.container(0, 0, [dim, title, stats, back]).setDepth(20).setVisible(this.state?.over ?? false);
+    const button = (x: number, label: string, action: () => void) => {
+      const b = this.add.text(x, H / 2 + 170, label, {
+        ...FONT, fontSize: '18px', backgroundColor: '#2a241c', padding: { x: 14, y: 8 },
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      b.on('pointerdown', action);
+      return b;
+    };
+    const back = button(gameW / 2 - 130, '[ Return to camp ]', () => this.dungeon.toCamp());
+    const again = button(gameW / 2 + 130, '[ Dive again ]', () => this.dungeon.diveAgain());
+    this.hoverable(again, () => 'Back to camp and straight to the ladder');
+    this.deathOverlay = this.add.container(0, 0, [dim, title, stats, back, again]).setDepth(20).setVisible(this.state?.over ?? false);
     this.deathOverlay.setData('stats', stats);
     root.add(this.deathOverlay);
 
@@ -619,6 +625,11 @@ export class UIScene extends Phaser.Scene {
   /** True while a window is open that should pause the game. */
   get pausesGame(): boolean {
     return !!this.modalKind || !!this.forfeitConfirm;
+  }
+
+  /** Game hotkeys (eat, prayers, run, spec, stairs) do nothing while a window or menu is open. */
+  get blocksHotkeys(): boolean {
+    return this.pausesGame || this.menu.isOpen || !!this.relicPanel?.visible || (this.deathOverlay?.visible ?? false);
   }
 
   /** Confirmation before forfeiting, so a stray click can't end a run. Pauses the game. */

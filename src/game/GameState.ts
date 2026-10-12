@@ -34,7 +34,7 @@ import { modifierBonus } from '../data/modifiers';
 import { REWARD_TEXT } from '../data/wanderers';
 import { DARKNESS_FOV, FLOOR_EVENT_BY_ID, FloorEventId, GOBLIN_ESCAPE_TICKS, rollFloorEvent, treasureGoblin } from '../data/floorEvents';
 import { MasteryLevels, masteryValue } from '../data/mastery';
-import { GARDEN_POOL, GARDEN_SUPER_POOL, STRUCTURE_BY_ID, StructureId, WORKBENCH_SKILLS } from '../data/construction';
+import { GARDEN_POOL, GARDEN_SUPER_POOL, Materials, STRUCTURE_BY_ID, StructureId, WORKBENCH_SKILLS, materialsFrom } from '../data/construction';
 import { SPEC_BY_WEAPON, SPEC_DROP_CHANCE, SPEC_REGEN, SPEC_REGEN_TICKS, SpecDef, specWeaponsFor } from '../data/specials';
 import { PICKPOCKET, POCKET_LIMIT, STUN_TICKS, lockXpFor, thievingChance } from '../data/thieving';
 import { HIDDEN_ROOM_KIND, SHORTCUT_KINDS, shortcutChance, shortcutXp } from '../data/agility';
@@ -53,7 +53,7 @@ import { generateFloor } from '../world/dungeonGen';
 import { computeVisible } from '../world/fov';
 import { findPath } from '../world/pathfinding';
 import { spawnMonsters } from '../world/spawn';
-import { FloorMap, Point, Tile, isWalkable, setTile, tileAt } from '../world/tiles';
+import { FloorMap, Point, Tile, isWalkable, reachableCount, setTile, tileAt } from '../world/tiles';
 
 export type GameEvent =
   | { type: 'hit'; target: Actor; damage: number }
@@ -220,6 +220,8 @@ export class GameState {
   autoplayed = false;
   /** Token-related progress at the start of an autoplay run, put back if the run dies. */
   autoplaySnapshot: Record<string, unknown> | null = null;
+  /** Builder materials the autoplay bot was carrying at handover; these count half. */
+  autoplayMaterials: Materials | null = null;
   /** Raw tokens earned before handing control to the player; these count half. */
   private tokenBaseline = 0;
   /** Relics picked this run. */
@@ -574,7 +576,7 @@ export class GameState {
     const chance = Math.min(0.95, 0.6 + 0.005 * this.player.skills.level('thieving') + this.thievingBonus());
     if (rand() < chance) {
       this.message('You disarm the trap.');
-      this.stat('locks');
+      this.stat('disarms');
       this.giveXp('thieving', (10 + 2 * this.depth) * XP_RATE);
     } else {
       this.message('You set the trap off while disarming it!');
@@ -735,6 +737,7 @@ export class GameState {
     this.assisted = true;
     this.autoplayed = true;
     this.tokenBaseline = this.rawTokens();
+    this.autoplayMaterials = materialsFrom(this.player.inventory.slots.filter((s): s is { id: string; qty: number } => !!s));
     // Levels the bot gained don't count toward skill mastery.
     this.levelsAtStart = Object.fromEntries(SKILLS.map((s) => [s, this.player.skills.level(s)]));
     this.message(`Autoplay hands over on floor ${this.depth}. Autoplayed floors pay half tokens. Good luck!`);
@@ -1389,11 +1392,19 @@ export class GameState {
       this.message('You need a tinderbox to light a fire. Unlock one between runs.');
       return;
     }
+    // Never on a tile that would wall off part of the floor (a corridor) until it burns out.
+    const reachable = reachableCount(this.map, p.pos);
+    const keepsPaths = (t: Point) => {
+      setTile(this.map, t.x, t.y, Tile.Object);
+      const ok = reachableCount(this.map, p.pos) === reachable - 1;
+      setTile(this.map, t.x, t.y, Tile.Floor);
+      return ok;
+    };
     const spot = [[1, 0], [-1, 0], [0, 1], [0, -1]]
       .map(([dx, dy]) => ({ x: p.pos.x + dx, y: p.pos.y + dy }))
-      .find((t) => tileAt(this.map, t.x, t.y) === Tile.Floor && !this.npcAt(t.x, t.y) && !this.itemsAt(t.x, t.y).length);
+      .find((t) => tileAt(this.map, t.x, t.y) === Tile.Floor && !this.npcAt(t.x, t.y) && !this.itemsAt(t.x, t.y).length && keepsPaths(t));
     if (!spot) {
-      this.message("You can't light a fire here.");
+      this.message("You can't light a fire here. Try somewhere more open.");
       return;
     }
     const logs = p.inventory.take(slot, 1)!;
