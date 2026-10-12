@@ -49,6 +49,9 @@ npm run dev        # then open http://localhost:5173
 - **The Abyss** (floor 21+): a new theme with abyssal fiends, shadow reapers, soul eaters and tormentors (plus a new
   Slayer category). Past floor 20, monsters keep getting 4% stronger per floor, so there's always further to go.
   Bosses: the Lich (floor 25) and the Ancient Wyrm (floor 30), then ever-stronger Wyrms.
+- **Boss mechanics**: the Goblin Warlord calls guards at half HP, the Chaos Elemental throws you across the room,
+  the Lich raises skeletons at 2/3 and 1/3 HP, and the Ancient Wyrm's dragonfire (every 5th attack) gets through
+  protection prayers at half strength.
 - **Tokens from coins**: 20 coins = 1 token up to 2,000 coins; bigger piles taper off, so hoarding can't flood the economy.
 - **Run modifiers** (after your first Goblin Warlord kill, at the ladder): optional handicaps for more tokens:
   Hardened (+30%), Frenzied (+20%), Fragile (+25%), Famished (+15%), Relicless (+20%), Ironman (+10%). They stack.
