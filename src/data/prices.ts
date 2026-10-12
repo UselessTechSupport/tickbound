@@ -20,6 +20,7 @@ const FIXED: Record<string, number> = {
   staff: 100, staff_of_air: 400, staff_of_water: 400, staff_of_earth: 400, staff_of_fire: 400,
   mystic_air_staff: 3000, mystic_fire_staff: 3000,
   dragon_dagger: 3000, granite_maul: 4000, magic_shortbow: 4000, ancient_staff: 4000, dragon_warhammer: 7000, dragon_claws: 9000,
+  staff_of_the_dead: 15000, wyrmhide_body: 15000,
   dragon_scimitar: 6000, wizard_robe: 60, mystic_robe_top: 2500, leather_body: 40, green_dhide_body: 2000, wooden_shield: 10,
 };
 

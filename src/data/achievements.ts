@@ -137,6 +137,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'architect', name: 'Architect', desc: 'Build every camp structure to its highest level.', tier: 'hard', check: structuresMaxed },
   { id: 'quest_cape', name: 'Quest Cape', desc: 'Complete every quest.', tier: 'elite', check: (c) => c.meta.questsDone.length >= QUESTS.length },
   { id: 'goblin_hunter', name: 'Goblin Hunter', desc: 'Catch 10 treasure goblins.', tier: 'hard', ...count('goblins', 10) },
+  { id: 'lich_slayer', name: 'Phylactery Shattered', desc: 'Defeat the Lich (floor 25).', tier: 'elite', check: killed('lich') },
+  { id: 'wyrm_slayer', name: 'Wyrmslayer', desc: 'Defeat the Ancient Wyrm (floor 30).', tier: 'elite', check: killed('ancient_wyrm') },
   { id: 'chaos', name: 'Chaos Theory', desc: 'Defeat the Chaos Elemental.', tier: 'elite', check: killed('chaos_elemental') },
   { id: 'gorilla', name: 'Gorilla Warfare', desc: 'Defeat the Demonic gorilla.', tier: 'elite', check: killed('demonic_gorilla') },
   { id: 'abyss_walker', name: 'Abyss Walker', desc: 'Reach floor 25.', tier: 'elite', check: reached(25) },

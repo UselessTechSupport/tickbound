@@ -16,6 +16,8 @@ export const PETS: PetDef[] = [
   { id: 'pet_tztok_jad', name: 'TzRek-Jad', bossId: 'tztok_jad' },
   { id: 'pet_chaos_elemental', name: 'Pet chaos elemental', bossId: 'chaos_elemental' },
   { id: 'pet_demonic_gorilla', name: 'Demonic gorilla jr.', bossId: 'demonic_gorilla' },
+  { id: 'pet_lich', name: "Lil' Lich", bossId: 'lich' },
+  { id: 'pet_ancient_wyrm', name: 'Wyrmling', bossId: 'ancient_wyrm' },
 ];
 
 export const PET_BY_ID: Record<string, PetDef> = Object.fromEntries(PETS.map((p) => [p.id, p]));
