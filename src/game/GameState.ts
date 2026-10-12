@@ -138,6 +138,8 @@ export interface RunSetup {
   questRelics?: string[];
   /** Run modifiers chosen at the ladder (see data/modifiers.ts). */
   modifiers?: string[];
+  /** Slayer master unlocks. */
+  slayerUnlocks?: string[];
   /** Skill mastery levels (see data/mastery.ts). */
   mastery?: MasteryLevels;
   /** Monsters you've killed 100+ times (Monster Lore), and collection log slots filled (Collector). */
@@ -228,6 +230,8 @@ export class GameState {
   /** Warding Charm shield left on this floor; Phoenix Feather used on this floor. */
   wardLeft = 0;
   phoenixUsedFloor = false;
+  /** Slayer master unlocks owned. */
+  slayerUnlocks: string[] = [];
   /** Run modifiers in effect. */
   modifiers: string[] = [];
   /** Curses taken at dark shrines this run. */
@@ -271,6 +275,7 @@ export class GameState {
     const startDepth = Math.max(1, setup.startDepth ?? 1);
     this.mastery = { ...setup.mastery };
     this.modifiers = [...(setup.modifiers ?? [])];
+    this.slayerUnlocks = [...(setup.slayerUnlocks ?? [])];
     this.applyStartingKit(setup, startDepth);
     this.levelsAtStart = Object.fromEntries(SKILLS.map((s) => [s, this.player.skills.level(s)]));
     this.loadFloor(startDepth);
@@ -692,6 +697,14 @@ export class GameState {
     this.npcs = spawnMonsters(this.map);
     this.startFloorEvent(depth);
     this.placeBuriedTreasure();
+    // Bigger and Badder: task monsters are sometimes elite.
+    if (this.slayerUnlocks.includes('bigger_badder')) {
+      this.npcs = this.npcs.map((n) => {
+        if (n.isBoss || n.elite || !this.isOnTask(n) || rand() >= 0.15) return n;
+        const affix = ELITE_AFFIXES[Math.floor(rand() * ELITE_AFFIXES.length)];
+        return Object.assign(new Npc(eliteDef(n.def, affix), n.pos), { elite: affix });
+      });
+    }
     if (this.hasModifier('hardened')) {
       this.npcs = this.npcs.map((n) => Object.assign(new Npc({ ...n.def, hitpoints: Math.round(n.def.hitpoints * 1.25) }, n.pos), { elite: n.elite }));
     }
@@ -744,6 +757,12 @@ export class GameState {
       this.message(`You have completed your Slayer task! (+${tokens} Dungeoneering tokens) See the Slayer master at camp for another.`);
       this.stat('tasks');
       this.emit({ type: 'slayerDone', tokens });
+      if (this.slayerUnlocks.includes('respite')) {
+        const p = this.player;
+        p.hp = p.maxHp;
+        p.prayerPoints = p.maxPrayer;
+        this.message("Slayer's Respite: you feel restored.");
+      }
     } else if (task.remaining <= 3 || task.remaining % 5 === 0) {
       this.message(`Slayer task: ${task.remaining} more ${cat.name.toLowerCase()} to go.`);
     }
@@ -2025,7 +2044,13 @@ export class GameState {
       type: 'kill', npcId: npc.def.id, boss: npc.isBoss, style, weakness: npc.def.weakness === style,
       flawless: npc.isBoss && (this.bossDamage.get(npc) ?? 0) === 0,
     });
-    if (this.isOnTask(npc)) this.slayerKill(npc);
+    if (this.isOnTask(npc)) {
+      if (this.slayerUnlocks.includes('slayers_eye') && rand() < 1 / 80) {
+        this.groundItems.push(new GroundItem('treasure_map', 1, { ...npc.pos }));
+        this.message("Slayer's Eye: you spot a treasure map on the body!");
+      }
+      this.slayerKill(npc);
+    }
     if (npc.isBoss && rand() < PET_CHANCE) {
       this.message('You have a funny feeling like you\'re being followed.');
       this.emit({ type: 'pet', bossId: npc.def.id });

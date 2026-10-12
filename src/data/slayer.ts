@@ -45,13 +45,22 @@ export const SKIP_TASK_COST = 15;
 export const SLAYER_BONUS_PER_LEVEL = 0.005;
 
 /** A fresh task suited to how deep you've been; avoids repeating `previous` when possible. */
-export function assignTask(bestDepth: number, rand: () => number, previous?: string): SlayerTask {
+/** Permanent Slayer master unlocks, bought with tokens. */
+export const SLAYER_UNLOCKS: Array<{ id: string; name: string; desc: string; cost: number }> = [
+  { id: 'extended', name: 'Extended Tasks', desc: 'Tasks are 50% longer, and pay 50% more.', cost: 200 },
+  { id: 'respite', name: "Slayer's Respite", desc: 'Finishing a task restores your HP and prayer.', cost: 150 },
+  { id: 'bigger_badder', name: 'Bigger and Badder', desc: 'Monsters on your task have a 15% chance to be elite.', cost: 300 },
+  { id: 'slayers_eye', name: "Slayer's Eye", desc: 'Monsters killed on task can drop treasure maps (1/80).', cost: 400 },
+];
+
+export function assignTask(bestDepth: number, rand: () => number, previous?: string, extended = false): SlayerTask {
   const pool = SLAYER_CATEGORIES.filter((c) => bestDepth >= c.minBestDepth);
   const fresh = pool.filter((c) => c.id !== previous);
   const choices = fresh.length ? fresh : pool;
   // Favour the more recent unlocks so tasks keep up with your progress.
   const weighted = choices.flatMap((c) => Array(1 + Math.floor(c.minBestDepth / 3)).fill(c));
   const cat = weighted[Math.floor(rand() * weighted.length)];
-  const total = cat.count[0] + Math.floor(rand() * (cat.count[1] - cat.count[0] + 1));
+  const base = cat.count[0] + Math.floor(rand() * (cat.count[1] - cat.count[0] + 1));
+  const total = extended ? Math.round(base * 1.5) : base;
   return { category: cat.id, total, remaining: total };
 }

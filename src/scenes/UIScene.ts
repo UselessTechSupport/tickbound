@@ -11,7 +11,7 @@ import { SPELLS, SPELL_BY_ID } from '../data/spells';
 import { RELIC_BY_ID } from '../data/relics';
 import { itemInfo, speedText } from '../ui/itemInfo';
 import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/achievements';
-import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
+import { SLAYER_UNLOCKS, SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
 import { journal, journalSpent, overallCompletion } from '../meta/journal';
@@ -1359,6 +1359,28 @@ export class UIScene extends Phaser.Scene {
     };
     if (!task) button(W / 2, 'Get a task', true, () => d.getSlayerTask());
     else button(W / 2, `Skip task (${SKIP_TASK_COST} tokens)`, d.meta.tokens >= SKIP_TASK_COST, () => d.skipSlayerTask());
+    // Permanent unlocks.
+    const owned = d.meta.slayerUnlocks ?? [];
+    const x0 = W / 2 - 320;
+    add(this.add.text(x0, 376, 'Slayer rewards', { ...FONT, fontSize: '14px', color: '#ff981f' }));
+    SLAYER_UNLOCKS.forEach((u, i) => {
+      const y = 402 + i * 34;
+      const have = owned.includes(u.id);
+      add(this.add.text(x0, y, u.name, { ...FONT, fontSize: '13px', color: have ? '#60ff60' : '#ffffff' }));
+      add(this.add.text(x0 + 170, y + 1, u.desc, { ...FONT, fontSize: '11px', color: '#c8c8c8' }));
+      if (have) {
+        add(this.add.text(x0 + 640, y, 'Owned', { ...FONT, fontSize: '12px', color: '#60ff60' }).setOrigin(1, 0));
+        return;
+      }
+      const ok = d.meta.tokens >= u.cost;
+      const b = add(this.add.text(x0 + 640, y - 3, `Buy (${u.cost})`, {
+        ...FONT, fontSize: '12px', color: ok ? '#ffffff' : '#7a7a7a', backgroundColor: ok ? '#3e3529' : '#241f18', padding: { x: 6, y: 3 },
+      }).setOrigin(1, 0));
+      if (ok) {
+        b.setInteractive({ useHandCursor: true });
+        b.on('pointerdown', () => d.buySlayerUnlock(u.id) && this.openModal('slayer'));
+      }
+    });
   }
 
   /** Category list on the left, that page's slots on the right (dim = not yet obtained). */
