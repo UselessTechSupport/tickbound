@@ -2176,6 +2176,28 @@ export class GameState {
       this.landHit(npc, 'magic', dmg, true);
       return true;
     }
+    if (npc.def.id === 'hollow_king' && npc.specialCount % 4 === 0) {
+      p.prayerPoints = Math.floor(p.prayerPoints / 2);
+      this.message('The Hollow King drinks your faith! Your prayer is halved.');
+      this.sound('prayerOff');
+      return false; // the attack still lands
+    }
+    if (npc.def.id === 'void_titan' && npc.specialCount % 6 === 0) {
+      const spawn: NpcDef = {
+        ...NPCS.lesser_demon, id: 'void_spawn', name: 'Void spawn', attack: 80, strength: 80, defence: 60, hitpoints: 50,
+        attackBonus: 60, strengthBonus: 60, defenceBonus: 40, drops: [],
+      };
+      const spot = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]
+        .map(([dx, dy]) => ({ x: npc.pos.x + dx, y: npc.pos.y + dy }))
+        .find((t) => isWalkable(this.map, t.x, t.y) && !this.npcAt(t.x, t.y) && !samePos(t, p.pos));
+      if (spot) {
+        const s = new Npc(spawn, spot);
+        s.target = p;
+        this.npcs.push(s);
+        this.message('The Void Titan tears open the air, and something crawls out!');
+      }
+      return false;
+    }
     if (npc.def.id === 'chaos_elemental' && rand() < 1 / 6) {
       const spots: Point[] = [];
       for (let dy = -6; dy <= 6; dy++) {

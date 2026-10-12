@@ -89,7 +89,9 @@ describe('deep bosses', () => {
     const { ITEMS } = await import('../src/data/items');
     expect(bossForDepth(25).id).toBe('lich');
     expect(bossForDepth(30).id).toBe('ancient_wyrm');
-    expect(bossForDepth(35).hitpoints).toBeGreaterThan(bossForDepth(30).hitpoints);
+    expect(bossForDepth(35).id).toBe('hollow_king');
+    expect(bossForDepth(40).id).toBe('void_titan');
+    expect(bossForDepth(45).hitpoints).toBeGreaterThan(bossForDepth(40).hitpoints);
     for (const id of ['lich', 'ancient_wyrm']) expect(PETS.some((p) => p.bossId === id)).toBe(true);
     expect(ITEMS.staff_of_the_dead.equip?.slot).toBe('weapon');
     expect(ITEMS.wyrmhide_body.equip?.slot).toBe('body');

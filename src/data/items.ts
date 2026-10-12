@@ -108,6 +108,8 @@ const list: ItemDef[] = [
   { id: 'magic_shortbow', name: 'Magic shortbow', color: 0x4a7ab0, equip: { ...bow(69, 30), attackSpeed: 3 }, examine: 'Short and magical, but still effective. Special: Snapshot.' },
   { id: 'ancient_staff', name: 'Ancient staff', color: 0x3a2a5a, equip: staff(15, 30), examine: 'A staff of ancient power. Special: Soul Blast.' },
   // Boss uniques (floor 25 Lich, floor 30 Ancient Wyrm).
+  { id: 'hollow_crown', name: 'Hollow crown', color: 0x8a7aa0, equip: amulet({ attackBonus: 14, strengthBonus: 14, defenceBonus: 14, rangedBonus: 14, magicBonus: 14 }), examine: 'The Hollow King\'s crown, worn at the throat.' },
+  { id: 'void_blade', name: 'Void blade', color: 0x2a2a4a, equip: weapon(85, 84, 80), examine: 'A sword that cuts a little deeper than it should.' },
   { id: 'staff_of_the_dead', name: 'Staff of the dead', color: 0x4a6a3a, equip: staff(28, 65), examine: 'A staff that hums with the Lich\'s stolen life.' },
   { id: 'wyrmhide_body', name: 'Wyrmhide body', color: 0x3a3a5a, equip: robe(-12, 32, 65, 'ranged', 65), examine: 'Scales from the oldest thing in the dungeon.' },
   // Off-hands for ranged and magic (Armourer).

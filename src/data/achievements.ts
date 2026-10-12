@@ -145,6 +145,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'goblin_hunter', name: 'Goblin Hunter', desc: 'Catch 10 treasure goblins.', tier: 'hard', ...count('goblins', 10) },
   { id: 'lich_slayer', name: 'Phylactery Shattered', desc: 'Defeat the Lich (floor 25).', tier: 'elite', check: killed('lich') },
   { id: 'wyrm_slayer', name: 'Wyrmslayer', desc: 'Defeat the Ancient Wyrm (floor 30).', tier: 'elite', check: killed('ancient_wyrm') },
+  { id: 'hollow_slayer', name: 'Uncrowned', desc: 'Defeat the Hollow King (floor 35).', tier: 'elite', check: killed('hollow_king') },
+  { id: 'void_slayer', name: 'Into the Void', desc: 'Defeat the Void Titan (floor 40).', tier: 'elite', check: killed('void_titan') },
   { id: 'chaos', name: 'Chaos Theory', desc: 'Defeat the Chaos Elemental.', tier: 'elite', check: killed('chaos_elemental') },
   { id: 'gorilla', name: 'Gorilla Warfare', desc: 'Defeat the Demonic gorilla.', tier: 'elite', check: killed('demonic_gorilla') },
   { id: 'abyss_walker', name: 'Abyss Walker', desc: 'Reach floor 25.', tier: 'elite', check: reached(25) },

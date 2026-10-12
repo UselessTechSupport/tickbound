@@ -181,11 +181,11 @@ describe('bosses', () => {
     expect(seen.size).toBe(3);
   });
 
-  it('scales the last boss past floor 30', () => {
-    const b30 = bossForDepth(30);
+  it('scales the last boss past floor 40', () => {
     const b40 = bossForDepth(40);
-    expect(b40.name).toBe(b30.name);
-    expect(b40.hitpoints).toBeGreaterThan(b30.hitpoints);
+    const b50 = bossForDepth(50);
+    expect(b50.name).toBe(b40.name);
+    expect(b50.hitpoints).toBeGreaterThan(b40.hitpoints);
   });
 });
 
