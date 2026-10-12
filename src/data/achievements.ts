@@ -20,7 +20,7 @@ export const TIERS: Array<{ id: Tier; name: string; reward: number; color: numbe
 export type Counter =
   | 'kills' | 'gathers' | 'cooks' | 'smiths' | 'bones' | 'chests' | 'purchases' | 'blocks'
   | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills' | 'tasks' | 'fires'
-  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts' | 'goblins' | 'floorEvents';
+  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts' | 'goblins' | 'floorEvents' | 'trades';
 
 export interface AchievementContext {
   meta: MetaSave;

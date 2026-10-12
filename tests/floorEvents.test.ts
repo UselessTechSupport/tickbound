@@ -137,3 +137,30 @@ describe('dark shrines', () => {
     expect(g.player.hp).toBe(3 + Math.floor(14 * 0.8));
   });
 });
+
+describe('wandering adventurers', () => {
+  it('trade the requested items for the promised reward, once', async () => {
+    const { ResourceNode } = await import('../src/entities/ResourceNode');
+    const { Tile, setTile } = await import('../src/world/tiles');
+    const g = new GameState(46);
+    g.npcs.length = 0;
+    g.loadFloor(4);
+    g.npcs.length = 0;
+    const p = g.player;
+    const spot = { x: p.pos.x + 1, y: p.pos.y };
+    setTile(g.map, spot.x, spot.y, Tile.Object);
+    const w = Object.assign(new ResourceNode(spot, 'wanderer'), { deal: { request: { items: ['trout', 'lobster'], qty: 3, what: 'cooked fish' }, reward: 'tokens' as const } });
+    g.nodes.push(w);
+    g.talkTo(w);
+    g.tick();
+    expect(w.used).toBe(false); // not enough fish yet
+    p.inventory.add('trout', 2);
+    p.inventory.add('lobster', 2);
+    const before = g.tokensEarned;
+    g.talkTo(w);
+    g.tick();
+    expect(w.used).toBe(true);
+    expect(p.inventory.count('trout') + p.inventory.count('lobster')).toBe(1);
+    expect(g.tokensEarned).toBeGreaterThan(before);
+  });
+});

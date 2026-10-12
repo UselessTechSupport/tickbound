@@ -28,6 +28,7 @@ import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, STYLE_ARMOUR, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
 import { CURSES } from '../data/curses';
+import { REWARD_TEXT } from '../data/wanderers';
 import { DARKNESS_FOV, FLOOR_EVENT_BY_ID, FloorEventId, GOBLIN_ESCAPE_TICKS, rollFloorEvent, treasureGoblin } from '../data/floorEvents';
 import { MasteryLevels, masteryValue } from '../data/mastery';
 import { GARDEN_POOL, GARDEN_SUPER_POOL, STRUCTURE_BY_ID, StructureId, WORKBENCH_SKILLS } from '../data/construction';
@@ -395,6 +396,43 @@ export class GameState {
       const spot = free()[0];
       if (spot) this.npcs.push(new Npc(treasureGoblin(depth), spot));
       else this.floorEvent = null;
+    }
+  }
+
+  /** Hand over what a wandering adventurer asked for, if you have it, and collect the reward. */
+  private tradeWithWanderer(node: ResourceNode): void {
+    const deal = node.deal;
+    if (!deal || node.used) {
+      this.message('"Thanks again, friend. Good luck down there."');
+      return;
+    }
+    const inv = this.player.inventory;
+    const have = deal.request.items.reduce((n, id) => n + inv.count(id), 0);
+    if (have < deal.request.qty) {
+      this.message(`"Bring me ${deal.request.qty} ${deal.request.what} and I'll give you ${REWARD_TEXT[deal.reward]}." (You have ${have}.)`);
+      return;
+    }
+    let left = deal.request.qty;
+    for (const id of deal.request.items) {
+      const take = Math.min(left, inv.count(id));
+      if (take) inv.remove(id, take);
+      left -= take;
+      if (!left) break;
+    }
+    node.used = true;
+    this.stat('trades');
+    this.sound('buy');
+    if (deal.reward === 'relic') {
+      this.message('"A fair trade! Take this, I found it down here."');
+      this.offerRelics();
+    } else if (deal.reward === 'tokens') {
+      const tokens = 10 + 5 * this.depth;
+      this.bonusTokens += tokens;
+      this.message(`"A fair trade!" You receive ${tokens} Dungeoneering tokens.`);
+    } else {
+      const coins = 60 * this.depth;
+      if (!inv.add('coins', coins)) this.dropHere('coins', coins);
+      this.message(`"A fair trade!" You receive ${coins} coins.`);
     }
   }
 
@@ -1424,6 +1462,8 @@ export class GameState {
           this.emit({ type: 'campMenu', kind: 'merchant' });
         } else if (node.kind === 'chest') {
           this.openChest(node);
+        } else if (node.kind === 'wanderer') {
+          this.tradeWithWanderer(node);
         } else if (node.kind === 'dark_shrine') {
           if (node.used) {
             this.message('The dark shrine is silent.');
