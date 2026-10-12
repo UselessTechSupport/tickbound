@@ -5,6 +5,7 @@ import type { SlayerTask } from '../data/slayer';
 import { ArmouryRanks, NO_ARMOURY, StartStyle } from '../data/armoury';
 import type { Enchantments } from '../data/enchants';
 import type { Materials, StructureLevels } from '../data/construction';
+import type { SkillName } from '../data/skills';
 
 const BOSS_FLOORS: Record<string, number> = { goblin_warlord: 5, tztok_jad: 10, chaos_elemental: 15, demonic_gorilla: 20 };
 
@@ -50,6 +51,8 @@ export interface MetaSave {
   startRelic: string | null;
   /** Floors each pet has come along for (pet levels). */
   petFloors: Record<string, number>;
+  /** Skill mastery points per skill (levels gained in runs). */
+  masteryPoints: Partial<Record<SkillName, number>>;
   /** One-time migration marker (kit perks -> Armourer gear). */
   kitsMovedToArmourer?: boolean;
   /** Quests: claimed quest ids, best carried count for "bring" quests, and relics they unlocked. */
@@ -69,7 +72,7 @@ export function freshMeta(): MetaSave {
     slayerUnlocked: false, armoury: { ...NO_ARMOURY }, startStyle: 'melee', deepestBoss: 0,
     enchanterUnlocked: false, enchants: {},
     structures: {}, materials: { timber: 0, metal: 0 }, bank: [], relicsFound: [], startRelic: null, petFloors: {},
-    questsDone: [], questCarry: {}, questRelics: [],
+    questsDone: [], questCarry: {}, questRelics: [], masteryPoints: {},
   };
 }
 
@@ -107,6 +110,7 @@ export function loadMeta(): MetaSave {
       materials: { timber: 0, metal: 0, ...parsed.materials },
       petFloors: { ...parsed.petFloors },
       questCarry: { ...parsed.questCarry },
+      masteryPoints: { ...parsed.masteryPoints },
       enchanterUnlocked: parsed.enchanterUnlocked ?? (parsed.killCounts?.tztok_jad ?? 0) > 0,
       // Older saves: credit boss floors already beaten, from the kill counts.
       deepestBoss: parsed.deepestBoss ?? Math.max(0, ...Object.entries(BOSS_FLOORS)

@@ -3,6 +3,8 @@ import {
   WORKBENCH_XP, materialsFrom, petBonus,
 } from '../data/construction';
 import { NPCS } from '../data/npcs';
+import { SKILLS, SkillName } from '../data/skills';
+import { masteryLevel } from '../data/mastery';
 import { QUESTS, QUEST_BY_ID, questClaimable } from '../data/quests';
 import { priceOf } from '../data/prices';
 import type { CampSetup, GameState } from '../game/GameState';
@@ -74,4 +76,25 @@ export function claimQuest(m: MetaSave, id: string): boolean {
 
 export function claimableQuests(m: MetaSave): number {
   return QUESTS.filter((q) => questClaimable(q, m)).length;
+}
+
+/**
+ * Skill mastery: every level gained this run (not the levels you started with) becomes mastery
+ * points. Returns the skills whose mastery level went up, with the new level.
+ */
+export function addMastery(m: MetaSave, g: GameState): Array<{ skill: SkillName; level: number }> {
+  const ups: Array<{ skill: SkillName; level: number }> = [];
+  for (const skill of SKILLS) {
+    const gained = g.player.skills.level(skill) - (g.levelsAtStart[skill] ?? g.player.skills.level(skill));
+    if (gained <= 0) continue;
+    const before = masteryLevel(m.masteryPoints[skill] ?? 0);
+    m.masteryPoints[skill] = (m.masteryPoints[skill] ?? 0) + gained;
+    const after = masteryLevel(m.masteryPoints[skill]!);
+    if (after > before) ups.push({ skill, level: after });
+  }
+  return ups;
+}
+
+export function masteryLevels(m: MetaSave): Partial<Record<SkillName, number>> {
+  return Object.fromEntries(SKILLS.map((s) => [s, masteryLevel(m.masteryPoints[s] ?? 0)]));
 }

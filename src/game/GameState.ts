@@ -10,7 +10,7 @@ import { NO_TOOLS, Toolbelt } from '../data/tools';
 import { ResourceNode } from '../entities/ResourceNode';
 import { gatherBlocker, gatherRoll, gatherStartMessage, processBlocker, processStep, PROCESS_TICKS } from './skilling';
 import { placeResources } from '../world/resources';
-import { SKILL_LABELS, SkillName } from '../data/skills';
+import { SKILLS, SKILL_LABELS, SkillName } from '../data/skills';
 import { AttackType, DRAIN_RESISTANCE, PRAYER_BY_ID, PrayerGroup, potionRestore } from '../data/prayers';
 import { SPELLS, SPELL_BY_ID, SpellDef } from '../data/spells';
 import { WEAKNESS_PENALTY } from '../data/npcs';
@@ -27,6 +27,7 @@ import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer
 import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, STYLE_ARMOUR, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
+import { MasteryLevels, masteryValue } from '../data/mastery';
 import { GARDEN_POOL, GARDEN_SUPER_POOL, STRUCTURE_BY_ID, StructureId, WORKBENCH_SKILLS } from '../data/construction';
 import { SPEC_BY_WEAPON, SPEC_DROP_CHANCE, SPEC_REGEN, SPEC_REGEN_TICKS, SpecDef, specWeaponsFor } from '../data/specials';
 import { PICKPOCKET, POCKET_LIMIT, STUN_TICKS, lockXpFor, thievingChance } from '../data/thieving';
@@ -129,6 +130,8 @@ export interface RunSetup {
   enchanterUnlocked?: boolean;
   /** Relics unlocked by quests. */
   questRelics?: string[];
+  /** Skill mastery levels (see data/mastery.ts). */
+  mastery?: MasteryLevels;
   /** Monsters you've killed 100+ times (Monster Lore), and collection log slots filled (Collector). */
   veteranOf?: string[];
   logSlots?: number;
@@ -205,6 +208,9 @@ export class GameState {
   activeMerchant: ResourceNode | null = null;
   /** Quest relics unlocked so far (they join the relic pool). */
   questRelics: string[] = [];
+  /** Skill mastery levels, and levels at the start of the run (mastery counts levels gained). */
+  mastery: MasteryLevels = {};
+  levelsAtStart: Partial<Record<SkillName, number>> = {};
   /** Perk support: monsters killed 100+ times, collection log slots, kills on this floor, per-floor flags. */
   veteranOf: string[] = [];
   logSlots = 0;
@@ -236,7 +242,9 @@ export class GameState {
     this.veteranOf = [...(setup.veteranOf ?? [])];
     this.logSlots = setup.logSlots ?? 0;
     const startDepth = Math.max(1, setup.startDepth ?? 1);
+    this.mastery = { ...setup.mastery };
     this.applyStartingKit(setup, startDepth);
+    this.levelsAtStart = Object.fromEntries(SKILLS.map((s) => [s, this.player.skills.level(s)]));
     this.loadFloor(startDepth);
     const startRelic = setup.campSetup?.startRelic;
     if (startRelic && RELIC_BY_ID[startRelic]) {
@@ -277,7 +285,7 @@ export class GameState {
       p.skills.xp[skill] = Math.max(p.skills.xp[skill], xpForLevel(level));
     }
     p.equipment = { weapon: 'bronze_dagger', shield: 'wooden_shield' };
-    p.hpBonus = this.perkRank('constitution');
+    p.hpBonus = this.perkRank('constitution') + Math.floor(this.masteryOf('hitpoints'));
     p.bowRangeBonus = this.perkRank('long_range');
     p.inventory.add('shrimps', 4);
     for (const it of [...m.startItems, ...(catchUp?.items ?? [])]) p.inventory.add(it.id, it.qty);
@@ -362,6 +370,9 @@ export class GameState {
     const p = this.player;
     let acc = 1 + 0.03 * r({ melee: 'precision', ranged: 'eagle_eye', magic: 'arcane_focus' }[mode]);
     let dmg = 1 + 0.03 * r({ melee: 'brute_force', ranged: 'heavy_draw', magic: 'spell_power' }[mode]);
+    // Mastery: Attack/Strength for melee, Ranged and Magic for theirs.
+    acc *= 1 + this.masteryOf(mode === 'melee' ? 'attack' : mode);
+    dmg *= 1 + this.masteryOf(mode === 'melee' ? 'strength' : mode);
     const both = (f: number) => {
       acc *= f;
       dmg *= f;
@@ -377,6 +388,11 @@ export class GameState {
     }
     dmg *= 1 + Math.min(0.01 * this.floorKills, 0.03 * r('momentum'));
     return { acc, dmg };
+  }
+
+  /** Mastery bonus for a skill this run (e.g. 0.05 = +5%). */
+  masteryOf(skill: SkillName): number {
+    return masteryValue(skill, this.mastery[skill] ?? 0);
   }
 
   /** Preservation: a potion sometimes isn't used up. */
@@ -499,7 +515,7 @@ export class GameState {
     task.remaining--;
     this.giveXp('slayer', npc.def.hitpoints * XP_RATE);
     if (task.remaining === 0) {
-      const tokens = Math.round(cat.tokensPerKill * task.total * (1 + 0.15 * this.perkRank('slayer_studies')));
+      const tokens = Math.round(cat.tokensPerKill * task.total * (1 + 0.15 * this.perkRank('slayer_studies') + this.masteryOf('slayer')));
       this.message(`You have completed your Slayer task! (+${tokens} Dungeoneering tokens) See the Slayer master at camp for another.`);
       this.stat('tasks');
       this.emit({ type: 'slayerDone', tokens });
@@ -643,7 +659,7 @@ export class GameState {
 
   /** Thieves' Gloves relic. */
   private thievingBonus(): number {
-    return (this.hasRelic('thieves_gloves') ? 0.15 : 0) + 0.03 * this.perkRank('nimble_fingers');
+    return (this.hasRelic('thieves_gloves') ? 0.15 : 0) + 0.03 * this.perkRank('nimble_fingers') + this.masteryOf('thieving');
   }
 
   private crossShortcut(node: ResourceNode): void {
@@ -657,7 +673,7 @@ export class GameState {
     }
     const boots = this.hasRelic('boots_of_lightness');
     const sure = boots || this.perkRank('shadowstep') > 0;
-    if (!sure && rand() >= shortcutChance(level, sc.level) + 0.05 * this.perkRank('acrobat')) {
+    if (!sure && rand() >= shortcutChance(level, sc.level) + 0.05 * this.perkRank('acrobat') + this.masteryOf('agility')) {
       this.message(`You slip trying to ${kind.verb.toLowerCase().replace('-', ' ')} the ${kind.name.toLowerCase()}.`);
       this.sound('hurt');
       this.hurtPlayer(1 + Math.floor(rand() * (1 + Math.ceil(this.depth / 3))), `a ${kind.name.toLowerCase()}`);
@@ -1087,6 +1103,7 @@ export class GameState {
     if (!p.activePrayers.size) return;
     for (const id of p.activePrayers) p.prayerDrain += PRAYER_BY_ID[id].drain;
     const resistance = DRAIN_RESISTANCE * this.mods.drainResistMult * (this.hasRelic('holy_wrench') ? 1.15 : 1)
+      / (1 - this.masteryOf('prayer'))
       / (1 - Math.min(0.6, this.enchantPower('blessed')));
     while (p.prayerDrain >= resistance) {
       p.prayerDrain -= resistance;
@@ -1838,7 +1855,7 @@ export class GameState {
     const attRoll = Math.floor(roll(d.attack + 9, d.attackBonus) * kiting);
     const petDefence = this.campBonus.pet?.kind === 'defence' ? this.campBonus.pet.amount : 0;
     const defRoll = Math.floor(roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence)
-      * (1 + this.enchantPower('fortified') + petDefence + 0.03 * this.perkRank('toughness')));
+      * (1 + this.enchantPower('fortified') + petDefence + 0.03 * this.perkRank('toughness') + this.masteryOf('defence')));
     const max = maxHit(d.strength + 9, d.strengthBonus);
     const dmg = rollDamage(hitChance(attRoll, defRoll), max, rand);
     npc.attackCooldown = d.attackSpeed;
@@ -1859,6 +1876,10 @@ export class GameState {
     const blocked = p.isProtectedFrom(style) && damage > 0;
     if (blocked) this.stat('blocks');
     let dmg = blocked ? 0 : damage;
+    if (dmg > 0 && rand() < this.masteryOf('agility') / 2) {
+      dmg = 0;
+      this.message('You nimbly dodge the attack!');
+    }
     if (dmg > 0 && style === 'melee' && rand() < 0.04 * this.perkRank('parry')) {
       dmg = 0;
       this.message('You parry the blow!');
