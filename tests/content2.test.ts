@@ -73,9 +73,9 @@ describe('slayer', () => {
 });
 
 describe('new achievements', () => {
-  it('all 89 have unique ids', () => {
-    expect(ACHIEVEMENTS.length).toBe(89);
-    expect(new Set(ACHIEVEMENTS.map((a) => a.id)).size).toBe(89);
+  it('all 90 have unique ids', () => {
+    expect(ACHIEVEMENTS.length).toBe(90);
+    expect(new Set(ACHIEVEMENTS.map((a) => a.id)).size).toBe(90);
   });
 
   it('skilling and depth achievements unlock from tracked events', () => {

@@ -65,7 +65,7 @@ export function gatherRoll(g: GameState, node: ResourceNode): boolean {
   if (cooked) g.message('Field Cook: you sear the fish on the spot.');
   p.hp = Math.min(p.maxHp, p.hp + g.perkRank('earthbound'));
   // Mining sometimes turns up a gem (rarer gems deeper down).
-  if (def.kind === 'rock' && RNG.getUniform() < GEM_CHANCE + g.masteryOf('crafting')) {
+  if (def.kind === 'rock' && RNG.getUniform() < GEM_CHANCE + g.masteryOf('crafting') + 0.02 * g.perkRank('jeweller')) {
     const gem = gemForDepth(g.depth, RNG.getUniform());
     if (p.inventory.add(gem)) g.message(`You find a ${lower(gem)}!`);
   }

@@ -59,7 +59,7 @@ npm run dev        # then open http://localhost:5173
 - **Skill mastery** (K, or click a skill): every level you gain in a run adds permanent mastery points to that
   skill. 10 mastery levels per skill (50 to 4,000 points), each a small bonus (e.g. +2% mining success, 3% less
   burning, 0.5% dodge chance from Agility).
-- **Mentor's skill tree**: 106 perks in 11 branches (Melee, Ranged, Magic, Mastery, Defence, Survival, Prayer,
+- **Mentor's skill tree**: 108 perks in 11 branches (Melee, Ranged, Magic, Mastery, Defence, Survival, Prayer,
   Gathering, Crafting, Rogue, Fortune). Tiers open as you put ranks into a branch; each branch ends in a capstone.
   Perks give levels, bonuses and new mechanics, never gear. The full tree costs about 427,000 tokens.
 - **Camp**: talk to the **Mentor** (skill tree perks) and the **Toolsmith** (pickaxe, axe, fishing gear,
@@ -117,7 +117,7 @@ npm run dev        # then open http://localhost:5173
   potions. Potions boost your levels (shown in green) and fade by 1 a minute.
 - **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric or Savage variants in a gold aura. Tougher, but
   they roll their loot twice, always drop a herb and give bonus tokens.
-- **Achievements**: 89 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
+- **Achievements**: 90 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
   challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
 - **Collection log**: every notable drop from bosses, monsters and chests, with kill counts. Bosses have a 1/50
   pet drop; choose which pet follows you from the log.
