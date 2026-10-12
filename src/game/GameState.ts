@@ -13,7 +13,7 @@ import { placeResources } from '../world/resources';
 import { SKILLS, SKILL_LABELS, SkillName } from '../data/skills';
 import { AttackType, DRAIN_RESISTANCE, PRAYER_BY_ID, PrayerGroup, potionRestore } from '../data/prayers';
 import { SPELLS, SPELL_BY_ID, SpellDef } from '../data/spells';
-import { isBossFloor, WEAKNESS_PENALTY } from '../data/npcs';
+import { NPCS, NpcDef, isBossFloor, WEAKNESS_PENALTY } from '../data/npcs';
 import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
 import { Drop, MIMIC_CHANCE, mimicFor } from '../data/npcs';
 import { chestLoot } from '../data/loot';
@@ -1805,6 +1805,7 @@ export class GameState {
     }
     this.applyHit(npc, dmg);
     this.giveCombatXp(c.mode, dmg, c.spell);
+    this.bossPhase(npc);
     return dmg;
   }
 
@@ -2049,6 +2050,10 @@ export class GameState {
       * (this.hasModifier('hardened') ? 1.25 : 1));
     const dmg = rollDamage(hitChance(attRoll, defRoll), max, rand);
     npc.attackCooldown = this.hasModifier('frenzied') ? Math.max(2, d.attackSpeed - 1) : d.attackSpeed;
+    if (npc.isBoss && this.bossSpecial(npc, max)) {
+      this.advanceBossStyle(npc);
+      return;
+    }
 
     if (style === 'melee') {
       this.landHit(npc, style, dmg);
@@ -2060,10 +2065,75 @@ export class GameState {
     if (npc.def.boss) this.advanceBossStyle(npc);
   }
 
-  /** Applies an NPC hit to the player, blocked entirely by the matching protection prayer. */
-  private landHit(npc: Npc, style: AttackType, damage: number): void {
+  /**
+   * Boss signature moves on some attacks. Returns true if it replaced the normal attack.
+   * - Ancient Wyrm: every 5th attack is dragonfire; protection prayers only halve it.
+   * - Chaos Elemental: 1 in 6 attacks teleports you a few tiles away.
+   */
+  private bossSpecial(npc: Npc, max: number): boolean {
     const p = this.player;
-    const blocked = p.isProtectedFrom(style) && damage > 0;
+    npc.specialCount++;
+    if (npc.def.id === 'ancient_wyrm' && npc.specialCount % 5 === 0) {
+      let dmg = Math.floor(max * (0.5 + rand() * 0.5));
+      if (p.activePrayers.size && ['protect_melee', 'protect_missiles', 'protect_magic'].some((id) => p.activePrayers.has(id))) dmg = Math.floor(dmg / 2);
+      this.message('The Ancient Wyrm breathes a torrent of dragonfire!');
+      this.emit({ type: 'projectile', from: { ...npc.pos }, to: { ...p.pos }, style: 'magic', ticks: 1 });
+      this.landHit(npc, 'magic', dmg, true);
+      return true;
+    }
+    if (npc.def.id === 'chaos_elemental' && rand() < 1 / 6) {
+      const spots: Point[] = [];
+      for (let dy = -6; dy <= 6; dy++) {
+        for (let dx = -6; dx <= 6; dx++) {
+          const t = { x: p.pos.x + dx, y: p.pos.y + dy };
+          if (Math.max(Math.abs(dx), Math.abs(dy)) >= 3 && isWalkable(this.map, t.x, t.y) && !this.npcAt(t.x, t.y)) spots.push(t);
+        }
+      }
+      if (spots.length) {
+        p.pos = { ...spots[Math.floor(rand() * spots.length)] };
+        p.prev = { ...p.pos };
+        p.path = [];
+        this.message('The Chaos Elemental hurls you through the air!');
+        this.updateFov();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Bosses that call for help as they weaken: the Goblin Warlord at half HP, the Lich at 2/3 and 1/3. */
+  private bossPhase(npc: Npc): void {
+    if (!npc.isBoss || npc.dead) return;
+    const frac = npc.hp / npc.maxHp;
+    const call = (def: NpcDef, count: number, text: string) => {
+      const around = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1], [2, 0], [-2, 0], [0, 2], [0, -2]]
+        .map(([dx, dy]) => ({ x: npc.pos.x + dx, y: npc.pos.y + dy }))
+        .filter((t) => isWalkable(this.map, t.x, t.y) && !this.npcAt(t.x, t.y) && !samePos(t, this.player.pos));
+      for (const spot of around.slice(0, count)) {
+        const add = new Npc(def, spot);
+        add.target = this.player;
+        this.npcs.push(add);
+      }
+      this.message(text);
+    };
+    if (npc.def.id === 'goblin_warlord' && npc.summonPhase === 0 && frac <= 0.5) {
+      npc.summonPhase = 1;
+      call(NPCS.goblin, 2, 'The Goblin Warlord bellows, and his guards rush in!');
+    }
+    if (npc.def.id === 'lich' && npc.summonPhase < 2 && frac <= (npc.summonPhase === 0 ? 2 / 3 : 1 / 3)) {
+      npc.summonPhase++;
+      const risen: NpcDef = {
+        ...NPCS.skeleton, name: 'Risen skeleton', attack: 60, strength: 60, defence: 50, hitpoints: 45,
+        attackBonus: 40, strengthBonus: 40, defenceBonus: 30, drops: [{ item: 'bones', chance: 1 }],
+      };
+      call(risen, 2, 'The Lich raises the dead to defend it!');
+    }
+  }
+
+  /** Applies an NPC hit to the player, blocked entirely by the matching protection prayer (unless unblockable). */
+  private landHit(npc: Npc, style: AttackType, damage: number, unblockable = false): void {
+    const p = this.player;
+    const blocked = !unblockable && p.isProtectedFrom(style) && damage > 0;
     if (blocked) this.stat('blocks');
     let dmg = blocked ? 0 : damage;
     if (dmg > 0 && rand() < this.masteryOf('agility') / 2) {
