@@ -443,11 +443,11 @@ export class GameState {
       this.message('"A fair trade! Take this, I found it down here."');
       this.offerRelics();
     } else if (deal.reward === 'tokens') {
-      const tokens = 10 + 5 * this.depth;
+      const tokens = Math.round((10 + 5 * this.depth) * (1 + 0.25 * this.perkRank('dealmaker')));
       this.bonusTokens += tokens;
       this.message(`"A fair trade!" You receive ${tokens} Dungeoneering tokens.`);
     } else {
-      const coins = 60 * this.depth;
+      const coins = Math.round(60 * this.depth * (1 + 0.25 * this.perkRank('dealmaker')));
       if (!inv.add('coins', coins)) this.dropHere('coins', coins);
       this.message(`"A fair trade!" You receive ${coins} coins.`);
     }
@@ -1051,14 +1051,14 @@ export class GameState {
   }
 
   /** Offers RELIC_CHOICES random relics the player doesn't have yet. */
-  offerRelics(): void {
+  offerRelics(extra = 0): void {
     if (this.hasModifier('relicless')) {
       this.message('Relicless: the relic crumbles to dust in your hands.');
       return;
     }
     const pool = RELICS.filter((r) => !this.hasRelic(r.id) && (!r.quest || this.questRelics.includes(r.id))).map((r) => r.id);
     if (!pool.length) return;
-    this.pendingRelics = RNG.shuffle(pool).slice(0, RELIC_CHOICES + this.perkRank('relic_hunter'));
+    this.pendingRelics = RNG.shuffle(pool).slice(0, RELIC_CHOICES + this.perkRank('relic_hunter') + extra);
     this.emit({ type: 'relicChoice', options: this.pendingRelics });
   }
 
@@ -1584,7 +1584,7 @@ export class GameState {
               this.message(`The shrine takes its price. You are cursed with ${curse.name}: ${curse.desc}`);
             }
             this.sound('hurt');
-            this.offerRelics();
+            this.offerRelics(this.perkRank('occultist'));
           }
         } else if (node.kind === 'shrine') {
           if (node.used) {
@@ -2023,7 +2023,7 @@ export class GameState {
       this.groundItems.push(new GroundItem(herbForDepth(this.depth, rand), 1, { ...npc.pos }));
     }
     // Treasure maps (floor 3+): rare, more often from elites.
-    if (this.depth >= 3 && !npc.isBoss && npc.def.id !== 'mimic' && rand() < (npc.elite ? 1 / 25 : 1 / 150)) {
+    if (this.depth >= 3 && !npc.isBoss && npc.def.id !== 'mimic' && rand() < (npc.elite ? 1 / 25 : 1 / 150) * (1 + 0.5 * this.perkRank('cartographer'))) {
       this.groundItems.push(new GroundItem('treasure_map', 1, { ...npc.pos }));
       this.message('The monster dropped a tattered treasure map!');
     }
@@ -2350,7 +2350,7 @@ export class GameState {
       this.wander(npc);
       return;
     }
-    if (++npc.fleeTicks >= GOBLIN_ESCAPE_TICKS) {
+    if (++npc.fleeTicks >= GOBLIN_ESCAPE_TICKS * (1 + 0.25 * this.perkRank('goblin_bane'))) {
       this.npcs.splice(this.npcs.indexOf(npc), 1);
       this.floorEvent = null;
       this.message('The treasure goblin escapes through a crack in the wall!');

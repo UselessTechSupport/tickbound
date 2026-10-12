@@ -110,7 +110,7 @@ export function claimContract(m: MetaSave, id: string): number {
   const [have, need] = contractProgress(c, m);
   if (have < need) return 0;
   s.claimed.push(id);
-  let paid = c.tokens;
+  let paid = Math.round(c.tokens * (1 + 0.2 * (m.perks.contractor ?? 0)));
   if (!s.bonusClaimed && s.claimed.length === s.contracts.length) {
     s.bonusClaimed = true;
     paid += contractBonus(m.bestDepth);
