@@ -40,7 +40,7 @@ const craft = (gem: string, output: string, level: number, xp: number): Recipe =
   id: `craft_${output}`, station: 'craft', skill: 'crafting', level, xp, output, inputs: [{ item: gem, qty: 1 }],
 });
 
-/** Logs -> shortbow. */
+/** Logs -> shortbow. Logs are scarce down here, so a bow pays about what chopping the log did. */
 const bow = (logs: string, output: string, level: number, xp: number): Recipe => ({
   id: `fletch_${output}`, station: 'fletch', skill: 'fletching', level, xp, output, inputs: [{ item: logs, qty: 1 }],
 });
@@ -51,10 +51,13 @@ const arrows = (metal: string, logs: string, level: number, xpEach: number): Rec
   inputs: [{ item: `${metal}_bar`, qty: 1 }, { item: logs, qty: 1 }],
 });
 
-/** [metal, base smithing level, xp per bar] */
+/**
+ * [metal, base smithing level, xp per bar]. Ore is scarce in the dungeon, so smelting a bar
+ * and smithing it pay about what mining its ore did.
+ */
 const METALS: Array<[string, number, number]> = [
-  ['bronze', 1, 12.5], ['iron', 10, 25], ['steel', 20, 37.5], ['mithril', 30, 50], ['adamant', 40, 62.5], ['rune', 50, 75],
-  ['dragon', 70, 90],
+  ['bronze', 1, 20], ['iron', 10, 35], ['steel', 20, 50], ['mithril', 30, 80], ['adamant', 40, 100], ['rune', 50, 125],
+  ['dragon', 70, 160],
 ];
 /** [item suffix, bars, level offset] */
 const SMITHABLES: Array<[string, number, number]> = [['scimitar', 2, 0], ['kiteshield', 3, 2], ['platebody', 5, 5]];
@@ -80,13 +83,13 @@ export const RECIPES: Recipe[] = [
   mix('super_magic', 55, 215, 'snapdragon', 'potato_cactus'),
   mix('super_combat', 70, 260, 'torstol', 'super_defence'),
 
-  smelt('bronze', 1, 6.25, 'copper_ore', 0, 'tin_ore'),
-  smelt('iron', 10, 12.5, 'iron_ore', 0),
-  smelt('steel', 20, 17.5, 'iron_ore', 1),
-  smelt('mithril', 30, 30, 'mithril_ore', 2),
-  smelt('adamant', 40, 37.5, 'adamantite_ore', 3),
-  smelt('rune', 50, 50, 'runite_ore', 4),
-  smelt('dragon', 70, 65, 'dragonite_ore', 5),
+  smelt('bronze', 1, 12.5, 'copper_ore', 0, 'tin_ore'),
+  smelt('iron', 10, 25, 'iron_ore', 0),
+  smelt('steel', 20, 35, 'iron_ore', 1),
+  smelt('mithril', 30, 60, 'mithril_ore', 2),
+  smelt('adamant', 40, 80, 'adamantite_ore', 3),
+  smelt('rune', 50, 100, 'runite_ore', 4),
+  smelt('dragon', 70, 130, 'dragonite_ore', 5),
 
   ...METALS.flatMap(([metal, base, xp]) => SMITHABLES.map(([thing, bars, offset]): Recipe => ({
     id: `smith_${metal}_${thing}`, station: 'anvil', skill: 'smithing', level: base + offset, xp: xp * bars,
@@ -98,19 +101,19 @@ export const RECIPES: Recipe[] = [
   craft('ruby', 'amulet_of_strength', 40, 85),
   craft('diamond', 'amulet_of_power', 55, 100),
   craft('dragonstone', 'dragonstone_amulet', 70, 150),
-  bow('logs', 'shortbow', 5, 5),
-  bow('oak_logs', 'oak_shortbow', 20, 16.5),
-  bow('willow_logs', 'willow_shortbow', 35, 33.3),
-  bow('maple_logs', 'maple_shortbow', 50, 50),
-  bow('yew_logs', 'yew_shortbow', 65, 67.5),
-  bow('magic_logs', 'magic_shortbow', 80, 83.3),
-  arrows('bronze', 'logs', 1, 1.3),
-  arrows('iron', 'logs', 15, 2.5),
-  arrows('steel', 'oak_logs', 30, 5),
-  arrows('mithril', 'willow_logs', 45, 7.5),
-  arrows('adamant', 'maple_logs', 60, 10),
-  arrows('rune', 'yew_logs', 75, 12.5),
-  arrows('dragon', 'magic_logs', 90, 15),
+  bow('logs', 'shortbow', 5, 25),
+  bow('oak_logs', 'oak_shortbow', 20, 40),
+  bow('willow_logs', 'willow_shortbow', 35, 70),
+  bow('maple_logs', 'maple_shortbow', 50, 100),
+  bow('yew_logs', 'yew_shortbow', 65, 160),
+  bow('magic_logs', 'magic_shortbow', 80, 230),
+  arrows('bronze', 'logs', 1, 2.5),
+  arrows('iron', 'logs', 15, 4),
+  arrows('steel', 'oak_logs', 30, 6),
+  arrows('mithril', 'willow_logs', 45, 9),
+  arrows('adamant', 'maple_logs', 60, 12),
+  arrows('rune', 'yew_logs', 75, 15),
+  arrows('dragon', 'magic_logs', 90, 20),
 ];
 
 export function recipesFor(station: Station): Recipe[] {
