@@ -31,7 +31,7 @@ import { Materials, STRUCTURES, STRUCTURE_BY_ID, StructureId, nextStructureLevel
 import {
   addMastery, campSetupFor, claimContract, claimableContracts, payBestiary, payLogMilestones, claimQuest, claimableQuests, masteryLevels, noteContractDepth, settleRun,
 } from '../meta/camp';
-import { ensureContracts } from '../data/contracts';
+import { ensureContracts, today } from '../data/contracts';
 import { campAdvice } from '../meta/advice';
 import { MODIFIERS_UNLOCK_BOSS } from '../data/modifiers';
 import { MASTERY_BONUS } from '../data/mastery';
@@ -148,6 +148,8 @@ export class DungeonScene extends Phaser.Scene {
   private startPending = false;
   /** P: the player paused the game. */
   userPaused = false;
+  /** First-run-of-the-day bonus paid on the last run (shown on the summary). */
+  lastDailyBonus = 0;
   /** Materials the last run brought home (shown on the death screen). */
   lastMaterials: Materials | null = null;
   /** Autoplay in progress: target floor and the bot's memory. */
@@ -467,6 +469,14 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     this.lastEarned = g.tokensEarned;
+    // First run of the day: +50% tokens (not for runs that paid nothing).
+    this.lastDailyBonus = 0;
+    const day = today();
+    if (this.lastEarned > 0 && this.meta.dailyBonusDay !== day) {
+      this.meta.dailyBonusDay = day;
+      this.lastDailyBonus = Math.floor(this.lastEarned / 2);
+      this.lastEarned += this.lastDailyBonus;
+    }
     const record = { depth: g.depth, kills: g.kills, tokens: this.lastEarned, killedBy: g.forfeited ? 'left' : g.runStats.killedBy || '?', at: Date.now() };
     this.meta.history = [record, ...(this.meta.history ?? [])].slice(0, 10);
     this.meta.tokens += this.lastEarned;
