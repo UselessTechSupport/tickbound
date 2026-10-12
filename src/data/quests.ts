@@ -34,7 +34,7 @@ export interface QuestDef {
   posted?: (m: MetaSave) => boolean;
 }
 
-const LOGS = ['logs', 'oak_logs', 'willow_logs', 'maple_logs', 'yew_logs'];
+const LOGS = ['logs', 'oak_logs', 'willow_logs', 'maple_logs', 'yew_logs', 'magic_logs'];
 const ORES = ['copper_ore', 'tin_ore', 'iron_ore', 'coal', 'mithril_ore', 'adamantite_ore', 'runite_ore'];
 
 export const QUESTS: QuestDef[] = [

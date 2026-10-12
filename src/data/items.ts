@@ -251,6 +251,7 @@ const list: ItemDef[] = [
   { id: 'willow_logs', burnTicks: 200, name: 'Willow logs', color: 0x7a6a3a, examine: 'Logs cut from a willow tree.' },
   { id: 'maple_logs', burnTicks: 250, name: 'Maple logs', color: 0xa0522d, examine: 'Logs cut from a maple tree.' },
   { id: 'yew_logs', burnTicks: 300, name: 'Yew logs', color: 0x6b4423, examine: 'Logs cut from a yew tree.' },
+  { id: 'magic_logs', burnTicks: 400, name: 'Magic logs', color: 0x5a7ad0, examine: 'Logs cut from a magic tree. They hum faintly.' },
   { id: 'raw_shrimps', name: 'Raw shrimps', color: 0xc0a0a0, examine: 'I should try cooking this.' },
   { id: 'raw_trout', name: 'Raw trout', color: 0x909aa0, examine: 'I should try cooking this.' },
   { id: 'raw_lobster', name: 'Raw lobster', color: 0x5a3a7a, examine: 'I should try cooking this.' },
