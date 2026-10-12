@@ -113,6 +113,22 @@ describe('slayer unlock', () => {
     expect(loadMeta().slayerUnlocked).toBe(false);
     delete (globalThis as { localStorage?: unknown }).localStorage;
   });
+
+  it('a task stuck at 0 left (finished during autoplay) is paid and cleared on load', async () => {
+    const { loadMeta } = await import('../src/save/meta');
+    const store: Record<string, string> = {};
+    (globalThis as { localStorage?: unknown }).localStorage = {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => (store[k] = v),
+    };
+    store['tickbound.meta'] = JSON.stringify({ tokens: 5, slayerUnlocked: true, slayerTask: { category: 'rats', total: 8, remaining: 0 } });
+    const m = loadMeta();
+    expect(m.slayerTask).toBeNull();
+    expect(m.tokens).toBe(5 + 2 * 8);
+    expect(m.lifetime.tasks).toBe(1);
+    expect(m.slayerUnlocked).toBe(true);
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
 });
 
 describe('slayer unlocks', () => {

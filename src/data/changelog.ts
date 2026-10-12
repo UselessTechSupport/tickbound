@@ -12,6 +12,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: 11,
+    date: '2026-10-12',
+    title: 'Slayer task fixes',
+    items: [
+      'Fixed: a Slayer task finished while autoplay was running got stuck at 0 left, unpaid, and the Slayer master would not give a new one. Stuck tasks are now paid out and cleared.',
+      'Fixed: Slayer kills made after a refreshed run was restored could be lost.',
+    ],
+  },
+  {
     id: 10,
     date: '2026-10-12',
     title: 'One-bar smithing and off-hands',
