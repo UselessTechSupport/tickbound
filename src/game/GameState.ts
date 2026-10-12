@@ -221,6 +221,8 @@ export class GameState {
   relics: string[] = [];
   /** Relics on offer, waiting for the player to pick one (the scene pauses meanwhile). */
   pendingRelics: string[] | null = null;
+  /** Fight back automatically when attacked while idle or skilling (from settings). */
+  autoRetaliate = true;
   /** Item categories picked up automatically when walked over (from settings). */
   autoPickup = { coins: false, arrows: false, runes: false };
   /** The merchant whose shop window is open. */
@@ -2446,7 +2448,7 @@ export class GameState {
     // Auto-retaliate when idle or skilling.
     const busy = p.intent?.kind;
     const canRetaliate = !npc.dead && this.npcs.includes(npc);
-    if (canRetaliate && ((!busy && !p.path.length) || busy === 'gather' || busy === 'process')) {
+    if (this.autoRetaliate && canRetaliate && ((!busy && !p.path.length) || busy === 'gather' || busy === 'process')) {
       p.intent = { kind: 'attack', npc };
     }
     if (p.dead) {

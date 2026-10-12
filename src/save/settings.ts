@@ -18,6 +18,8 @@ export interface Settings {
   levelUpFlash: boolean;
   /** Spiders are drawn as harmless-looking brown blobs. */
   arachnophobia: boolean;
+  /** Fight back automatically when attacked while idle or skilling. */
+  autoRetaliate: boolean;
 }
 
 const KEY = 'tickbound.settings';
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowAutoplay: true,
   levelUpFlash: true,
   arachnophobia: false,
+  autoRetaliate: true,
 };
 
 function read(key: string): string | null {
