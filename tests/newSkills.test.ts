@@ -130,3 +130,30 @@ describe('Agility', () => {
     throw new Error('no low-level shortcut found');
   });
 });
+
+describe('locked chest fairness', () => {
+  it('locks start at floor 3 with reachable levels', async () => {
+    const { lockLevelFor, LOCKED_CHEST_MIN_DEPTH } = await import('../src/data/thieving');
+    expect(LOCKED_CHEST_MIN_DEPTH).toBe(3);
+    expect(lockLevelFor(3)).toBe(3);
+    expect(lockLevelFor(5)).toBe(9);
+    for (let seed = 1; seed <= 40; seed++) {
+      for (const depth of [1, 2]) {
+        const g = new GameState(seed);
+        g.loadFloor(depth);
+        expect(g.nodes.some((n) => n.kind === 'chest' && n.lockLevel)).toBe(false);
+      }
+    }
+  });
+});
+
+describe('autoplay death', () => {
+  it('a run that died on autoplay pays no tokens', () => {
+    const g = new GameState(321);
+    g.player.inventory.add('coins', 500);
+    g.loadFloor(4);
+    expect(g.tokensEarned).toBeGreaterThan(0);
+    g.noRewards = true;
+    expect(g.tokensEarned).toBe(0);
+  });
+});

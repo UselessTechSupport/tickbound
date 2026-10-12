@@ -285,7 +285,10 @@ export class DungeonScene extends Phaser.Scene {
     if (this.autoplay) {
       if (e.type === 'floor' && this.state) this.onFloorChanged();
       if (e.type === 'death') {
+        // Dying before you take control pays nothing (no tokens, materials or kept items).
         this.autoplay = null;
+        this.state.noRewards = true;
+        this.state.message('Autoplay died before handing over: no rewards from this run.');
         this.bankRun();
         this.bus.emit('autoplay', null);
         this.bus.emit('death', e);
@@ -405,7 +408,7 @@ export class DungeonScene extends Phaser.Scene {
     clearRun();
     const g = this.state;
     this.lastMaterials = null;
-    this.settleCamp(g);
+    if (!g.noRewards) this.settleCamp(g);
     this.lastEarned = g.tokensEarned;
     this.meta.tokens += this.lastEarned;
     this.meta.runs++;

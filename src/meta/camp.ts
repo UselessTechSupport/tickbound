@@ -33,7 +33,12 @@ export function campSetupFor(m: MetaSave): CampSetup {
  */
 export function settleRun(m: MetaSave, g: GameState): Materials {
   const pack = g.player.inventory.slots.filter((s): s is { id: string; qty: number } => !!s);
-  const mats = materialsFrom(pack);
+  const base = materialsFrom(pack);
+  // Lumberjack and Surveyor: more materials from what you carry home.
+  const mats = {
+    timber: Math.floor(base.timber * (1 + 0.25 * (m.perks.lumberjack ?? 0))),
+    metal: Math.floor(base.metal * (1 + 0.25 * (m.perks.surveyor ?? 0))),
+  };
   m.materials.timber += mats.timber;
   m.materials.metal += mats.metal;
   const keep = BANK_SLOTS[m.structures.bank_chest ?? 0];
