@@ -30,6 +30,7 @@ export type Intent =
   | { kind: 'talk'; node: ResourceNode }
   | { kind: 'pickpocket'; npc: Npc }
   | { kind: 'shortcut'; node: ResourceNode }
+  | { kind: 'disarm'; trap: Point }
   | { kind: 'process'; node: ResourceNode; recipe: Recipe; repeat: boolean; started: boolean };
 
 export class Player extends Actor {

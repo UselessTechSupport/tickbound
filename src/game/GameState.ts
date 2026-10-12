@@ -230,6 +230,8 @@ export class GameState {
   /** Warding Charm shield left on this floor; Phoenix Feather used on this floor. */
   wardLeft = 0;
   phoenixUsedFloor = false;
+  /** Hidden traps on this floor; `found` ones are drawn and can be disarmed. */
+  traps: Array<{ x: number; y: number; found: boolean }> = [];
   /** Slayer master unlocks owned. */
   slayerUnlocks: string[] = [];
   /** Run modifiers in effect. */
@@ -497,6 +499,69 @@ export class GameState {
     return spots.length ? spots[Math.floor(rand() * spots.length)] : null;
   }
 
+  /** Hidden pressure-plate traps from floor 2: more of them deeper. */
+  private placeTraps(depth: number): void {
+    this.traps = [];
+    if (depth < 2 || this.isCamp) return;
+    const count = Math.min(6, 1 + Math.floor(rand() * (2 + depth / 5)));
+    for (let i = 0; i < 400 && this.traps.length < count; i++) {
+      const x = Math.floor(rand() * this.map.width);
+      const y = Math.floor(rand() * this.map.height);
+      if (tileAt(this.map, x, y) !== Tile.Floor) continue;
+      if (Math.max(Math.abs(x - this.map.spawn.x), Math.abs(y - this.map.spawn.y)) < 4) continue;
+      if (samePos({ x, y }, this.map.stairs) || this.npcAt(x, y) || this.traps.some((t) => t.x === x && t.y === y)) continue;
+      this.traps.push({ x, y, found: false });
+    }
+  }
+
+  /** Each tick: maybe spot nearby traps (Thieving), then spring any you stepped on (Agility to leap aside). */
+  private checkTraps(): void {
+    if (!this.traps.length || this.over) return;
+    const p = this.player;
+    const spot = 0.08 + 0.004 * p.skills.level('thieving');
+    for (const t of this.traps) {
+      if (!t.found && chebyshev(t, p.pos) <= 2 && rand() < spot) {
+        t.found = true;
+        this.message('You notice a trap on the floor nearby.');
+      }
+    }
+    const stepped = [p.via, p.pos].filter((q): q is Point => !!q && !samePos(q, p.prev));
+    for (const q of stepped) {
+      const trap = this.traps.find((t) => t.x === q.x && t.y === q.y);
+      if (!trap) continue;
+      this.traps.splice(this.traps.indexOf(trap), 1);
+      if (rand() < Math.min(0.6, 0.008 * p.skills.level('agility'))) {
+        this.message('A trap clicks underfoot, but you leap aside!');
+        this.giveXp('agility', 10 * XP_RATE);
+        continue;
+      }
+      this.message('You step on a hidden trap!');
+      this.sound('hurt');
+      this.hurtPlayer(2 + Math.round(this.depth * 0.6), 'a trap');
+      if (this.over) return;
+    }
+  }
+
+  /** Walk next to a spotted trap and disarm it (Thieving). */
+  disarm(x: number, y: number): void {
+    if (this.over) return;
+    this.player.intent = { kind: 'disarm', trap: { x, y } };
+    this.player.path = [];
+  }
+
+  private disarmTrap(trap: { x: number; y: number }): void {
+    this.traps.splice(this.traps.indexOf(trap as { x: number; y: number; found: boolean }), 1);
+    const chance = Math.min(0.95, 0.6 + 0.005 * this.player.skills.level('thieving') + this.thievingBonus());
+    if (rand() < chance) {
+      this.message('You disarm the trap.');
+      this.stat('locks');
+      this.giveXp('thieving', (10 + 2 * this.depth) * XP_RATE);
+    } else {
+      this.message('You set the trap off while disarming it!');
+      this.hurtPlayer(1 + Math.round(this.depth * 0.3), 'a trap');
+    }
+  }
+
   /** Carrying a treasure map: bury a treasure in a room on this floor and hint which way it lies. */
   private placeBuriedTreasure(): void {
     if (!this.player.inventory.count('treasure_map') || this.isCamp) return;
@@ -697,6 +762,7 @@ export class GameState {
     this.npcs = spawnMonsters(this.map);
     this.startFloorEvent(depth);
     this.placeBuriedTreasure();
+    this.placeTraps(depth);
     // Bigger and Badder: task monsters are sometimes elite.
     if (this.slayerUnlocks.includes('bigger_badder')) {
       this.npcs = this.npcs.map((n) => {
@@ -1336,6 +1402,7 @@ export class GameState {
     for (const n of this.npcs) n.prev = { ...n.pos };
 
     this.processPlayer();
+    this.checkTraps();
     this.autoPickUp();
     if (this.over) return;
     for (const n of [...this.npcs]) this.processNpc(n);
@@ -1487,6 +1554,19 @@ export class GameState {
         p.intent = null;
         if (a === 'unreachable') this.message("I can't reach that!");
         else this.tryPickpocket(npc);
+        return;
+      }
+      case 'disarm': {
+        const trap = this.traps.find((t) => t.x === intent.trap.x && t.y === intent.trap.y);
+        if (!trap) {
+          p.intent = null;
+          return;
+        }
+        const a = this.approach(intent.trap);
+        if (a === 'moving') return;
+        p.intent = null;
+        if (a === 'unreachable') this.message("I can't reach that!");
+        else this.disarmTrap(trap);
         return;
       }
       case 'shortcut': {

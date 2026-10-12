@@ -824,6 +824,8 @@ export class DungeonScene extends Phaser.Scene {
     if (!g.isExplored(t.x, t.y)) return opts;
     const examines: MenuOption[] = [];
 
+    const trap = g.traps.find((x) => x.found && x.x === t.x && x.y === t.y);
+    if (trap) opts.push({ label: 'Disarm Trap', action: () => g.disarm(t.x, t.y) });
     const npc = g.npcAt(t.x, t.y);
     if (npc && g.isVisible(t.x, t.y)) {
       const name = `${npc.name} (level-${npc.level})`;
@@ -940,6 +942,11 @@ export class DungeonScene extends Phaser.Scene {
     this.dynamic = [];
     const fx = this.fx.clear();
     for (const n of game.nodes) if (game.isExplored(n.pos.x, n.pos.y)) this.drawNode(fx, n);
+    for (const t of game.traps) {
+      if (!t.found) continue;
+      const img = this.add.image(t.x * TILE + TILE / 2, t.y * TILE + TILE / 2, 'trap').setDepth(1).setTint(0xff8060);
+      this.dynamic.push(img);
+    }
 
     const drawn = new Set<number>();
     for (let i = game.groundItems.length - 1; i >= 0; i--) {

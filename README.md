@@ -78,6 +78,7 @@ npm run dev        # then open http://localhost:5173
   Merchant Caravan, Elite Den, Overgrown, or a Treasure Goblin to chase.
 - **Merchants, chests and wanderers**: buy and sell; chests can be Mimics or locked (Thieving); wandering
   adventurers trade supplies for relics, tokens or coins.
+- **Traps** (floor 2+): hidden pressure plates. Thieving helps you spot and disarm them, Agility to leap aside.
 - **Treasure maps** (rare drops): every floor you carry one to has buried treasure; dig it up.
 
 ### Skills
