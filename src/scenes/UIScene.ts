@@ -15,6 +15,7 @@ import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
 import { journal, journalSpent, overallCompletion } from '../meta/journal';
+import { BESTIARY, BESTIARY_MILESTONES } from '../data/bestiary';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { CURSE_BY_ID } from '../data/curses';
 import { MODIFIERS, modifierBonus } from '../data/modifiers';
@@ -65,7 +66,7 @@ const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops'
-  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests' | 'mastery' | 'journal';
+  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests' | 'mastery' | 'journal' | 'bestiary';
 
 /** What the drop-table window is showing. */
 export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
@@ -237,6 +238,7 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-L', () => this.toggleModal('log'));
     this.input.keyboard?.on('keydown-K', () => this.toggleModal('mastery'));
     this.input.keyboard?.on('keydown-J', () => this.toggleModal('journal'));
+    this.input.keyboard?.on('keydown-B', () => this.toggleModal('bestiary'));
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
     this.input.keyboard?.on('keydown-R', () => this.dungeon.setRunning(!this.dungeon.running));
@@ -626,7 +628,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
-      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board', mastery: 'Skill mastery', journal: 'Progress journal',
+      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board', mastery: 'Skill mastery', journal: 'Progress journal', bestiary: 'Bestiary',
       drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
@@ -649,6 +651,7 @@ export class UIScene extends Phaser.Scene {
       builder: `Tokens: ${meta.tokens}   Timber: ${meta.materials.timber}   Metal: ${meta.materials.metal}`,
       quests: `Quests complete: ${meta.questsDone.length}/${QUESTS.length}`,
       mastery: 'Every level you gain in a run adds mastery points to that skill, for good.',
+      bestiary: `Monsters discovered: ${BESTIARY.filter((n) => meta.killCounts[n.id]).length} / ${BESTIARY.length}   Kill 10, 100 and 1,000 of each for tokens`,
       journal: `Overall completion: ${(overallCompletion(journal(meta)) * 100).toFixed(1)}%   Runs: ${meta.runs}   Best floor: ${meta.bestDepth}`,
       startRun: `Best floor: ${meta.bestDepth}   Deepest boss beaten: ${meta.deepestBoss ? `floor ${meta.deepestBoss}` : 'none yet'}`,
       drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
@@ -670,12 +673,13 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'quests') this.buildQuests(add);
     else if (kind === 'mastery') this.buildMastery(add);
     else if (kind === 'journal') this.buildJournal(add);
+    else if (kind === 'bestiary') this.buildBestiary(add);
     else if (kind === 'startRun') this.buildStartRun(add);
     else this.buildToolsmith(add);
   }
 
   /** Hotkeys toggle these windows; they never replace a shop or relic choice in progress. */
-  private toggleModal(kind: 'achievements' | 'log' | 'settings' | 'mastery' | 'journal'): void {
+  private toggleModal(kind: 'achievements' | 'log' | 'settings' | 'mastery' | 'journal' | 'bestiary'): void {
     if (this.modalKind === kind) this.closeModal();
     else if (!this.modalKind || ['achievements', 'log', 'settings'].includes(this.modalKind)) this.openModal(kind);
   }
@@ -871,6 +875,28 @@ export class UIScene extends Phaser.Scene {
     }
     add(this.add.text(x0, y + 6, s.bonusClaimed ? 'All three done today: bonus claimed!'
       : `Finish all three for a bonus of ${contractBonus(m.bestDepth)} tokens.`, { ...FONT, fontSize: '12px', color: s.bonusClaimed ? '#60ff60' : '#ffffff' }));
+  }
+
+  /** Bestiary: every monster with its kill count and next milestone, in three columns. */
+  private buildBestiary(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const m = this.dungeon.meta;
+    const W = this.panelX;
+    const cols = 3;
+    const colW = Math.min(320, (W - 40) / cols);
+    const x0 = (W - colW * cols) / 2;
+    const perCol = Math.ceil(BESTIARY.length / cols);
+    BESTIARY.forEach((n, i) => {
+      const x = x0 + Math.floor(i / perCol) * colW;
+      const y = 92 + (i % perCol) * 34;
+      const kills = m.killCounts[n.id] ?? 0;
+      const seen = kills > 0;
+      const next = BESTIARY_MILESTONES.find((ms) => kills < ms.kills);
+      add(this.add.image(x + 14, y + 14, npcSprite(n.id)).setScale(0.8).setAlpha(seen ? 1 : 0.25));
+      add(this.add.text(x + 34, y + 2, seen ? n.name : '???', { ...FONT, fontSize: '12px', color: n.boss ? '#ff981f' : seen ? '#ffffff' : '#6a6a6a' }));
+      add(this.add.text(x + 34, y + 17, seen ? `${kills.toLocaleString()} kills${next ? `  next: ${next.kills} (+${next.tokens})` : '  complete'}` : 'Not yet met', {
+        ...FONT, fontSize: '10px', color: next ? '#c8c8c8' : '#60ff60',
+      }));
+    });
   }
 
   /** Progress journal: completion of every long-term system. */
@@ -1272,6 +1298,7 @@ export class UIScene extends Phaser.Scene {
       'E            special attack',
       'K            skill mastery',
       'J            progress journal',
+      'B            bestiary',
       'R            run / walk',
       'G            go to stairs',
       'F            quick-eat',

@@ -89,3 +89,15 @@ describe('collection log milestones', () => {
     expect(payLogMilestones(m)).toEqual([]);
   });
 });
+
+describe('bestiary', () => {
+  it('pays kill milestones once', async () => {
+    const { payBestiary } = await import('../src/meta/camp');
+    const m = freshMeta();
+    m.killCounts = { goblin: 150, rat: 9, goblin_warlord: 12 };
+    expect(payBestiary(m)).toEqual({ tokens: 5 + 25 + 5, count: 3 });
+    expect(payBestiary(m)).toEqual({ tokens: 0, count: 0 });
+    m.killCounts.rat = 10;
+    expect(payBestiary(m).tokens).toBe(5);
+  });
+});

@@ -29,7 +29,7 @@ import { enchantCost } from '../data/enchants';
 import { PICKPOCKET } from '../data/thieving';
 import { Materials, STRUCTURES, STRUCTURE_BY_ID, StructureId, nextStructureLevel } from '../data/construction';
 import {
-  addMastery, campSetupFor, claimContract, claimableContracts, payLogMilestones, claimQuest, claimableQuests, masteryLevels, noteContractDepth, settleRun,
+  addMastery, campSetupFor, claimContract, claimableContracts, payBestiary, payLogMilestones, claimQuest, claimableQuests, masteryLevels, noteContractDepth, settleRun,
 } from '../meta/camp';
 import { ensureContracts } from '../data/contracts';
 import { campAdvice } from '../meta/advice';
@@ -229,6 +229,11 @@ export class DungeonScene extends Phaser.Scene {
       armourerUnlocked: (this.meta.perks[ARMOURER_PERK] ?? 0) > 0, enchanterUnlocked: this.meta.enchanterUnlocked,
       built: STRUCTURES.filter((s) => (this.meta.structures[s.id] ?? 0) > 0).map((s) => s.id),
     }));
+    const best = payBestiary(this.meta);
+    if (best.tokens) {
+      this.state.message(`Bestiary: ${best.count} new kill milestone${best.count > 1 ? 's' : ''}! +${best.tokens} Dungeoneering tokens.`);
+      saveMeta(this.meta);
+    }
     for (const ms of payLogMilestones(this.meta)) {
       this.state.message(`Collection log ${Math.round(ms.at * 100)}% filled! +${ms.tokens} Dungeoneering tokens.`);
       this.bus.emit('notice', { kind: 'unlock', name: `Collection log ${Math.round(ms.at * 100)}%: +${ms.tokens} tokens` });
