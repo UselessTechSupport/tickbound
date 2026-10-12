@@ -2,7 +2,7 @@ import { RNG } from 'rot-js';
 import { bossForDepth, isBossFloor, npcsForDepth } from '../data/npcs';
 import { ELITE_AFFIXES, ELITE_CHANCE, ELITE_MIN_DEPTH, eliteDef } from '../data/elites';
 import { Npc } from '../entities/Npc';
-import { FloorMap, Tile, isWalkable, tileAt } from './tiles';
+import { FloorMap, Tile, inHiddenRoom, isWalkable, tileAt } from './tiles';
 
 /** Number of monsters on a floor; grows with depth. */
 export function monsterCount(depth: number): number {
@@ -16,7 +16,7 @@ export function spawnMonsters(map: FloorMap): Npc[] {
   const candidates: { x: number; y: number }[] = [];
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
-      if (tileAt(map, x, y) !== Tile.Floor) continue;
+      if (tileAt(map, x, y) !== Tile.Floor || inHiddenRoom(map, x, y)) continue;
       if (Math.max(Math.abs(x - map.spawn.x), Math.abs(y - map.spawn.y)) < 7) continue;
       candidates.push({ x, y });
     }

@@ -53,6 +53,8 @@ const CHAT_W = 520;
 const CHAT_H = 132;
 const CHAT_LINES = 7;
 const MINIMAP_SCALE = 3;
+/** Phones and tablets: show on-screen buttons for keyboard-only actions. */
+const TOUCH_SCREEN = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 /** Skills panel: 3 columns so all 17 skills fit. */
 const SKILL_COLS = 3;
 const SKILL_COL_W = 72;
@@ -260,12 +262,44 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
+  /** Touch screens: big buttons for what's otherwise only on the keyboard. */
+  private touchBarRect = new Phaser.Geom.Rectangle();
+  private buildTouchBar(root: Phaser.GameObjects.Container): void {
+    const d = this.dungeon;
+    const fullscreen = () => (this.scale.isFullscreen ? this.scale.stopFullscreen() : this.scale.startFullscreen());
+    const buttons: Array<[string, string, () => void]> = [
+      ['Eat', 'Quick-eat: the food that best fits your missing HP', () => !this.state.isCamp && this.state.quickEat()],
+      ['Pause', 'Pause / resume', () => d.togglePause()],
+      ['Zoom +', 'Zoom in (or pinch)', () => d.setZoom(settings.zoom + 0.25)],
+      ['Zoom -', 'Zoom out (or pinch)', () => d.setZoom(settings.zoom - 0.25)],
+      ['Full', 'Fullscreen', fullscreen],
+    ];
+    const w = 76;
+    const h = 40;
+    const x = this.minimapRect.right - w;
+    let y = this.minimapRect.bottom + 34;
+    this.touchBarRect.setTo(x, y, w, buttons.length * (h + 6));
+    for (const [label, tip, action] of buttons) {
+      const b = this.add.text(x, y, label, {
+        ...FONT, fontSize: '16px', color: '#ffd040', backgroundColor: '#2a241ccc', fixedWidth: w, fixedHeight: h,
+        align: 'center', padding: { y: 11 },
+      }).setInteractive({ useHandCursor: true });
+      // Act on release: browsers only allow fullscreen from a completed tap.
+      b.on('pointerdown', () => (this.consumedFrame = this.game.loop.frame));
+      b.on('pointerup', action);
+      this.hoverable(b, () => tip);
+      root.add(b);
+      y += h + 6;
+    }
+  }
+
   /** True if a click at (x, y) belongs to the UI rather than the game map. */
   isOverUi(x: number, y: number): boolean {
     if (this.menu.isOpen || this.consumedFrame === this.game.loop.frame) return true;
     if (x >= this.panelX) return true;
     if (x < CHAT_W && y > this.scale.height - CHAT_H) return true;
     if (this.minimapRect.contains(x, y)) return true;
+    if (TOUCH_SCREEN && this.touchBarRect.contains(x, y)) return true;
     return (this.deathOverlay?.visible ?? false) || this.modal?.visible || this.relicPanel?.visible || !!this.forfeitConfirm;
   }
 
@@ -504,6 +538,7 @@ export class UIScene extends Phaser.Scene {
     this.hoverable(this.stairsButton, () => 'Walk to the stairs (G)');
     root.add([mmBg, this.minimap, this.stairsButton]);
     this.drawMinimap();
+    if (TOUCH_SCREEN) this.buildTouchBar(root);
 
     // ---- Chatbox ----
     root.add(this.add.rectangle(0, H - CHAT_H, CHAT_W, CHAT_H, 0xd6c7a1, 0.92).setOrigin(0).setStrokeStyle(2, PANEL_EDGE));

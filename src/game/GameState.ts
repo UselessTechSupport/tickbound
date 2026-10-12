@@ -37,7 +37,8 @@ import { MasteryLevels, masteryValue } from '../data/mastery';
 import { GARDEN_POOL, GARDEN_SUPER_POOL, STRUCTURE_BY_ID, StructureId, WORKBENCH_SKILLS } from '../data/construction';
 import { SPEC_BY_WEAPON, SPEC_DROP_CHANCE, SPEC_REGEN, SPEC_REGEN_TICKS, SpecDef, specWeaponsFor } from '../data/specials';
 import { PICKPOCKET, POCKET_LIMIT, STUN_TICKS, lockXpFor, thievingChance } from '../data/thieving';
-import { SHORTCUT_KINDS, shortcutChance, shortcutXp } from '../data/agility';
+import { HIDDEN_ROOM_KIND, SHORTCUT_KINDS, shortcutChance, shortcutXp } from '../data/agility';
+import { HIDDEN_ROOM_VARIANTS, stashFood } from '../data/hiddenRooms';
 import { Enchantment, Enchantments, enchantValue, enchantedItems } from '../data/enchants';
 import type { Counter } from '../data/achievements';
 import { sellPriceOf } from '../data/prices';
@@ -505,6 +506,19 @@ export class GameState {
     return spots.length ? spots[Math.floor(rand() * spots.length)] : null;
   }
 
+  /** Loose loot in a hidden room: a pile of coins in a cache, supplies in a stash. */
+  private stockHiddenRoom(depth: number): void {
+    const r = this.map.hidden;
+    if (!r) return;
+    // Opposite sides of the room's middle row, so their name labels don't overlap.
+    const spot = (i: number) => ({ x: i ? r.x + r.w - 1 : r.x, y: r.y + 1 });
+    if (r.variant === 'cache') this.groundItems.push(new GroundItem('coins', 25 * depth + Math.floor(rand() * 25 * depth), spot(0)));
+    if (r.variant === 'stash') {
+      this.groundItems.push(new GroundItem(stashFood(depth), 3 + Math.floor(rand() * 3), spot(0)));
+      this.groundItems.push(new GroundItem('prayer_potion', (depth >= 8 ? 2 : 1) + Math.floor(rand() * 2), spot(1)));
+    }
+  }
+
   /** Hidden pressure-plate traps from floor 2: more of them deeper. */
   private placeTraps(depth: number): void {
     this.traps = [];
@@ -794,6 +808,7 @@ export class GameState {
     this.saintUsedFloor = false;
     this.groundItems = [];
     this.pendingHits = [];
+    this.stockHiddenRoom(depth);
     const p = this.player;
     if (depth > 1) p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + Math.ceil(p.maxPrayer * this.mods.descentPrayerRestore));
     if (depth > 1 && this.perkRank('fresh_air')) p.hp = Math.min(p.maxHp, p.hp + Math.ceil(p.maxHp * 0.1 * this.perkRank('fresh_air')));
@@ -1005,6 +1020,13 @@ export class GameState {
     p.pos = { ...to };
     p.path = [];
     this.message(`You ${kind.verb.toLowerCase().replace('-', ' ')} the ${kind.name.toLowerCase()}.`);
+    if (sc.kind === HIDDEN_ROOM_KIND && samePos(to, sc.b) && !node.used && this.map.hidden) {
+      node.used = true; // first time in
+      const v = HIDDEN_ROOM_VARIANTS.find((x) => x.id === this.map.hidden!.variant)!;
+      this.message(`You've found a hidden room: ${v.found}`);
+      this.stat('hiddenRooms');
+      this.sound('levelup');
+    }
     this.sound('stairs');
     this.stat('shortcuts');
     this.giveXp('agility', shortcutXp(sc.level) * XP_RATE * (boots ? 2 : 1));
@@ -1101,7 +1123,7 @@ export class GameState {
       this.giveXp('thieving', lockXpFor(this.depth) * XP_RATE);
     }
     node.used = true;
-    if (!locked && this.depth >= 3 && rand() < MIMIC_CHANCE) {
+    if (!locked && !node.cache && this.depth >= 3 && rand() < MIMIC_CHANCE) {
       // The "chest" was a monster all along: it leaves its spot and attacks.
       this.nodes.splice(this.nodes.indexOf(node), 1);
       setTile(this.map, node.pos.x, node.pos.y, Tile.Floor);
@@ -1114,7 +1136,7 @@ export class GameState {
     }
     const got: string[] = [];
     this.stat('chests');
-    const loot = locked ? [...chestLoot(this.depth), ...chestLoot(this.depth)] : chestLoot(this.depth);
+    const loot = locked || node.cache ? [...chestLoot(this.depth), ...chestLoot(this.depth)] : chestLoot(this.depth);
     for (const { id, qty } of loot) {
       this.emit({ type: 'obtain', item: id, qty, source: 'chest' });
       if (this.player.inventory.add(id, qty)) this.countLoot(id, qty);

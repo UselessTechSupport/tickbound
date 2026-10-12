@@ -27,6 +27,13 @@ export interface FloorMap {
   stairs: Point;
   depth: number;
   rooms: Room[];
+  /** A sealed room behind a cracked wall (interior bounds), if this floor has one. */
+  hidden?: { x: number; y: number; w: number; h: number; variant: import('../data/hiddenRooms').HiddenRoomVariant };
+}
+
+export function inHiddenRoom(map: FloorMap, x: number, y: number): boolean {
+  const r = map.hidden;
+  return !!r && x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
 }
 
 export function tileAt(map: FloorMap, x: number, y: number): Tile {

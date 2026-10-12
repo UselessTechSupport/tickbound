@@ -10,7 +10,13 @@ export const SHORTCUT_KINDS: ShortcutKind[] = [
   { name: 'Crumbling wall', verb: 'Climb-over', examine: 'This wall looks like it could be climbed.' },
   { name: 'Narrow crack', verb: 'Squeeze-through', examine: 'I might just fit through there.' },
   { name: 'Loose rocks', verb: 'Scramble-over', examine: 'A pile of rubble, blocking a gap in the wall.' },
+  // Not a shortcut: leads into a hidden room (only placed by the hidden-room generator).
+  { name: 'Cracked wall', verb: 'Squeeze-through', examine: 'There seems to be a space behind this wall...' },
 ];
+
+/** Kinds that random shortcuts use (the cracked wall is for hidden rooms). */
+export const OPEN_SHORTCUT_KINDS = 3;
+export const HIDDEN_ROOM_KIND = 3;
 
 /** A shortcut is only worth placing if walking around takes at least this many steps. */
 export const SHORTCUT_MIN_SAVING = 14;
