@@ -50,6 +50,8 @@ export interface MetaSave {
   startRelic: string | null;
   /** Floors each pet has come along for (pet levels). */
   petFloors: Record<string, number>;
+  /** One-time migration marker (kit perks -> Armourer gear). */
+  kitsMovedToArmourer?: boolean;
   /** Quests: claimed quest ids, best carried count for "bring" quests, and relics they unlocked. */
   questsDone: string[];
   questCarry: Record<string, number>;
@@ -85,6 +87,13 @@ export function loadMeta(): MetaSave {
     }
     // Anyone who already bought Armourer gear keeps the Armourer.
     if (Object.values(parsed.armoury ?? {}).some((r) => r > 0)) perks.veterans_kit = 1;
+    // Ranger's Kit / Apprentice's Kit used to give starting gear; now they give levels and the
+    // Armourer sells the gear. Old buyers get the matching Armourer tiers (and keep their ranks).
+    const armoury = { ...NO_ARMOURY, ...parsed.armoury };
+    if (!parsed.kitsMovedToArmourer) {
+      armoury.ranged = Math.max(armoury.ranged, perks.rangers_kit ?? 0);
+      armoury.magic = Math.max(armoury.magic, perks.apprentice_kit ?? 0);
+    }
     // Older saves lack the newer fields; fill them with defaults.
     return {
       ...freshMeta(), ...parsed, tokens, tools: { ...NO_TOOLS, ...parsed.tools }, perks,
@@ -92,7 +101,7 @@ export function loadMeta(): MetaSave {
       made: { ...parsed.made }, slayerTask: parsed.slayerTask ?? null,
       // Saves that already used Slayer (before it was gated) keep it.
       slayerUnlocked: parsed.slayerUnlocked ?? (!!parsed.slayerTask || (parsed.lifetime?.tasks ?? 0) > 0),
-      armoury: { ...NO_ARMOURY, ...parsed.armoury },
+      armoury, kitsMovedToArmourer: true,
       enchants: { ...parsed.enchants },
       structures: { ...parsed.structures },
       materials: { timber: 0, metal: 0, ...parsed.materials },

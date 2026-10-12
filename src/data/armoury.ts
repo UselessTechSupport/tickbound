@@ -3,7 +3,7 @@
  * Gear above your level starts in your pack until you can wield it.
  */
 
-export type ArmouryLine = 'melee' | 'ranged' | 'magic' | 'body' | 'shield';
+export type ArmouryLine = 'melee' | 'ranged' | 'magic' | 'body' | 'ranged_body' | 'magic_body' | 'shield';
 export type StartStyle = 'melee' | 'ranged' | 'magic';
 
 export interface ArmouryTier {
@@ -42,7 +42,27 @@ export const ARMOURY: Record<ArmouryLine, { name: string; tiers: ArmouryTier[] }
       { label: 'Mystic fire staff + death runes', cost: 700, items: [{ id: 'mystic_fire_staff', qty: 1 }, { id: 'air_rune', qty: 400 }, { id: 'death_rune', qty: 100 }, { id: 'chaos_rune', qty: 100 }] },
     ],
   },
-  body: { name: 'Body armour', tiers: metalLine('platebody', [20, 50, 100, 200, 400, 800]) },
+  body: { name: 'Melee armour', tiers: metalLine('platebody', [20, 50, 100, 200, 400, 800]) },
+  ranged_body: {
+    name: 'Ranged armour',
+    tiers: [
+      { label: 'Leather body', cost: 20, items: [{ id: 'leather_body', qty: 1 }] },
+      { label: 'Hardleather body', cost: 50, items: [{ id: 'hardleather_body', qty: 1 }] },
+      { label: 'Studded body', cost: 120, items: [{ id: 'studded_body', qty: 1 }] },
+      { label: "Green d'hide body", cost: 300, items: [{ id: 'green_dhide_body', qty: 1 }] },
+      { label: "Blue d'hide body", cost: 600, items: [{ id: 'blue_dhide_body', qty: 1 }] },
+    ],
+  },
+  magic_body: {
+    name: 'Magic armour',
+    tiers: [
+      { label: 'Wizard robe', cost: 20, items: [{ id: 'wizard_robe', qty: 1 }] },
+      { label: 'Splitbark body', cost: 60, items: [{ id: 'splitbark_body', qty: 1 }] },
+      { label: 'Mystic robe top', cost: 150, items: [{ id: 'mystic_robe_top', qty: 1 }] },
+      { label: 'Infinity top', cost: 350, items: [{ id: 'infinity_top', qty: 1 }] },
+      { label: "Ahrim's robetop", cost: 700, items: [{ id: 'ahrims_robetop', qty: 1 }] },
+    ],
+  },
   shield: { name: 'Shield', tiers: metalLine('kiteshield', [15, 40, 80, 160, 320, 640]) },
 };
 
@@ -50,7 +70,10 @@ export const ARMOURY_LINES = Object.keys(ARMOURY) as ArmouryLine[];
 
 export type ArmouryRanks = Record<ArmouryLine, number>;
 
-export const NO_ARMOURY: ArmouryRanks = { melee: 0, ranged: 0, magic: 0, body: 0, shield: 0 };
+export const NO_ARMOURY: ArmouryRanks = { melee: 0, ranged: 0, magic: 0, body: 0, ranged_body: 0, magic_body: 0, shield: 0 };
+
+/** The armour line that suits each starting style (worn first if you can). */
+export const STYLE_ARMOUR: Record<StartStyle, ArmouryLine> = { melee: 'body', ranged: 'ranged_body', magic: 'magic_body' };
 
 /** The next tier to buy in a line, or null when it's maxed. */
 export function nextArmouryTier(ranks: ArmouryRanks, line: ArmouryLine): ArmouryTier | null {
