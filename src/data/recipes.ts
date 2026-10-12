@@ -54,6 +54,7 @@ const arrows = (metal: string, logs: string, level: number, xpEach: number): Rec
 /** [metal, base smithing level, xp per bar] */
 const METALS: Array<[string, number, number]> = [
   ['bronze', 1, 12.5], ['iron', 10, 25], ['steel', 20, 37.5], ['mithril', 30, 50], ['adamant', 40, 62.5], ['rune', 50, 75],
+  ['dragon', 70, 90],
 ];
 /** [item suffix, bars, level offset] */
 const SMITHABLES: Array<[string, number, number]> = [['scimitar', 2, 0], ['kiteshield', 3, 2], ['platebody', 5, 5]];
@@ -85,6 +86,7 @@ export const RECIPES: Recipe[] = [
   smelt('mithril', 30, 30, 'mithril_ore', 2),
   smelt('adamant', 40, 37.5, 'adamantite_ore', 3),
   smelt('rune', 50, 50, 'runite_ore', 4),
+  smelt('dragon', 70, 65, 'dragonite_ore', 5),
 
   ...METALS.flatMap(([metal, base, xp]) => SMITHABLES.map(([thing, bars, offset]): Recipe => ({
     id: `smith_${metal}_${thing}`, station: 'anvil', skill: 'smithing', level: base + offset, xp: xp * bars,

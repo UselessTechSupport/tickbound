@@ -70,6 +70,7 @@ const list: ResourceDef[] = [
   rock('mithril', 'Mithril rocks', 30, 80, 'mithril_ore', 8, 99, 2, 0x3a4a7c),
   rock('adamantite', 'Adamantite rocks', 40, 95, 'adamantite_ore', 12, 99, 1, 0x3a6a3a),
   rock('runite', 'Runite rocks', 50, 125, 'runite_ore', 16, 99, 1, 0x3fa9b8),
+  rock('dragonite', 'Dragonite rocks', 70, 200, 'dragonite_ore', 25, 999, 1, 0xd04030),
 
   tree('tree', 'Tree', 1, 25, 'logs', [1, 2], 1, 6, 3, 0x3f7a2a),
   tree('oak', 'Oak tree', 10, 37.5, 'oak_logs', [2, 4], 3, 10, 3, 0x4f8a2a),
