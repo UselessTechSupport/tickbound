@@ -148,6 +148,8 @@ export class DungeonScene extends Phaser.Scene {
   private startPending = false;
   /** P: the player paused the game. */
   userPaused = false;
+  /** Tokens paid for new depth records on the last run. */
+  lastRecordBonus = 0;
   /** First-run-of-the-day bonus paid on the last run (shown on the summary). */
   lastDailyBonus = 0;
   /** Materials the last run brought home (shown on the death screen). */
@@ -482,6 +484,12 @@ export class DungeonScene extends Phaser.Scene {
     this.meta.history = [record, ...(this.meta.history ?? [])].slice(0, 10);
     this.meta.tokens += this.lastEarned;
     this.meta.runs++;
+    // New depth records pay 10 x floor tokens per new floor (not for skipped/autoplayed floors or failed autoplay).
+    this.lastRecordBonus = 0;
+    if (!g.noRewards && g.depth > this.meta.bestDepth) {
+      for (let f = Math.max(2, this.meta.bestDepth + 1); f <= g.depth; f++) this.lastRecordBonus += 10 * f;
+      this.meta.tokens += this.lastRecordBonus;
+    }
     this.meta.bestDepth = Math.max(this.meta.bestDepth, g.depth);
     saveMeta(this.meta);
   }
