@@ -2,9 +2,9 @@ import { SkillName } from './skills';
 
 /** Tools unlocked through meta-progression; 0 / false means not unlocked. */
 export interface Toolbelt {
-  /** Pickaxe tier, 1 (bronze) .. 6 (rune). */
+  /** Pickaxe tier, 1 (bronze) .. 7 (dragon). */
   pickaxe: number;
-  /** Axe tier, 1 (bronze) .. 6 (rune). */
+  /** Axe tier, 1 (bronze) .. 7 (dragon). */
   axe: number;
   /** Fishing gear tier: 1 net, 2 +fly rod, 3 +lobster pot, 4 +harpoon. */
   fishing: number;
@@ -26,6 +26,7 @@ export const TOOL_TIERS = [
   { name: 'Mithril', level: 15 },
   { name: 'Adamant', level: 25 },
   { name: 'Rune', level: 35 },
+  { name: 'Dragon', level: 60 },
 ] as const;
 
 export const FISHING_GEAR = ['Small fishing net', 'Fly fishing rod', 'Lobster pot', 'Harpoon'] as const;
@@ -41,7 +42,7 @@ export function usableTier(unlocked: number, level: number): number {
 
 export type UnlockKey = 'pickaxe' | 'axe' | 'fishing' | 'hammer' | 'tinderbox' | 'knife' | 'chisel';
 
-const METAL_COSTS = [25, 60, 120, 250, 450, 800];
+const METAL_COSTS = [25, 60, 120, 250, 450, 800, 2000];
 const FISHING_COSTS = [25, 80, 200, 400];
 
 export interface UnlockOffer {
