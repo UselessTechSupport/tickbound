@@ -392,7 +392,12 @@ export class UIScene extends Phaser.Scene {
     });
     y += 5 * EQUIP_ROW_H + 3;
 
-    this.toolText = this.add.text(px + 10, y, '', { ...FONT, fontSize: '12px', color: '#9fd0ff', lineSpacing: 2 });
+    this.toolText = this.add.text(px + 10, y, '', { ...FONT, fontSize: '12px', color: '#9fd0ff', lineSpacing: 2 }).setInteractive();
+    this.hoverable(this.toolText, () => {
+      const t = this.state.player.tools;
+      const kit = [t.hammer && 'Hammer', t.tinderbox && 'Tinderbox', t.knife && 'Knife', t.chisel && 'Chisel'].filter(Boolean).join(', ');
+      return `Tools (from the Toolsmith). Kit: ${kit || 'none yet'}`;
+    });
     root.add(this.toolText);
     y += 2 * 16 + 4;
 
@@ -1975,6 +1980,7 @@ export class UIScene extends Phaser.Scene {
     const curses = g.isCamp ? '' : g.curses.map((c) => CURSE_BY_ID[c].name).join(', ');
     const modText = g.isCamp || !g.modifiers.length ? '' : `Modifiers: ${g.modifiers.map((m) => MODIFIERS.find((x) => x.id === m)?.name).join(', ')}`;
     this.eventLabel.setText([ev ? `${ev.name}: ${ev.desc}` : '', curses ? `Cursed: ${curses}` : '', modText].filter(Boolean).join('\n'));
+    this.eventLabel.setY(this.relicText.text ? this.relicText.y + this.relicText.height + 2 : this.relicText.y);
 
     this.header.setText(g.isCamp ? `Camp  Tokens ${this.dungeon.meta.tokens}` : `Floor ${g.depth}  Combat ${p.combatLevel}`);
     const running = this.dungeon.running;
@@ -2043,7 +2049,7 @@ export class UIScene extends Phaser.Scene {
     const metal = (tier: number) => (tier ? TOOL_TIERS[tier - 1].name : '-');
     this.toolText.setText([
       `Pick: ${metal(t.pickaxe).padEnd(8)} Axe: ${metal(t.axe)}`,
-      `Fish: ${(['-', 'Net', 'Rod', 'Pot', 'Harpoon'][t.fishing]).padEnd(8)} ${t.hammer ? 'Hammer ' : ''}${t.tinderbox ? 'Tinder ' : ''}${t.knife ? 'Knife ' : ''}${t.chisel ? 'Chisel' : ''}`,
+      `Fish: ${(['-', 'Net', 'Rod', 'Pot', 'Harpoon'][t.fishing]).padEnd(8)} Kit: ${[t.hammer ? 'Hammer' : '', t.tinderbox ? 'Tinder' : '', t.knife ? 'Knife' : '', t.chisel ? 'Chisel' : ''].filter(Boolean).length ? [t.hammer ? 'H' : '', t.tinderbox ? 'T' : '', t.knife ? 'K' : '', t.chisel ? 'C' : ''].join('') : '-'}`,
     ].join('\n'));
 
     p.inventory.slots.forEach((stack, i) => {
