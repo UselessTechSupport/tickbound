@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MODS, PERKS, PERK_BY_ID, computeMods, nextRankCost, perkBlocker } from '../src/data/skillTree';
+import { BRANCHES, DEFAULT_MODS, FULL_TREE_COST, PERKS, TIER_GATES, branchRanks, computeMods, perkBlocker } from '../src/data/skillTree';
 import { ITEMS } from '../src/data/items';
 import { NPCS } from '../src/data/npcs';
 import { Npc } from '../src/entities/Npc';
@@ -7,22 +7,38 @@ import { GameEvent, GameState } from '../src/game/GameState';
 import { Tile, tileAt } from '../src/world/tiles';
 
 describe('skill tree data', () => {
-  it('has valid prerequisites in the same branch, above the perk', () => {
+  it('every perk has a unique id, a valid tier and lane, and no two share a slot', () => {
+    expect(new Set(PERKS.map((p) => p.id)).size).toBe(PERKS.length);
+    const slots = new Set<string>();
     for (const p of PERKS) {
-      if (!p.requires) continue;
-      const req = PERK_BY_ID[p.requires];
-      expect(req, p.id).toBeDefined();
-      expect(req.branch).toBe(p.branch);
-      expect(req.tier).toBeLessThan(p.tier);
+      expect(p.tier).toBeGreaterThanOrEqual(0);
+      expect(p.tier).toBeLessThan(TIER_GATES.length);
+      expect([0, 1, 2]).toContain(p.lane);
+      const key = `${p.branch}/${p.tier}/${p.lane}`;
+      expect(slots.has(key), key).toBe(false);
+      slots.add(key);
     }
   });
 
-  it('gates purchases on prerequisites, tokens and max rank', () => {
-    expect(perkBlocker({}, 1000, 'iron_will')).toMatch(/Requires Basic Training/);
+  it('every capstone is reachable: enough ranks below it in its branch', () => {
+    for (const b of BRANCHES) {
+      const below = PERKS.filter((p) => p.branch === b.id && p.tier < 6).reduce((n, p) => n + p.costs.length, 0);
+      expect(below, b.id).toBeGreaterThanOrEqual(TIER_GATES[6]);
+    }
+  });
+
+  it('the full tree is a long-term goal', () => {
+    expect(PERKS.length).toBeGreaterThanOrEqual(90);
+    expect(FULL_TREE_COST).toBeGreaterThan(300_000);
+  });
+
+  it('gates purchases on tier, tokens and max rank', () => {
+    expect(perkBlocker({}, 100000, 'brute_force')).toMatch(/Opens after 4 ranks in Melee/);
+    expect(perkBlocker({ basic_training: 4 }, 100000, 'brute_force')).toBeNull();
     expect(perkBlocker({}, 5, 'basic_training')).toMatch(/Needs 15/);
     expect(perkBlocker({}, 15, 'basic_training')).toBeNull();
-    expect(perkBlocker({ basic_training: 3 }, 1000, 'basic_training')).toBe('Fully upgraded.');
-    expect(nextRankCost({ basic_training: 1 }, 'basic_training')).toBe(30);
+    expect(perkBlocker({ basic_training: 5 }, 1000, 'basic_training')).toBe('Fully upgraded.');
+    expect(branchRanks({ basic_training: 2, precision: 1, iron_will: 3 }, 'melee')).toBe(3);
   });
 
   it('starting items and gear are real items', () => {

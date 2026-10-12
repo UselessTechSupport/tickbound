@@ -9,7 +9,6 @@ import { TOOL_TIERS, nextUnlocks } from '../data/tools';
 import { PRAYERS, PROTECTION_HOTKEYS } from '../data/prayers';
 import { SPELLS, SPELL_BY_ID } from '../data/spells';
 import { RELIC_BY_ID } from '../data/relics';
-import { sellPriceOf } from '../data/prices';
 import { itemInfo, speedText } from '../ui/itemInfo';
 import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/achievements';
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
@@ -36,7 +35,7 @@ const CONTROLS = [
   'A: achievements.  L: collection log (pick your pet there).',
   'Click the minimap to walk there. Hover skills for XP details, items for stats. Shift-click items to drop.',
 ];
-import { BRANCHES, PERKS, nextRankCost, perkBlocker } from '../data/skillTree';
+import { BRANCHES, Branch, PERKS, TIER_GATES, branchRanks, nextRankCost, perkBlocker, tierBlocker } from '../data/skillTree';
 import { ContextMenu, MenuOption, describeOptions } from '../ui/ContextMenu';
 import { FLOOR_HEIGHT, FLOOR_WIDTH } from '../world/dungeonGen';
 import { Tile, tileAt } from '../world/tiles';
@@ -153,6 +152,8 @@ export class UIScene extends Phaser.Scene {
   private logCategory = LOG_CATEGORIES[0].id;
   private dropsSubject: DropsSubject | null = null;
   private autoplayOverlay?: Phaser.GameObjects.Container;
+  /** Mentor window: which branch tab is open. */
+  private treeBranch: Branch = 'melee';
   /** Enchanter window: which gear line is selected. */
   private enchantLine?: ArmouryLine;
   private achievementTier: Tier = 'easy';
@@ -1284,9 +1285,9 @@ export class UIScene extends Phaser.Scene {
     const coins = g.player.inventory.count('coins');
     (g.activeMerchant?.stock ?? []).forEach((s, i) => {
       const bundle = item(s.id).stackable ? Math.min(s.qty, 25) : 1;
-      const can = s.qty > 0 && coins >= s.price * bundle;
+      const can = s.qty > 0 && coins >= this.state.buyPrice(s.price) * bundle;
       const label = s.qty > 0
-        ? `${item(s.id).name}${bundle > 1 ? ` x${bundle}` : ''}  -  ${(s.price * bundle).toLocaleString()} gp  (${s.qty} left)`
+        ? `${item(s.id).name}${bundle > 1 ? ` x${bundle}` : ''}  -  ${(this.state.buyPrice(s.price) * bundle).toLocaleString()} gp  (${s.qty} left)`
         : `${item(s.id).name}  -  sold out`;
       const row = add(this.add.text(leftX, 112 + i * 28, label, rowStyle(can)));
       if (can) clickable(row, () => g.buy(i));
@@ -1295,9 +1296,9 @@ export class UIScene extends Phaser.Scene {
     add(this.add.text(rightX, 90, 'Sell (click, whole stack)', { ...FONT, color: '#c8c8c8' }));
     const sellable = g.player.inventory.slots
       .map((s, slot) => ({ s, slot }))
-      .filter(({ s }) => s && s.id !== 'coins' && sellPriceOf(s.id) > 0);
+      .filter(({ s }) => s && s.id !== 'coins' && this.state.sellPrice(s.id) > 0);
     sellable.slice(0, 16).forEach(({ s, slot }, i) => {
-      const total = sellPriceOf(s!.id) * s!.qty;
+      const total = this.state.sellPrice(s!.id) * s!.qty;
       const row = add(this.add.text(rightX, 112 + i * 28, `${item(s!.id).name}${s!.qty > 1 ? ` x${s!.qty}` : ''}  -  ${total.toLocaleString()} gp`, rowStyle(true)));
       clickable(row, () => g.sell(slot));
     });
@@ -1332,53 +1333,64 @@ export class UIScene extends Phaser.Scene {
     if (!offers.length) add(this.add.text(cx, 130, 'Every tool is unlocked!', { ...FONT, color: '#00ff00' }).setOrigin(0.5, 0));
   }
 
-  /** Five branch columns, perks as boxes linked to their prerequisite. */
+  /** Skill tree: a tab per branch; perks laid out by tier, which open as you put ranks into the branch. */
   private buildSkillTree(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
     const d = this.dungeon;
     const ranks = d.meta.perks;
-    const colW = Math.min(200, (this.panelX - 40) / BRANCHES.length);
-    const x0 = (this.panelX - colW * BRANCHES.length) / 2;
-    const boxW = colW - 14;
-    const boxH = 70;
-    const rowY = (tier: number) => 120 + tier * 92;
-    const center = new Map<string, { x: number; y: number }>();
-    for (const perk of PERKS) {
-      const col = BRANCHES.findIndex((b) => b.id === perk.branch);
-      center.set(perk.id, { x: x0 + col * colW + colW / 2, y: rowY(perk.tier) + boxH / 2 });
-    }
-
-    const lines = add(this.add.graphics());
-    for (const perk of PERKS) {
-      if (!perk.requires) continue;
-      const a = center.get(perk.requires)!;
-      const b = center.get(perk.id)!;
-      lines.lineStyle(2, ranks[perk.requires] ? 0xc8a050 : 0x4a4038).lineBetween(a.x, a.y + boxH / 2, b.x, b.y - boxH / 2);
-    }
-
+    const W = this.panelX;
+    const branch = BRANCHES.find((b) => b.id === this.treeBranch) ?? BRANCHES[0];
+    const tabW = Math.min(96, (W - 40) / BRANCHES.length);
+    const tx0 = (W - tabW * BRANCHES.length) / 2;
     BRANCHES.forEach((b, i) => {
-      add(this.add.text(x0 + i * colW + colW / 2, 92, b.name, { ...FONT, fontSize: '15px', color: Phaser.Display.Color.IntegerToColor(b.color).rgba })
-        .setOrigin(0.5, 0));
+      const on = b.id === branch.id;
+      const spent = branchRanks(ranks, b.id);
+      const tab = add(this.add.text(tx0 + i * tabW, 84, `${b.name}\n${spent}`, {
+        ...FONT, fontSize: '11px', align: 'center', fixedWidth: tabW - 4, padding: { x: 0, y: 2 },
+        color: on ? '#ffffff' : Phaser.Display.Color.IntegerToColor(b.color).rgba,
+        backgroundColor: on ? '#5d5447' : '#2a241c',
+      }).setInteractive({ useHandCursor: true }));
+      tab.on('pointerdown', () => {
+        this.treeBranch = b.id;
+        this.openModal('mentor');
+      });
     });
-
-    const info = add(this.add.text(this.panelX / 2, rowY(4) + 4, 'Hover a perk to see what it does. Click to buy a rank.', {
-      ...FONT, fontSize: '13px', color: '#ffffff', align: 'center', wordWrap: { width: this.panelX - 60 },
+    const spent = branchRanks(ranks, branch.id);
+    add(this.add.text(W / 2, 122, `${branch.name}: ${branch.theme}   Ranks in this branch: ${spent}`, {
+      ...FONT, fontSize: '12px', color: '#c8c8c8',
     }).setOrigin(0.5, 0));
 
-    for (const perk of PERKS) {
-      const c = center.get(perk.id)!;
+    const rowY = (tier: number) => 146 + tier * 60;
+    const laneX = (lane: number) => W / 2 + (lane - 1) * 236;
+    const boxW = 220;
+    const boxH = 50;
+    const gfx = add(this.add.graphics());
+    for (let t = 0; t < TIER_GATES.length; t++) {
+      const open = spent >= TIER_GATES[t];
+      gfx.lineStyle(1, 0x3a3228, 1).lineBetween(laneX(0) - boxW / 2 - 90, rowY(t) - 5, laneX(2) + boxW / 2, rowY(t) - 5);
+      add(this.add.text(laneX(0) - boxW / 2 - 90, rowY(t) + 8, t === 6 ? `Capstone\n${TIER_GATES[t]} ranks` : `Tier ${t + 1}\n${TIER_GATES[t]} ranks`, {
+        ...FONT, fontSize: '10px', color: open ? '#a08a5a' : '#5a4a3a',
+      }));
+    }
+
+    const info = add(this.add.text(W / 2, rowY(7) + 2, 'Hover a perk to see what it does. Click to buy a rank.', {
+      ...FONT, fontSize: '12px', color: '#ffffff', align: 'center', wordWrap: { width: W - 80 },
+    }).setOrigin(0.5, 0));
+
+    for (const perk of PERKS.filter((p) => p.branch === branch.id)) {
+      const x = laneX(perk.lane);
+      const y = rowY(perk.tier) + boxH / 2;
       const rank = ranks[perk.id] ?? 0;
       const max = perk.costs.length;
       const blocker = perkBlocker(ranks, d.meta.tokens, perk.id);
-      const color = BRANCHES.find((b) => b.id === perk.branch)!.color;
-      const locked = !!perk.requires && !ranks[perk.requires];
-      const box = add(this.add.rectangle(c.x, c.y, boxW, boxH, rank ? 0x4a3f2a : locked ? 0x1c1812 : 0x2e271e)
-        .setStrokeStyle(rank === max ? 3 : 1, locked ? 0x4a4038 : color).setInteractive({ useHandCursor: !blocker }));
+      const closed = !!tierBlocker(ranks, perk) && !rank;
+      const box = add(this.add.rectangle(x, y, boxW, boxH, rank ? 0x4a3f2a : closed ? 0x1c1812 : 0x2e271e)
+        .setStrokeStyle(rank === max ? 3 : 1, closed ? 0x4a4038 : branch.color).setInteractive({ useHandCursor: !blocker }));
       const cost = nextRankCost(ranks, perk.id);
-      add(this.add.text(c.x, c.y, `${perk.name}\nRank ${rank}/${max}\n${cost === null ? 'MAX' : `${cost} tokens`}`, {
-        ...FONT, fontSize: '11px', align: 'center', lineSpacing: 2,
-        color: locked ? '#6a6a6a' : rank === max ? '#00ff80' : !blocker ? '#ffffff' : '#c8b070',
+      add(this.add.text(x, y, `${perk.name}\nRank ${rank}/${max}   ${cost === null ? 'MAX' : `${cost.toLocaleString()} tokens`}`, {
+        ...FONT, fontSize: '11px', align: 'center', lineSpacing: 3,
+        color: closed ? '#6a6a6a' : rank === max ? '#00ff80' : !blocker ? '#ffffff' : '#c8b070',
       }).setOrigin(0.5));
-      box.on('pointerover', () => info.setText(`${perk.name}: ${perk.desc}\n${blocker ?? `Click to buy rank ${rank + 1} for ${cost} tokens.`}`));
+      box.on('pointerover', () => info.setText(`${perk.name}: ${perk.desc}\n${blocker ?? `Click to buy rank ${rank + 1} for ${cost?.toLocaleString()} tokens.`}`));
       box.on('pointerdown', () => d.buyPerk(perk.id) && this.openModal('mentor'));
     }
   }

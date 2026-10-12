@@ -38,6 +38,9 @@ npm run dev        # then open http://localhost:5173
 
 ## How a run works
 
+- **Mentor's skill tree**: 94 perks in 11 branches (Melee, Ranged, Magic, Mastery, Defence, Survival, Prayer,
+  Gathering, Crafting, Rogue, Fortune). Tiers open as you put ranks into a branch; each branch ends in a capstone.
+  Perks give levels, bonuses and new mechanics, never gear. The full tree costs about 427,000 tokens.
 - **Camp**: talk to the **Mentor** (skill tree perks) and the **Toolsmith** (pickaxe, axe, fishing gear,
   hammer, tinderbox). Climb down the ladder to start a run. A new save has no tools.
 - **Armourer** (camp, unlocked by the Mentor's Veteran's Kit perk): permanent starting-gear tiers: melee, ranged

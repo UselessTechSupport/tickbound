@@ -1,3 +1,4 @@
+import { ALL_LOG_SLOTS } from '../data/collectionLog';
 import Phaser from 'phaser';
 import { TickScheduler } from '../core/tick';
 import { randomSeed } from '../core/rng';
@@ -226,6 +227,8 @@ export class DungeonScene extends Phaser.Scene {
       tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
       armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth, enchants: this.meta.enchants,
       campSetup: this.campSetup(), questRelics: this.meta.questRelics,
+      veteranOf: Object.entries(this.meta.killCounts).filter(([, n]) => n >= 100).map(([id]) => id),
+      logSlots: ALL_LOG_SLOTS.filter((id) => (this.meta.collection[id] ?? 0) > 0 || this.meta.pets.includes(id)).length,
     }));
     if (opts.autoplayTo && opts.autoplayTo > 1) {
       this.autoplay = { target: opts.autoplayTo, memo: newBotMemory(), floorTicks: 0, floor: 1 };

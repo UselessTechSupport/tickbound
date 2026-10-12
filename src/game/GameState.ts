@@ -129,6 +129,9 @@ export interface RunSetup {
   enchanterUnlocked?: boolean;
   /** Relics unlocked by quests. */
   questRelics?: string[];
+  /** Monsters you've killed 100+ times (Monster Lore), and collection log slots filled (Collector). */
+  veteranOf?: string[];
+  logSlots?: number;
   /** Camp structures and pets (see data/construction.ts). */
   campSetup?: CampSetup;
   /** Skip ahead: start on this floor with catch-up levels and supplies (half rewards). */
@@ -143,6 +146,8 @@ const chebyshev = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs
 const cardinalAdjacent = (a: Point, b: Point) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
 const samePos = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
 const rand = () => RNG.getUniform();
+const GATHER_SKILLS: SkillName[] = ['mining', 'woodcutting', 'fishing'];
+const COMBAT_SKILLS: SkillName[] = ['attack', 'strength', 'defence', 'ranged', 'magic', 'hitpoints'];
 
 /**
  * All game rules for a single run. Pure logic with no rendering, so it can be
@@ -198,6 +203,13 @@ export class GameState {
   activeMerchant: ResourceNode | null = null;
   /** Quest relics unlocked so far (they join the relic pool). */
   questRelics: string[] = [];
+  /** Perk support: monsters killed 100+ times, collection log slots, kills on this floor, per-floor flags. */
+  veteranOf: string[] = [];
+  logSlots = 0;
+  floorKills = 0;
+  hitThisFloor = false;
+  saintUsedFloor = false;
+  undyingTimes = 0;
   /** Bonuses from camp structures and your pet for this run. */
   campBonus: CampBonuses = { trophy: 0, workbench: 0, pet: null };
   /** Enchanted Armourer gear by item id. */
@@ -219,6 +231,8 @@ export class GameState {
     this.enchanted = enchantedItems(setup.armoury ?? NO_ARMOURY, setup.enchants ?? {});
     this.campBonus = { trophy: 0, workbench: 0, pet: null, ...setup.campSetup };
     this.questRelics = [...(setup.questRelics ?? [])];
+    this.veteranOf = [...(setup.veteranOf ?? [])];
+    this.logSlots = setup.logSlots ?? 0;
     const startDepth = Math.max(1, setup.startDepth ?? 1);
     this.applyStartingKit(setup, startDepth);
     this.loadFloor(startDepth);
@@ -261,6 +275,8 @@ export class GameState {
       p.skills.xp[skill] = Math.max(p.skills.xp[skill], xpForLevel(level));
     }
     p.equipment = { weapon: 'bronze_dagger', shield: 'wooden_shield' };
+    p.hpBonus = this.perkRank('constitution');
+    p.bowRangeBonus = this.perkRank('long_range');
     p.inventory.add('shrimps', 4);
     for (const it of [...m.startItems, ...(catchUp?.items ?? [])]) p.inventory.add(it.id, it.qty);
 
@@ -333,6 +349,53 @@ export class GameState {
     return this.enchanted.get(itemId);
   }
 
+  /** Rank of a Mentor perk this run (0 if not bought). */
+  perkRank(id: string): number {
+    return this.mods.perkRanks?.[id] ?? 0;
+  }
+
+  /** Perk multipliers on accuracy and max hit for an attack with `mode` against `target`. */
+  private perkMults(mode: AttackType, target?: Npc): { acc: number; dmg: number } {
+    const r = (id: string) => this.perkRank(id);
+    const p = this.player;
+    let acc = 1 + 0.03 * r({ melee: 'precision', ranged: 'eagle_eye', magic: 'arcane_focus' }[mode]);
+    let dmg = 1 + 0.03 * r({ melee: 'brute_force', ranged: 'heavy_draw', magic: 'spell_power' }[mode]);
+    const both = (f: number) => {
+      acc *= f;
+      dmg *= f;
+    };
+    if (mode === 'melee' && p.hp < p.maxHp / 2) both(1 + 0.05 * r('rage'));
+    if (mode === 'magic' && p.hp > p.maxHp * 0.75) both(1 + 0.05 * r('overcharge'));
+    if (target) {
+      if (mode === 'melee' && target.hp < target.maxHp / 4) dmg *= 1 + 0.1 * r('executioner');
+      if (mode === 'magic' && target.def.weakness === 'magic') dmg *= 1 + 0.1 * r('attunement');
+      if (this.veteranOf.includes(target.def.id)) both(1 + 0.03 * r('monster_lore'));
+      if (target.isBoss || target.elite) both(1 + 0.05 * r('giant_slayer'));
+      if (!target.target) both(1 + 0.1 * r('ambusher'));
+    }
+    dmg *= 1 + Math.min(0.01 * this.floorKills, 0.03 * r('momentum'));
+    return { acc, dmg };
+  }
+
+  /** Undying (and Phoenix) charges left this run. */
+  private undyingLeft(): number {
+    return (this.mods.undying ? 1 + this.perkRank('phoenix') : 0) - this.undyingTimes;
+  }
+
+  /** Special attack cost after Weapon Mastery. */
+  specCost(spec: SpecDef): number {
+    return spec.cost - 5 * this.perkRank('weapon_mastery');
+  }
+
+  /** Merchant prices after Haggler. */
+  buyPrice(price: number): number {
+    return Math.max(1, Math.round(price * (1 - 0.1 * this.perkRank('haggler'))));
+  }
+
+  sellPrice(id: string): number {
+    return Math.floor(sellPriceOf(id) * (1 + 0.1 * this.perkRank('haggler')));
+  }
+
   /** Trophy room and pet bonuses to max hit. */
   private campMaxHitMult(mode: AttackType): number {
     const pet = this.campBonus.pet;
@@ -370,13 +433,15 @@ export class GameState {
   get tokensEarned(): number {
     // Tokens from skipped or autoplayed floors (the baseline) only count half.
     const base = this.rawTokens() - this.tokenBaseline / 2;
-    return Math.floor(base * this.mods.tokenMult * (this.hasRelic('lucky_charm') ? 1.25 : 1));
+    const collector = 1 + 0.002 * this.perkRank('collector') * this.logSlots;
+    return Math.floor(base * this.mods.tokenMult * collector * (this.hasRelic('lucky_charm') ? 1.25 : 1));
   }
 
   /** Token value before multipliers and the half-rate for skipped floors. */
   private rawTokens(): number {
-    return 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills + ELITE_TOKENS * this.eliteKills
-      + Math.floor(this.player.inventory.count('coins') / 20);
+    return 15 * (this.depth - 1) + this.kills + this.mods.bossTokens * this.bossKills
+      + (ELITE_TOKENS + 10 * this.perkRank('elite_hunter')) * this.eliteKills
+      + Math.floor(this.player.inventory.count('coins') / 20) * (this.perkRank('midas') ? 2 : 1);
   }
 
   get depth(): number {
@@ -388,11 +453,17 @@ export class GameState {
     this.explored = new Uint8Array(this.map.width * this.map.height);
     // Resources first so monsters only spawn on tiles left free.
     this.nodes = placeResources(this.map);
+    // Bountiful: resources last longer.
+    for (const n of this.nodes) if (n.kind === 'resource') n.remaining += this.perkRank('bountiful');
     this.npcs = spawnMonsters(this.map);
+    this.floorKills = 0;
+    this.hitThisFloor = false;
+    this.saintUsedFloor = false;
     this.groundItems = [];
     this.pendingHits = [];
     const p = this.player;
     if (depth > 1) p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + Math.ceil(p.maxPrayer * this.mods.descentPrayerRestore));
+    if (depth > 1 && this.perkRank('fresh_air')) p.hp = Math.min(p.maxHp, p.hp + Math.ceil(p.maxHp * 0.1 * this.perkRank('fresh_air')));
     p.pos = { ...this.map.spawn };
     p.prev = { ...this.map.spawn };
     p.via = undefined;
@@ -418,7 +489,7 @@ export class GameState {
     task.remaining--;
     this.giveXp('slayer', npc.def.hitpoints * XP_RATE);
     if (task.remaining === 0) {
-      const tokens = cat.tokensPerKill * task.total;
+      const tokens = Math.round(cat.tokensPerKill * task.total * (1 + 0.15 * this.perkRank('slayer_studies')));
       this.message(`You have completed your Slayer task! (+${tokens} Dungeoneering tokens) See the Slayer master at camp for another.`);
       this.stat('tasks');
       this.emit({ type: 'slayerDone', tokens });
@@ -500,8 +571,11 @@ export class GameState {
   /** Damage from traps and getting caught (not from a monster's attack). */
   hurtPlayer(dmg: number, cause: string): void {
     const p = this.player;
-    if (dmg >= p.hp && this.mods.undying && !this.undyingUsed) {
+    // Trap Sense.
+    dmg = Math.max(dmg > 0 ? 1 : 0, Math.round(dmg * (1 - 0.25 * this.perkRank('trap_sense'))));
+    if (dmg >= p.hp && this.undyingLeft() > 0) {
       this.undyingUsed = true;
+      this.undyingTimes++;
       dmg = p.hp - 1;
       this.message('You narrowly cheat death! (Undying)');
     }
@@ -528,12 +602,12 @@ export class GameState {
       this.message(`You need a Thieving level of ${def.level} to pick the ${npc.name.toLowerCase()}'s pocket.`);
       return;
     }
-    if (npc.picked >= POCKET_LIMIT) {
+    if (npc.picked >= POCKET_LIMIT + this.perkRank('rummage')) {
       this.message(`The ${npc.name.toLowerCase()}'s pockets are empty.`);
       return;
     }
     this.message(`You attempt to pick the ${npc.name.toLowerCase()}'s pocket.`);
-    if (rand() >= thievingChance(level, def.level) + this.thievingBonus()) {
+    if (!this.perkRank('shadowstep') && rand() >= thievingChance(level, def.level) + this.thievingBonus()) {
       this.message(`You fail to pick the ${npc.name.toLowerCase()}'s pocket. "What do you think you're doing?!"`);
       this.message("You've been stunned!");
       p.stunnedUntil = this.tickCount + STUN_TICKS;
@@ -547,7 +621,7 @@ export class GameState {
     npc.picked++;
     const pick = RNG.getWeightedValue(Object.fromEntries(def.loot.map((l, i) => [i, l.weight])));
     const loot = def.loot[Number(pick)];
-    const qty = loot.min + Math.floor(rand() * (loot.max - loot.min + 1));
+    const qty = (loot.min + Math.floor(rand() * (loot.max - loot.min + 1))) * (rand() < 0.1 * this.perkRank('master_thief') ? 2 : 1);
     this.emit({ type: 'obtain', item: loot.item, qty, source: 'pickpocket' });
     if (p.inventory.add(loot.item, qty)) this.countLoot(loot.item, qty);
     else this.dropOnTile(loot.item, qty, p.pos);
@@ -559,7 +633,7 @@ export class GameState {
 
   /** Thieves' Gloves relic. */
   private thievingBonus(): number {
-    return this.hasRelic('thieves_gloves') ? 0.15 : 0;
+    return (this.hasRelic('thieves_gloves') ? 0.15 : 0) + 0.03 * this.perkRank('nimble_fingers');
   }
 
   private crossShortcut(node: ResourceNode): void {
@@ -572,7 +646,8 @@ export class GameState {
       return;
     }
     const boots = this.hasRelic('boots_of_lightness');
-    if (!boots && rand() >= shortcutChance(level, sc.level)) {
+    const sure = boots || this.perkRank('shadowstep') > 0;
+    if (!sure && rand() >= shortcutChance(level, sc.level) + 0.05 * this.perkRank('acrobat')) {
       this.message(`You slip trying to ${kind.verb.toLowerCase().replace('-', ' ')} the ${kind.name.toLowerCase()}.`);
       this.sound('hurt');
       this.hurtPlayer(1 + Math.floor(rand() * (1 + Math.ceil(this.depth / 3))), `a ${kind.name.toLowerCase()}`);
@@ -620,7 +695,7 @@ export class GameState {
     const inv = this.player.inventory;
     // Ammo and runes come in bundles so buying isn't a hundred clicks.
     const bundle = item(entry.id).stackable ? Math.min(entry.qty, 25) : 1;
-    const cost = entry.price * bundle;
+    const cost = this.buyPrice(entry.price) * bundle;
     if (inv.count('coins') < cost) {
       this.message("You don't have enough coins.");
       return false;
@@ -641,7 +716,7 @@ export class GameState {
   sell(slot: number): boolean {
     const stack = this.player.inventory.slots[slot];
     if (!this.activeMerchant || !stack || stack.id === 'coins') return false;
-    const each = sellPriceOf(stack.id);
+    const each = this.sellPrice(stack.id);
     if (each <= 0) {
       this.message("The merchant isn't interested in that.");
       return false;
@@ -763,7 +838,7 @@ export class GameState {
   offerRelics(): void {
     const pool = RELICS.filter((r) => !this.hasRelic(r.id) && (!r.quest || this.questRelics.includes(r.id))).map((r) => r.id);
     if (!pool.length) return;
-    this.pendingRelics = RNG.shuffle(pool).slice(0, RELIC_CHOICES);
+    this.pendingRelics = RNG.shuffle(pool).slice(0, RELIC_CHOICES + this.perkRank('relic_hunter'));
     this.emit({ type: 'relicChoice', options: this.pendingRelics });
   }
 
@@ -853,12 +928,14 @@ export class GameState {
         p.boosts[skill] = Math.max(p.boosts[skill] ?? 0, amount);
       }
       p.eatCooldown = EAT_DELAY;
+      p.hp = Math.min(p.maxHp, p.hp + 2 * this.perkRank('field_medic'));
       this.message(`You drink the ${def.name.toLowerCase()}. You feel your ${b.skills.map((s) => SKILL_LABELS[s]).join(', ')} rise.`);
       this.sound('eat');
     } else if (def.restoresPrayer) {
       if (p.eatCooldown > 0) return;
       p.inventory.take(slot, 1);
-      const restore = potionRestore(p.maxPrayer) * (this.hasRelic('holy_wrench') ? 1.5 : 1);
+      const restore = potionRestore(p.maxPrayer) * (this.hasRelic('holy_wrench') ? 1.5 : 1) * (1 + 0.1 * this.perkRank('potent_brews'));
+      p.hp = Math.min(p.maxHp, p.hp + 2 * this.perkRank('field_medic'));
       p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + Math.floor(restore));
       p.eatCooldown = EAT_DELAY;
       this.message('You drink the prayer potion.');
@@ -869,7 +946,7 @@ export class GameState {
       const heal = (def.heal + this.mods.foodHealBonus) * (this.hasRelic('gourmet') ? 1.5 : 1);
       p.hp = Math.min(p.maxHp, p.hp + Math.floor(heal));
       p.eatCooldown = EAT_DELAY;
-      p.attackCooldown += EAT_DELAY;
+      p.attackCooldown += Math.max(0, EAT_DELAY - this.perkRank('quick_eater'));
       this.message(`You eat the ${def.name.toLowerCase()}. It heals some health.`);
       this.runStats.foodEaten++;
       this.sound('eat');
@@ -878,7 +955,7 @@ export class GameState {
       this.message('You bury the bones.');
       this.sound('bury');
       this.stat('bones');
-      this.giveXp('prayer', def.buryXp);
+      this.giveXp('prayer', def.buryXp * (1 + 0.25 * this.perkRank('bone_lore')));
     } else if (def.equip) {
       const req = def.equip.req;
       if (req && p.skills.level(req.skill) < req.level) {
@@ -978,7 +1055,9 @@ export class GameState {
         if (!p.boosts[k]) delete p.boosts[k];
       }
     }
-    if (this.tickCount % SPEC_REGEN_TICKS === 0) p.specEnergy = Math.min(100, p.specEnergy + SPEC_REGEN);
+    if (this.tickCount % SPEC_REGEN_TICKS === 0) {
+      p.specEnergy = Math.min(100, p.specEnergy + Math.round(SPEC_REGEN * (1 + 0.15 * this.perkRank('adrenaline'))));
+    }
     const regen = Math.round(this.mods.hpRegenTicks / (this.hasRelic('regen_bracelet') ? 2 : 1));
     if (this.tickCount % regen === 0 && p.hp < p.maxHp) p.hp++;
     const renewal = this.enchantPower('renewal');
@@ -1001,6 +1080,12 @@ export class GameState {
     while (p.prayerDrain >= resistance) {
       p.prayerDrain -= resistance;
       p.prayerPoints = Math.max(0, p.prayerPoints - 1);
+    }
+    if (p.prayerPoints === 0 && this.perkRank('saint') && !this.saintUsedFloor) {
+      this.saintUsedFloor = true;
+      p.prayerPoints = Math.ceil(p.maxPrayer / 2);
+      this.message('Saint: your faith is rewarded, and your prayer returns.');
+      return;
     }
     if (p.prayerPoints === 0) {
       p.activePrayers.clear();
@@ -1073,7 +1158,7 @@ export class GameState {
   private instantSpecReady(): boolean {
     const p = this.player;
     const spec = SPEC_BY_WEAPON[p.equipment.weapon ?? ''];
-    return !!spec?.instant && p.specArmed && p.specEnergy >= spec.cost;
+    return !!spec?.instant && p.specArmed && p.specEnergy >= this.specCost(spec);
   }
 
   /** In range of the player's weapon and in line of sight. */
@@ -1262,6 +1347,10 @@ export class GameState {
         }
         p.prayerPoints = p.maxPrayer;
         this.message('You recharge your Prayer points.');
+        if (this.perkRank('sanctuary')) {
+          p.hp = Math.min(p.maxHp, p.hp + Math.ceil(p.maxHp * 0.5 * this.perkRank('sanctuary')));
+          this.message('Sanctuary: the altar soothes your wounds.');
+        }
         return;
       }
       default:
@@ -1362,10 +1451,11 @@ export class GameState {
     const keen = 1 + this.enchantPower('keen');
     const fireCape = target?.isBoss && this.hasRelic('fire_cape') ? 1.1 : 1;
     const brutal = 1 + this.enchantPower('brutal');
+    const pm = this.perkMults(mode, target);
     return {
       mode,
-      attackRoll: Math.floor(this.mods.combatMult * glory * slayer * keen * attackRoll),
-      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * brutal * fireCape * this.campMaxHitMult(mode) * max),
+      attackRoll: Math.floor(this.mods.combatMult * glory * slayer * keen * pm.acc * attackRoll),
+      maxHit: Math.floor(this.mods.combatMult * glory * berserk * slayer * brutal * fireCape * this.campMaxHitMult(mode) * pm.dmg * max),
       speed,
       range: p.attackRange,
       spell,
@@ -1376,7 +1466,8 @@ export class GameState {
   /** Chance the player's next attack hits `npc` (weakness included). */
   hitChanceAgainst(npc: Npc, preview = this.combatPreview(npc)): number {
     const weakness = npc.def.weakness === preview.mode ? WEAKNESS_PENALTY : 0;
-    const defence = Math.floor(npc.def.defence * (1 - npc.defenceDrain));
+    const deadeye = preview.mode === 'ranged' && this.perkRank('deadeye') ? 0.75 : 1;
+    const defence = Math.floor(npc.def.defence * (1 - npc.defenceDrain) * deadeye);
     const defRoll = roll(defence + 9, Math.max(-63, npc.def.defenceBonus - weakness));
     return hitChance(preview.attackRoll, defRoll);
   }
@@ -1393,7 +1484,7 @@ export class GameState {
     p.attackCooldown = speed;
     const spec = this.armedSpec();
     if (spec) {
-      p.specEnergy -= spec.cost;
+      p.specEnergy -= this.specCost(spec);
       p.specArmed = false;
       this.message(`You use ${spec.name}!`);
       this.sound('spec');
@@ -1409,11 +1500,15 @@ export class GameState {
           : spec.weapon === 'dragon_warhammer' ? [[1, 1.5]]
             : spec.weapon === 'ancient_staff' ? [[3, 1.3]]
               : [[1, 1]];
+    // Warlord's Might (melee) and Volley (ranged): sometimes a free extra hit.
+    if (!spec && mode === 'melee' && rand() < 0.1 * this.perkRank('warlords_might')) hits.push([1, 1]);
+    if (!spec && mode === 'ranged' && rand() < 0.04 * this.perkRank('volley')) hits.push([1, 1]);
     if (spec?.weapon === 'dragon_claws') {
       this.clawSpec(npc, c);
     } else {
-      for (const [acc, mult] of hits) {
+      for (const [acc, base] of hits) {
         if (npc.dead) break;
+        const mult = base * (mode === 'melee' && rand() < 0.05 * this.perkRank('crushing_blow') ? 1.5 : 1);
         const dmg = this.strike(npc, { ...c, attackRoll: Math.floor(c.attackRoll * acc), maxHit: Math.floor(c.maxHit * mult) });
         if (spec?.weapon === 'dragon_warhammer' && dmg > 0) npc.defenceDrain = Math.min(0.9, 1 - (1 - npc.defenceDrain) * 0.7);
       }
@@ -1427,7 +1522,7 @@ export class GameState {
     const p = this.player;
     const spec = p.specArmed ? SPEC_BY_WEAPON[p.equipment.weapon ?? ''] : undefined;
     if (!spec) return null;
-    if (p.specEnergy < spec.cost) {
+    if (p.specEnergy < this.specCost(spec)) {
       p.specArmed = false;
       this.message('You do not have enough special attack energy left.');
       return null;
@@ -1443,8 +1538,8 @@ export class GameState {
       this.message('Your weapon has no special attack.');
       return;
     }
-    if (!p.specArmed && p.specEnergy < spec.cost) {
-      this.message(`You need ${spec.cost}% special attack energy for ${spec.name}.`);
+    if (!p.specArmed && p.specEnergy < this.specCost(spec)) {
+      this.message(`You need ${this.specCost(spec)}% special attack energy for ${spec.name}.`);
       return;
     }
     p.specArmed = !p.specArmed;
@@ -1471,7 +1566,23 @@ export class GameState {
   /** One hit roll against `npc` with on-hit effects and XP; returns the damage dealt. */
   private strike(npc: Npc, c: CombatPreview): number {
     const chance = this.hitChanceAgainst(npc, c);
-    return this.strikeFixed(npc, rollDamage(chance, c.maxHit, rand), c);
+    let raw = rollDamage(chance, c.maxHit, rand);
+    // Sharpshooter: a hitting arrow sometimes lands for its maximum. Battle Mage: misses still sting.
+    if (c.mode === 'ranged' && raw > 0 && rand() < 0.04 * this.perkRank('sharpshooter')) raw = c.maxHit;
+    if (c.mode === 'magic' && raw === 0) raw = this.perkRank('battle_mage');
+    const dmg = this.strikeFixed(npc, raw, c);
+    if (c.mode === 'magic' && dmg > 1 && this.perkRank('chain_lightning')) this.chainLightning(npc, Math.floor(dmg / 2));
+    return dmg;
+  }
+
+  /** Chain Lightning: half the damage arcs to the nearest other visible monster within 3 tiles. */
+  private chainLightning(from: Npc, dmg: number): void {
+    const other = this.npcs.find((n) => n !== from && !n.dead && chebyshev(n.pos, from.pos) <= 3 && this.isVisible(n.pos.x, n.pos.y));
+    if (!other) return;
+    this.emit({ type: 'projectile', from: { ...from.pos }, to: { ...other.pos }, style: 'magic', ticks: 1 });
+    this.applyHit(other, Math.min(other.hp, dmg));
+    other.target = this.player;
+    if (other.dead) this.killNpc(other);
   }
 
   private strikeFixed(npc: Npc, raw: number, c: CombatPreview): number {
@@ -1578,9 +1689,17 @@ export class GameState {
   }
 
   private killNpc(npc: Npc): void {
+    if (!this.npcs.includes(npc)) return;
     this.npcs.splice(this.npcs.indexOf(npc), 1);
     this.kills++;
+    this.floorKills++;
     const style = this.player.weaponType;
+    // Bloodlust, Soul Siphon, Divine Favour.
+    const p = this.player;
+    if (style === 'melee') p.hp = Math.min(p.maxHp, p.hp + this.perkRank('bloodlust'));
+    let prayer = style === 'magic' ? this.perkRank('soul_siphon') : 0;
+    if (rand() < 0.05 * this.perkRank('divine_favor')) prayer += 3;
+    if (prayer) p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + prayer);
     this.runStats.killStyles.add(style);
     this.emit({
       type: 'kill', npcId: npc.def.id, boss: npc.isBoss, style, weakness: npc.def.weakness === style,
@@ -1603,7 +1722,7 @@ export class GameState {
       this.message(`You defeat the ${npc.name}! Elites drop double loot.`);
     }
     // Regular monsters sometimes drop a herb that grows at this depth; elites always do.
-    if (!npc.isBoss && npc.def.id !== 'mimic' && (npc.elite || rand() < HERB_DROP_CHANCE)) {
+    if (!npc.isBoss && npc.def.id !== 'mimic' && (npc.elite || rand() < HERB_DROP_CHANCE * (1 + 0.25 * this.perkRank('forager')))) {
       this.groundItems.push(new GroundItem(herbForDepth(this.depth, rand), 1, { ...npc.pos }));
     }
     // Rarely, a special attack weapon.
@@ -1623,7 +1742,7 @@ export class GameState {
       const qty = lo + Math.floor(rand() * (hi - lo + 1));
       const buryXp = item(d.item).buryXp;
       if (buryXp && this.hasRelic('bonecrusher')) {
-        this.giveXp('prayer', buryXp * qty);
+        this.giveXp('prayer', buryXp * qty * (1 + 0.25 * this.perkRank('bone_lore')));
         const p = this.player;
         p.prayerPoints = Math.min(p.maxPrayer, p.prayerPoints + 1);
         continue;
@@ -1644,6 +1763,8 @@ export class GameState {
     const prayerBefore = p.maxPrayer;
     if (this.hasRelic('seers_insight')) amount *= 1.5;
     if (WORKBENCH_SKILLS.includes(skill)) amount *= 1 + this.campBonus.workbench;
+    if (GATHER_SKILLS.includes(skill)) amount *= 1 + 0.1 * this.perkRank('gatherers_lore');
+    if (COMBAT_SKILLS.includes(skill)) amount *= 1 + 0.1 * this.perkRank('battle_hardened');
     this.runStats.xp[skill] = (this.runStats.xp[skill] ?? 0) + amount;
     const gained = p.skills.addXp(skill, amount);
     this.emit({ type: 'xp', skill, amount });
@@ -1670,7 +1791,7 @@ export class GameState {
 
     if (!npc.target) {
       const d = chebyshev(npc.pos, p.pos);
-      const aggro = npc.def.aggroRadius - (this.hasRelic('graceful') && !npc.isBoss ? 2 : 0);
+      const aggro = npc.def.aggroRadius - (npc.isBoss ? 0 : (this.hasRelic('graceful') ? 2 : 0) + this.perkRank('light_footed'));
       if (aggro > 0 && d <= aggro && this.isVisible(npc.pos.x, npc.pos.y)) {
         npc.target = p;
       } else {
@@ -1699,10 +1820,11 @@ export class GameState {
     const d = npc.def;
     const style = npc.attackStyle;
     const def = Math.floor(p.boostedLevel('defence') * (1 + p.prayerBoost('defence')));
-    const attRoll = roll(d.attack + 9, d.attackBonus);
+    const kiting = p.weaponType === 'ranged' ? 1 - 0.05 * this.perkRank('kiting') : 1;
+    const attRoll = Math.floor(roll(d.attack + 9, d.attackBonus) * kiting);
     const petDefence = this.campBonus.pet?.kind === 'defence' ? this.campBonus.pet.amount : 0;
     const defRoll = Math.floor(roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence)
-      * (1 + this.enchantPower('fortified') + petDefence));
+      * (1 + this.enchantPower('fortified') + petDefence + 0.03 * this.perkRank('toughness')));
     const max = maxHit(d.strength + 9, d.strengthBonus);
     const dmg = rollDamage(hitChance(attRoll, defRoll), max, rand);
     npc.attackCooldown = d.attackSpeed;
@@ -1723,6 +1845,21 @@ export class GameState {
     const blocked = p.isProtectedFrom(style) && damage > 0;
     if (blocked) this.stat('blocks');
     let dmg = blocked ? 0 : damage;
+    if (dmg > 0 && style === 'melee' && rand() < 0.04 * this.perkRank('parry')) {
+      dmg = 0;
+      this.message('You parry the blow!');
+    }
+    if (dmg > 0) {
+      // Defence perks: Missile Ward, Last Stand, Bulwark (first hit each floor), Juggernaut.
+      let mult = 1;
+      if (style !== 'melee') mult *= 1 - 0.05 * this.perkRank('missile_ward');
+      if (p.hp < p.maxHp / 4) mult *= 1 - 0.1 * this.perkRank('last_stand');
+      if (!this.hitThisFloor) mult *= 1 - 0.25 * this.perkRank('bulwark');
+      mult *= 1 - 0.1 * this.perkRank('juggernaut');
+      this.hitThisFloor = true;
+      // Randomised rounding, so small hits are reduced fairly on average.
+      if (mult < 1) dmg = Math.min(dmg, Math.floor(dmg * mult + rand()));
+    }
     if (dmg > 0 && this.hasRelic('dragon_defender')) dmg -= 1;
     dmg = Math.min(p.hp, dmg);
     const reflect = (this.hasRelic('ring_of_recoil') ? 0.1 : 0) + this.enchantPower('thorns');
@@ -1731,8 +1868,9 @@ export class GameState {
       this.applyHit(npc, recoil);
       if (npc.dead) this.killNpc(npc);
     }
-    if (dmg >= p.hp && this.mods.undying && !this.undyingUsed) {
+    if (dmg >= p.hp && this.undyingLeft() > 0) {
       this.undyingUsed = true;
+      this.undyingTimes++;
       dmg = p.hp - 1;
       this.message('You narrowly cheat death! (Undying)');
     }
