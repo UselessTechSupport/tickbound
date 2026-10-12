@@ -106,4 +106,29 @@ describe('audit fixes', () => {
     expect(m2.materials.timber).toBeGreaterThan(0);
     expect(halfBot).toBe(m2.materials.timber - Math.floor(m2.materials.timber / 2));
   });
+
+  it('Armourer gear you cannot wield yet comes with the best tier you can', () => {
+    const g = new GameState(1, () => {}, { startStyle: 'ranged', armoury: { melee: 0, ranged: 5, magic: 0, body: 0, ranged_body: 0, magic_body: 0, shield: 0, ranged_shield: 0, magic_shield: 0 } });
+    const p = g.player;
+    expect(p.weaponType).toBe('ranged');
+    expect(p.ammo).toBeGreaterThan(0);
+    expect(p.inventory.count('yew_shortbow')).toBe(1);
+  });
+
+  it('kills sometimes drop supplies for the style you use', () => {
+    const g = new GameState(1, () => {}, {});
+    const p = g.player;
+    p.equipment = { weapon: 'staff_of_air' };
+    let runes = 0;
+    for (let i = 0; i < 200; i++) {
+      g.groundItems = [];
+      const npc = new Npc(NPCS.goblin, { x: p.pos.x + 1, y: p.pos.y });
+      g.npcs.push(npc);
+      (g as unknown as { killNpc(n: Npc): void }).killNpc(npc);
+      runes += g.groundItems.filter((gi) => gi.id === 'mind_rune').reduce((n, gi) => n + gi.qty, 0);
+      // The staff provides air runes, so none drop.
+      expect(g.groundItems.some((gi) => gi.id === 'air_rune')).toBe(false);
+    }
+    expect(runes).toBeGreaterThan(100);
+  });
 });

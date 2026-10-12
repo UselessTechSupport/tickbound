@@ -36,6 +36,7 @@ npm run dev        # then open http://localhost:5173
 | `K` | Skill mastery |
 | `J` | Progress journal: completion of every long-term system |
 | `B` | Bestiary: kill 10 / 100 / 1,000 of each monster for tokens |
+| `N` | What's new: the in-game changelog (opens once by itself after an update) |
 | `O` | Settings: volume, toggles (auto-pickup, labels, warnings, toasts), zoom, keybinds |
 | Touch | Tap = left-click, long-press = right-click menu, pinch to zoom; on-screen Eat / Pause / Zoom / Fullscreen buttons. Phones: play in landscape (the layout fills the screen), or add to your home screen for fullscreen |
 | `M` | Mute sound |

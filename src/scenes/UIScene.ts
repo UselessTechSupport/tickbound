@@ -35,6 +35,7 @@ import type { Notice } from '../meta/tracker';
 import { ensureItemTexture, npcSprite } from '../render/sprites';
 import { sfx } from '../audio/sfx';
 import { saveSettings, settings } from '../save/settings';
+import { CHANGELOG, LATEST_CHANGELOG } from '../data/changelog';
 
 const CONTROLS = [
   'Controls: left-click to walk, attack, take or use. Right-click for all options.',
@@ -68,7 +69,7 @@ const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops'
-  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests' | 'mastery' | 'journal' | 'bestiary';
+  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests' | 'mastery' | 'journal' | 'bestiary' | 'changelog';
 
 /** What the drop-table window is showing. */
 export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
@@ -211,6 +212,16 @@ export class UIScene extends Phaser.Scene {
     });
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.endDrag(p));
 
+    // After an update, show what's new once (at camp, and not to brand-new players).
+    if (settings.seenChangelog < LATEST_CHANGELOG) {
+      if (this.dungeon.meta.runs > 0 && this.state.isCamp) {
+        this.openModal('changelog');
+      } else {
+        settings.seenChangelog = LATEST_CHANGELOG;
+        saveSettings();
+      }
+    }
+
     const bus = this.dungeon.bus;
     bus.on('xp', (e: Extract<GameEvent, { type: 'xp' }>) => this.xpDrop(e.skill, e.amount));
     bus.on('levelup', () => settings.levelUpFlash && this.levelUpGlow());
@@ -241,6 +252,9 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-K', () => this.toggleModal('mastery'));
     this.input.keyboard?.on('keydown-J', () => this.toggleModal('journal'));
     this.input.keyboard?.on('keydown-B', () => this.toggleModal('bestiary'));
+    this.input.keyboard?.on('keydown-N', () => {
+      this.toggleModal('changelog');
+    });
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
     this.input.keyboard?.on('keydown-R', () => !this.blocksHotkeys && this.dungeon.setRunning(!this.dungeon.running));
@@ -669,6 +683,11 @@ export class UIScene extends Phaser.Scene {
   }
 
   openModal(kind: ModalKind): void {
+    // The changelog opens on its newest page (paging re-opens it while it's already showing).
+    if (kind === 'changelog' && this.modalKind !== 'changelog') {
+      this.changelogStart = 0;
+      this.changelogPages = [];
+    }
     this.modalKind = kind;
     this.modal.removeAll(true);
     this.modal.setVisible(true);
@@ -679,7 +698,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
-      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board', mastery: 'Skill mastery', journal: 'Progress journal', bestiary: 'Bestiary',
+      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board', mastery: 'Skill mastery', journal: 'Progress journal', bestiary: 'Bestiary', changelog: "What's new",
       drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
@@ -706,6 +725,7 @@ export class UIScene extends Phaser.Scene {
       journal: `Overall completion: ${(overallCompletion(journal(meta)) * 100).toFixed(1)}%   Runs: ${meta.runs}   Best floor: ${meta.bestDepth}`,
       startRun: `Best floor: ${meta.bestDepth}   Deepest boss beaten: ${meta.deepestBoss ? `floor ${meta.deepestBoss}` : 'none yet'}`,
       drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
+      changelog: 'Recent updates to Tickbound',
     }[kind];
     add(this.add.text(W / 2, 54, currency, { ...FONT, fontSize: '16px' }).setOrigin(0.5, 0));
     const close = add(this.add.text(W - 16, 16, '[ X ]', { ...FONT, fontSize: '16px', color: '#ff6060' }).setOrigin(1, 0)
@@ -724,13 +744,14 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'quests') this.buildQuests(add);
     else if (kind === 'mastery') this.buildMastery(add);
     else if (kind === 'journal') this.buildJournal(add);
+    else if (kind === 'changelog') this.buildChangelog(add);
     else if (kind === 'bestiary') this.buildBestiary(add);
     else if (kind === 'startRun') this.buildStartRun(add);
     else this.buildToolsmith(add);
   }
 
   /** Hotkeys toggle these windows; they never replace a shop or relic choice in progress. */
-  private toggleModal(kind: 'achievements' | 'log' | 'settings' | 'mastery' | 'journal' | 'bestiary'): void {
+  private toggleModal(kind: 'achievements' | 'log' | 'settings' | 'mastery' | 'journal' | 'bestiary' | 'changelog'): void {
     if (this.modalKind === kind) this.closeModal();
     else if (!this.modalKind || ['achievements', 'log', 'settings'].includes(this.modalKind)) this.openModal(kind);
   }
@@ -983,6 +1004,59 @@ export class UIScene extends Phaser.Scene {
         }));
       });
     }
+  }
+
+  /** First entry shown on the current page of the changelog, and the starts of the pages before it. */
+  private changelogStart = 0;
+  private changelogPages: number[] = [];
+
+  /** What's new: changelog entries, newest first, as many per page as fit. */
+  private buildChangelog(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    settings.seenChangelog = LATEST_CHANGELOG;
+    saveSettings();
+    const W = this.panelX;
+    const H = this.scale.height;
+    const width = Math.min(760, W - 60);
+    const x0 = (W - width) / 2;
+    const bottom = H - 50;
+    let y = 96;
+    let i = this.changelogStart;
+    for (; i < CHANGELOG.length; i++) {
+      const e = CHANGELOG[i];
+      const head = this.add.text(x0, y, `${e.title}`, { ...FONT, fontSize: '15px', color: '#ff981f' });
+      const date = this.add.text(x0 + width, y + 2, e.date, { ...FONT, fontSize: '11px', color: '#a0a0a0' }).setOrigin(1, 0);
+      const body = this.add.text(x0 + 10, y + 22, e.items.map((s) => `- ${s}`).join('\n'), {
+        ...FONT, fontSize: '12px', color: '#e0e0e0', lineSpacing: 3, wordWrap: { width: width - 10 },
+      });
+      const end = y + 22 + body.height + 14;
+      // Always show at least one entry; stop when the next one wouldn't fit.
+      if (end > bottom && i > this.changelogStart) {
+        head.destroy();
+        date.destroy();
+        body.destroy();
+        break;
+      }
+      add(head);
+      add(date);
+      add(body);
+      y = end;
+    }
+    const nav = (x: number, label: string, enabled: boolean, onClick: () => void) => {
+      const b = add(this.add.text(x, H - 34, label, {
+        ...FONT, fontSize: '13px', color: enabled ? '#ffffff' : '#606060', backgroundColor: '#3e3529', padding: { x: 8, y: 4 },
+      }).setOrigin(0.5));
+      if (enabled) b.setInteractive({ useHandCursor: true }).on('pointerdown', onClick);
+    };
+    const shownUntil = i;
+    nav(W / 2 - 90, '< Newer', this.changelogPages.length > 0, () => {
+      this.changelogStart = this.changelogPages.pop() ?? 0;
+      this.openModal('changelog');
+    });
+    nav(W / 2 + 90, 'Older >', shownUntil < CHANGELOG.length, () => {
+      this.changelogPages.push(this.changelogStart);
+      this.changelogStart = shownUntil;
+      this.openModal('changelog');
+    });
   }
 
   /** Skill mastery: level, progress and bonus per skill, in two columns. */
@@ -1341,8 +1415,9 @@ export class UIScene extends Phaser.Scene {
     stepper('Zoom (or mouse wheel)', `${Math.round(settings.zoom * 100)}%`, () => this.dungeon.setZoom(settings.zoom - 0.25), () => this.dungeon.setZoom(settings.zoom + 0.25));
     // Windows that are otherwise only on hotkeys (for touch and mouse players).
     heading('Open');
-    const windows: Array<[string, 'journal' | 'bestiary' | 'mastery' | 'achievements' | 'log']> = [
+    const windows: Array<[string, 'journal' | 'bestiary' | 'mastery' | 'achievements' | 'log' | 'changelog']> = [
       ['Journal', 'journal'], ['Bestiary', 'bestiary'], ['Mastery', 'mastery'], ['Achievements', 'achievements'], ['Collection log', 'log'],
+      ["What's new", 'changelog'],
     ];
     windows.forEach(([label, kind], i) => {
       const b = add(this.add.text(x0 + 10 + (i % 3) * 120, y + Math.floor(i / 3) * 26, label, {
@@ -1366,6 +1441,7 @@ export class UIScene extends Phaser.Scene {
       'K            skill mastery',
       'J            progress journal',
       'B            bestiary',
+      'N            what\'s new',
       'R            run / walk',
       'G            go to stairs',
       'F            quick-eat',
