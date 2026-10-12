@@ -462,6 +462,8 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     this.lastEarned = g.tokensEarned;
+    const record = { depth: g.depth, kills: g.kills, tokens: this.lastEarned, killedBy: g.forfeited ? 'left' : g.runStats.killedBy || '?', at: Date.now() };
+    this.meta.history = [record, ...(this.meta.history ?? [])].slice(0, 10);
     this.meta.tokens += this.lastEarned;
     this.meta.runs++;
     this.meta.bestDepth = Math.max(this.meta.bestDepth, g.depth);

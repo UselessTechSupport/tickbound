@@ -52,6 +52,8 @@ export interface MetaSave {
   startRelic: string | null;
   /** Floors each pet has come along for (pet levels). */
   petFloors: Record<string, number>;
+  /** The last few runs, newest first (for the journal). */
+  history?: RunRecord[];
   /** Collection log milestones already paid (fractions, e.g. 0.25). */
   logMilestones?: number[];
   /** Run modifiers you last chose at the ladder. */
@@ -66,6 +68,16 @@ export interface MetaSave {
   questsDone: string[];
   questCarry: Record<string, number>;
   questRelics: string[];
+}
+
+/** One finished run, for the journal's history. */
+export interface RunRecord {
+  depth: number;
+  kills: number;
+  tokens: number;
+  killedBy: string;
+  /** Unix time (ms) when the run ended. */
+  at: number;
 }
 
 const KEY = 'tickbound.meta';
