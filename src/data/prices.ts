@@ -16,7 +16,7 @@ const FIXED: Record<string, number> = {
   bones: 2, big_bones: 8, logs: 3, oak_logs: 6, willow_logs: 12, maple_logs: 25, yew_logs: 60, magic_logs: 150,
   copper_ore: 4, tin_ore: 4, iron_ore: 10, coal: 15, mithril_ore: 40, adamantite_ore: 80, runite_ore: 300, dragonite_ore: 800,
   bronze_bar: 12, iron_bar: 30, steel_bar: 70, mithril_bar: 180, adamant_bar: 450, rune_bar: 1200, dragon_bar: 3000,
-  air_rune: 2, water_rune: 2, earth_rune: 2, fire_rune: 2, mind_rune: 3, chaos_rune: 10, death_rune: 25,
+  air_rune: 2, water_rune: 2, earth_rune: 2, fire_rune: 2, mind_rune: 3, chaos_rune: 10, death_rune: 25, blood_rune: 40,
   shortbow: 50, oak_shortbow: 120, willow_shortbow: 300, maple_shortbow: 700, yew_shortbow: 1800,
   staff: 100, staff_of_air: 400, staff_of_water: 400, staff_of_earth: 400, staff_of_fire: 400,
   mystic_air_staff: 3000, mystic_fire_staff: 3000,

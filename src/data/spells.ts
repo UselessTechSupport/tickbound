@@ -22,6 +22,15 @@ export const SPELLS: SpellDef[] = [
   { id: 'water_blast', name: 'Water Blast', level: 47, maxHit: 14, baseXp: 28.5, runes: { water_rune: 3, air_rune: 3, death_rune: 1 } },
   { id: 'earth_blast', name: 'Earth Blast', level: 53, maxHit: 15, baseXp: 31.5, runes: { earth_rune: 4, air_rune: 3, death_rune: 1 } },
   { id: 'fire_blast', name: 'Fire Blast', level: 59, maxHit: 16, baseXp: 34.5, runes: { fire_rune: 5, air_rune: 4, death_rune: 1 } },
+  // Waves need death runes; surges also need blood runes (dropped deep in the dungeon).
+  { id: 'wind_wave', name: 'Wind Wave', level: 62, maxHit: 17, baseXp: 36, runes: { air_rune: 5, death_rune: 1 } },
+  { id: 'water_wave', name: 'Water Wave', level: 65, maxHit: 18, baseXp: 37.5, runes: { water_rune: 7, air_rune: 5, death_rune: 1 } },
+  { id: 'earth_wave', name: 'Earth Wave', level: 70, maxHit: 19, baseXp: 40, runes: { earth_rune: 7, air_rune: 5, death_rune: 1 } },
+  { id: 'fire_wave', name: 'Fire Wave', level: 75, maxHit: 20, baseXp: 42.5, runes: { fire_rune: 7, air_rune: 5, death_rune: 1 } },
+  { id: 'wind_surge', name: 'Wind Surge', level: 81, maxHit: 21, baseXp: 44.5, runes: { air_rune: 7, death_rune: 1, blood_rune: 1 } },
+  { id: 'water_surge', name: 'Water Surge', level: 85, maxHit: 22, baseXp: 46.5, runes: { water_rune: 10, air_rune: 7, death_rune: 1, blood_rune: 1 } },
+  { id: 'earth_surge', name: 'Earth Surge', level: 90, maxHit: 23, baseXp: 48.5, runes: { earth_rune: 10, air_rune: 7, death_rune: 1, blood_rune: 1 } },
+  { id: 'fire_surge', name: 'Fire Surge', level: 95, maxHit: 24, baseXp: 50.5, runes: { fire_rune: 10, air_rune: 7, death_rune: 1, blood_rune: 1 } },
 ];
 
 export const SPELL_BY_ID: Record<string, SpellDef> = Object.fromEntries(SPELLS.map((s) => [s.id, s]));

@@ -1674,7 +1674,7 @@ export class UIScene extends Phaser.Scene {
   private buildSpellbook(px: number, y: number): void {
     this.spellCells.clear();
     const cw = 72;
-    const ch = 48;
+    const ch = SPELLS.length > 18 ? 34 : 48;
     const x0 = px + (PANEL_W - cw * 3) / 2;
     SPELLS.forEach((sp, i) => {
       const cx = x0 + (i % 3) * cw;
