@@ -62,6 +62,19 @@ describe('slayer', () => {
     expect(events.find((e) => e.type === 'slayerDone')).toEqual({ type: 'slayerDone', tokens: 4 });
   });
 
+  it('Slayer XP carries into runs and camp, and levels slower than other skills', async () => {
+    const { xpForLevel } = await import('../src/systems/xp');
+    const { SLAYER_XP_RATE, XP_RATE } = await import('../src/data/balance');
+    expect(SLAYER_XP_RATE).toBeLessThan(XP_RATE);
+    const run = new GameState(7, () => {}, { slayerXp: xpForLevel(30) });
+    expect(run.player.skills.level('slayer')).toBe(30);
+    expect(run.levelsAtStart.slayer).toBe(30);
+    const camp = new GameState(7, () => {}, { camp: true, slayerXp: xpForLevel(30) });
+    expect(camp.player.skills.level('slayer')).toBe(30);
+    expect(new GameState(7).player.skills.xp.slayer).toBe(0);
+    expect(freshMeta().slayerXp).toBe(0);
+  });
+
   it('on-task targets get the slayer bonus', () => {
     const g = new GameState(403, () => {}, { slayerTask: { category: 'goblins', total: 5, remaining: 5 } });
     g.player.skills.addXp('slayer', 1_000_000);

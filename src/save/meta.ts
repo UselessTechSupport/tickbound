@@ -32,6 +32,8 @@ export interface MetaSave {
   made: Record<string, number>;
   /** Current Slayer task; carries across runs until finished or skipped. */
   slayerTask: SlayerTask | null;
+  /** Slayer is the one skill that keeps its level between runs. */
+  slayerXp: number;
   /** Slayer opens up after your first Goblin Warlord kill. */
   slayerUnlocked: boolean;
   /** Armourer starting-gear tiers bought per line (0 = none). */
@@ -93,7 +95,7 @@ const LEGACY_KEY = 'roguescape.meta';
 export function freshMeta(): MetaSave {
   return {
     version: 1, tokens: 0, tools: { ...NO_TOOLS }, perks: {}, runs: 0, bestDepth: 0,
-    collection: {}, killCounts: {}, achievements: [], lifetime: {}, pets: [], activePet: null, made: {}, slayerTask: null,
+    collection: {}, killCounts: {}, achievements: [], lifetime: {}, pets: [], activePet: null, made: {}, slayerTask: null, slayerXp: 0,
     slayerUnlocked: false, armoury: { ...NO_ARMOURY }, startStyle: 'melee', deepestBoss: 0,
     enchanterUnlocked: false, enchants: {},
     structures: {}, materials: { timber: 0, metal: 0 }, bank: [], relicsFound: [], startRelic: null, petFloors: {},

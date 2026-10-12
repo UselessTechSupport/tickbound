@@ -12,6 +12,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: 12,
+    date: '2026-10-12',
+    title: 'Slayer keeps its level',
+    items: [
+      'Slayer is now the one skill that keeps its level between runs, like your tasks do. It levels much more slowly to make up for it: a long-term goal.',
+      'The on-task bonus to accuracy and max hit is now +0.25% per Slayer level (it was +0.5%), so a high level helps without breaking the game.',
+      'Slayer XP from runs that pay nothing (dying on autoplay) is not kept.',
+    ],
+  },
+  {
     id: 11,
     date: '2026-10-12',
     title: 'Slayer task fixes',

@@ -1467,8 +1467,8 @@ export class UIScene extends Phaser.Scene {
         `Monsters: ${SLAYER_BY_ID[task.category].npcIds.map((id) => NPCS[id]?.name ?? id).join(', ')}`,
       ]
       : ["You don't have a Slayer task. Want one?"];
-    lines.push('', 'Tasks carry across runs until they are done.',
-      'On task, your Slayer level boosts accuracy and max hit (+0.5% per level).');
+    lines.push('', 'Tasks carry across runs until they are done, and so does your Slayer level.',
+      'On task, your Slayer level boosts accuracy and max hit (+0.25% per level).');
     add(this.add.text(W / 2, 110, lines.join('\n'), { ...FONT, fontSize: '14px', color: '#ffffff', align: 'center', lineSpacing: 6 }).setOrigin(0.5, 0));
     const button = (x: number, label: string, enabled: boolean, onClick: () => void) => {
       const b = add(this.add.text(x, 330, label, {

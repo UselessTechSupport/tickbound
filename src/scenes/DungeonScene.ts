@@ -241,7 +241,7 @@ export class DungeonScene extends Phaser.Scene {
   /** Return to the camp hub (game start, and after a death). */
   toCamp(): void {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
-      camp: true, tools: this.meta.tools, slayerUnlocked: this.meta.slayerUnlocked,
+      camp: true, tools: this.meta.tools, slayerUnlocked: this.meta.slayerUnlocked, slayerXp: this.meta.slayerXp,
       armourerUnlocked: (this.meta.perks[ARMOURER_PERK] ?? 0) > 0, enchanterUnlocked: this.meta.enchanterUnlocked,
       built: STRUCTURES.filter((s) => (this.meta.structures[s.id] ?? 0) > 0).map((s) => s.id),
     }));
@@ -272,7 +272,7 @@ export class DungeonScene extends Phaser.Scene {
    */
   startRun(opts: { startDepth?: number; autoplayTo?: number } = {}): void {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
-      tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
+      tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask, slayerXp: this.meta.slayerXp,
       armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth, enchants: this.meta.enchants,
       campSetup: this.campSetup(), questRelics: this.meta.questRelics, mastery: masteryLevels(this.meta),
       modifiers: this.modifiersUnlocked ? [...(this.meta.modifiers ?? [])] : [],
@@ -495,6 +495,7 @@ export class DungeonScene extends Phaser.Scene {
     this.lastMaterials = null;
     if (g.noRewards && g.autoplaySnapshot) Object.assign(this.meta, structuredClone(g.autoplaySnapshot));
     if (!g.noRewards) {
+      this.meta.slayerXp = Math.max(this.meta.slayerXp, g.player.skills.xp.slayer);
       noteContractDepth(this.meta, g);
       this.settleCamp(g);
       for (const { skill, level } of addMastery(this.meta, g)) {
