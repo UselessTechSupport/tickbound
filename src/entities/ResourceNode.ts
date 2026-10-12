@@ -27,6 +27,8 @@ export class ResourceNode {
   lockLevel?: number;
   /** A hidden room's chest: never a Mimic, and holds a double share. */
   cache?: boolean;
+  /** Altars: the Sanctuary perk's heal has been used here. */
+  sanctuaryUsed?: boolean;
   /** Agility shortcuts: the floor tiles on either side of the wall, and the level needed. */
   shortcut?: { a: Point; b: Point; level: number; kind: number };
 

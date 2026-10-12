@@ -129,7 +129,7 @@ export const PERKS: PerkDef[] = [
   perk('devotion', 3, 0, 'bone_lore', 'Bone Lore', 3, 'Burying bones gives 25% more Prayer XP per rank.'),
   perk('devotion', 3, 2, 'potent_brews', 'Potent Brews', 3, 'Prayer potions restore 10% more per rank.'),
   perk('devotion', 4, 1, 'divine_favor', 'Divine Favour', 3, '5% chance per rank that a kill restores 3 prayer points.'),
-  perk('devotion', 5, 1, 'sanctuary', 'Sanctuary', 2, 'Altars also restore 50% of your HP per rank.'),
+  perk('devotion', 5, 1, 'sanctuary', 'Sanctuary', 2, 'The first time you pray at each altar, it also restores 50% of your HP per rank.'),
   perk('devotion', 6, 1, 'saint', 'Saint', 1, 'Capstone: the first time you run out of prayer on each floor, half your prayer points come back.'),
 
   // ---- Gathering ----

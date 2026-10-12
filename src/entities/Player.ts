@@ -57,6 +57,8 @@ export class Player extends Actor {
   /** Perks: extra max HP (Constitution) and bow range (Long Range). */
   hpBonus = 0;
   bowRangeBonus = 0;
+  /** Fragile modifier and Frailty curse: a share of max HP lost for the run. */
+  hpMult = 1;
   /** Special attack energy, 0-100. */
   specEnergy = 100;
   /** The next attack uses the weapon's special attack. */
@@ -73,7 +75,7 @@ export class Player extends Actor {
   }
 
   get maxHp(): number {
-    return this.skills.level('hitpoints') + this.hpBonus;
+    return Math.max(1, Math.floor((this.skills.level('hitpoints') + this.hpBonus) * this.hpMult));
   }
 
   /** Real level plus any potion boost; used in combat. */
