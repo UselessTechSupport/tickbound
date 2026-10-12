@@ -3,6 +3,9 @@ import { NPCS } from '../src/data/npcs';
 import { ResourceNode } from '../src/entities/ResourceNode';
 import { Npc } from '../src/entities/Npc';
 import { GameState } from '../src/game/GameState';
+import { settleRun } from '../src/meta/camp';
+import { freshMeta } from '../src/save/meta';
+import { Tile, reachableCount, setTile } from '../src/world/tiles';
 import { xpForLevel } from '../src/systems/xp';
 
 /** Regression tests for bugs found in the code audit. */
@@ -70,5 +73,37 @@ describe('audit fixes', () => {
     g.player.skills.xp.attack = xpForLevel(30);
     g.endAutoplay();
     expect(g.levelsAtStart.attack).toBe(30);
+  });
+
+  it('a fire is never lit where it would wall off a corridor', () => {
+    const g = new GameState(1, () => {}, { tools: { pickaxe: 0, axe: 0, fishing: 0, hammer: false, tinderbox: true, knife: false, chisel: false } });
+    const p = g.player;
+    // A 1-wide corridor running east-west, with the player in the middle of it.
+    for (let y = 0; y < g.map.height; y++) for (let x = 0; x < g.map.width; x++) setTile(g.map, x, y, Tile.Wall);
+    for (let x = 5; x <= 15; x++) setTile(g.map, x, 10, Tile.Floor);
+    p.pos = { x: 10, y: 10 };
+    g.npcs = [];
+    g.nodes = [];
+    g.groundItems = [];
+    p.inventory.add('logs', 1);
+    const before = reachableCount(g.map, p.pos);
+    g.useItem(p.inventory.slots.findIndex((s) => s?.id === 'logs'));
+    expect(g.nodes.some((n) => n.kind === 'fire')).toBe(false);
+    expect(reachableCount(g.map, p.pos)).toBe(before);
+  });
+
+  it('materials the autoplay bot gathered count half', () => {
+    const g = new GameState(1, () => {}, {});
+    g.player.inventory.add('logs', 10);
+    g.endAutoplay();
+    const m = freshMeta();
+    settleRun(m, g);
+    const halfBot = m.materials.timber;
+    const m2 = freshMeta();
+    const fresh = new GameState(1, () => {}, {});
+    fresh.player.inventory.add('logs', 10);
+    settleRun(m2, fresh);
+    expect(m2.materials.timber).toBeGreaterThan(0);
+    expect(halfBot).toBe(m2.materials.timber - Math.floor(m2.materials.timber / 2));
   });
 });

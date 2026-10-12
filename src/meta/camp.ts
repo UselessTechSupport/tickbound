@@ -38,7 +38,13 @@ export function campSetupFor(m: MetaSave): CampSetup {
  */
 export function settleRun(m: MetaSave, g: GameState): Materials {
   const pack = g.player.inventory.slots.filter((s): s is { id: string; qty: number } => !!s);
-  const base = materialsFrom(pack);
+  const carried = materialsFrom(pack);
+  // What the autoplay bot gathered counts half, like its tokens.
+  const bot = g.autoplayMaterials ?? { timber: 0, metal: 0 };
+  const base = {
+    timber: carried.timber - Math.min(carried.timber, Math.floor(bot.timber / 2)),
+    metal: carried.metal - Math.min(carried.metal, Math.floor(bot.metal / 2)),
+  };
   // Lumberjack and Surveyor: more materials from what you carry home.
   const mats = {
     timber: Math.floor(base.timber * (1 + 0.25 * (m.perks.lumberjack ?? 0))),

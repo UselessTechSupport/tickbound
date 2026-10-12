@@ -197,8 +197,8 @@ export class DungeonScene extends Phaser.Scene {
     this.input.on('wheel', (p: Phaser.Input.Pointer, _objs: unknown, _dx: number, dy: number) => {
       if (!this.ui.isOverUi(p.x, p.y)) this.setZoom(settings.zoom + (dy > 0 ? -0.25 : 0.25));
     });
-    this.input.keyboard?.on('keydown-G', () => this.goToStairs());
-    this.input.keyboard?.on('keydown-F', () => !this.state.isCamp && this.state.quickEat());
+    this.input.keyboard?.on('keydown-G', () => !this.ui.blocksHotkeys && this.goToStairs());
+    this.input.keyboard?.on('keydown-F', () => !this.ui.blocksHotkeys && !this.state.isCamp && this.state.quickEat());
     this.input.keyboard?.on('keydown-P', () => this.togglePause());
     // Touch: pinch with two fingers to zoom.
     this.input.on('pointermove', () => this.pinchZoom());
@@ -225,6 +225,12 @@ export class DungeonScene extends Phaser.Scene {
   /** Keep the game view left of the side panel so the player stays centered in what's visible. */
   private fitCamera(): void {
     this.cameras.main.setViewport(0, 0, Math.max(100, this.scale.width - PANEL_W), this.scale.height);
+  }
+
+  /** Death screen: back to camp and straight to the ladder's start-run choices. */
+  diveAgain(): void {
+    this.toCamp();
+    this.startPending = true;
   }
 
   /** Return to the camp hub (game start, and after a death). */
@@ -929,6 +935,11 @@ export class DungeonScene extends Phaser.Scene {
   private onTick(): void {
     this.state.tick();
     if (this.state.tickCount % RUN_SAVE_TICKS === 0) this.saveRunNow();
+    // Waiting at camp past midnight: post the new day's contracts.
+    if (this.state.isCamp && this.state.tickCount % 50 === 0 && ensureContracts(this.meta)) {
+      saveMeta(this.meta);
+      this.state.message('A new day! New daily contracts are posted on the quest board.');
+    }
     if (this.startPending) {
       this.startPending = false;
       // With skip-ahead or autoplay available, let the player choose how to start.

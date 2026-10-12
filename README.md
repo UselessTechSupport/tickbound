@@ -107,7 +107,7 @@ npm run dev        # then open http://localhost:5173
 - **Skill mastery** (K, or click a skill): levels gained in runs become permanent mastery points; 10 mastery levels per
   skill, each a small bonus.
 - **Quest board**: 20 quests from the camp folk, plus three **daily contracts**.
-- **Goals and rewards**: 100 achievements, a collection log with milestone rewards, a bestiary (B) with kill-count
+- **Goals and rewards**: 101 achievements, a collection log with milestone rewards, a bestiary (B) with kill-count
   rewards, depth-record bonuses, a first-run-of-the-day bonus, and the progress journal (J) to see it all.
 
 ## Development
