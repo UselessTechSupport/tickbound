@@ -1284,6 +1284,18 @@ export class UIScene extends Phaser.Scene {
       this.dungeon.refreshNpcSprites();
     });
     stepper('Zoom (or mouse wheel)', `${Math.round(settings.zoom * 100)}%`, () => this.dungeon.setZoom(settings.zoom - 0.25), () => this.dungeon.setZoom(settings.zoom + 0.25));
+    // Windows that are otherwise only on hotkeys (for touch and mouse players).
+    heading('Open');
+    const windows: Array<[string, 'journal' | 'bestiary' | 'mastery' | 'achievements' | 'log']> = [
+      ['Journal', 'journal'], ['Bestiary', 'bestiary'], ['Mastery', 'mastery'], ['Achievements', 'achievements'], ['Collection log', 'log'],
+    ];
+    windows.forEach(([label, kind], i) => {
+      const b = add(this.add.text(x0 + 10 + (i % 3) * 120, y + Math.floor(i / 3) * 26, label, {
+        ...FONT, fontSize: '12px', color: '#ffffff', backgroundColor: '#3e3529', padding: { x: 6, y: 3 },
+      }).setInteractive({ useHandCursor: true }));
+      b.on('pointerdown', () => this.openModal(kind));
+    });
+    y += 52;
 
     add(this.add.text(x0 + 400, 96, [
       'Keys',
