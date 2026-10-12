@@ -1100,8 +1100,11 @@ export class GameState {
       this.message('You need to recharge your Prayer at an altar.');
       return;
     }
+    // Prayers that boost any of the same stats replace each other.
+    const groupsOf = (d: typeof def) => new Set([d.group, ...Object.keys(d.boosts ?? {})]);
+    const mine = groupsOf(def);
     for (const other of [...p.activePrayers]) {
-      if (PRAYER_BY_ID[other].group === def.group) p.activePrayers.delete(other);
+      if ([...groupsOf(PRAYER_BY_ID[other])].some((g) => mine.has(g))) p.activePrayers.delete(other);
     }
     p.activePrayers.add(id);
     this.sound('prayerOn');

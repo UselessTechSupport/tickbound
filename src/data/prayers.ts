@@ -14,6 +14,8 @@ export interface PrayerDef {
   group: PrayerGroup;
   /** Stat prayers: fractional boost to the effective level. */
   boost?: number;
+  /** Multi-stat prayers (Chivalry, Piety, Rigour, Augury): boosts to other groups too. */
+  boosts?: Partial<Record<PrayerGroup, number>>;
   /** Protection prayers: the attack style blocked. */
   protects?: AttackType;
 }
@@ -41,6 +43,11 @@ export const PRAYERS: PrayerDef[] = [
   { id: 'incredible_reflexes', name: 'Incredible Reflexes', short: 'Incredible\nReflexes', level: 24, drain: 12, group: 'attack', boost: 0.15 },
   { id: 'eagle_eye', name: 'Eagle Eye', short: 'Eagle\nEye', level: 26, drain: 12, group: 'ranged', boost: 0.15 },
   { id: 'mystic_might', name: 'Mystic Might', short: 'Mystic\nMight', level: 28, drain: 12, group: 'magic', boost: 0.15 },
+  // High prayers: several stats at once, at a steep drain.
+  { id: 'chivalry', name: 'Chivalry', short: 'Chivalry', level: 35, drain: 24, group: 'attack', boost: 0.15, boosts: { strength: 0.18, defence: 0.2 } },
+  { id: 'piety', name: 'Piety', short: 'Piety', level: 45, drain: 24, group: 'attack', boost: 0.2, boosts: { strength: 0.23, defence: 0.25 } },
+  { id: 'rigour', name: 'Rigour', short: 'Rigour', level: 50, drain: 24, group: 'ranged', boost: 0.2, boosts: { defence: 0.25 } },
+  { id: 'augury', name: 'Augury', short: 'Augury', level: 55, drain: 24, group: 'magic', boost: 0.25, boosts: { defence: 0.25 } },
 ];
 
 export const PRAYER_BY_ID: Record<string, PrayerDef> = Object.fromEntries(PRAYERS.map((p) => [p.id, p]));

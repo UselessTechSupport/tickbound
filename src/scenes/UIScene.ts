@@ -1628,7 +1628,8 @@ export class UIScene extends Phaser.Scene {
   private buildPrayerBook(px: number, y: number): void {
     this.prayerCells.clear();
     const cw = 72;
-    const ch = 48;
+    // Shorter cells once the high prayers are in, so the book still fits the tab.
+    const ch = PRAYERS.length > 18 ? 34 : 48;
     const x0 = px + (PANEL_W - cw * 3) / 2;
     PRAYERS.forEach((pr, i) => {
       const cx = x0 + (i % 3) * cw;

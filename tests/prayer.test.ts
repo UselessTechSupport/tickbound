@@ -188,3 +188,23 @@ describe('bosses', () => {
     expect(b40.hitpoints).toBeGreaterThan(b30.hitpoints);
   });
 });
+
+describe('high prayers', () => {
+  it('Piety boosts attack, strength and defence, and replaces single-stat prayers', () => {
+    const g = new GameState(321);
+    const p = g.player;
+    p.skills.xp.prayer = 1e6;
+    p.prayerPoints = 99;
+    g.togglePrayer('steel_skin');
+    g.togglePrayer('ultimate_strength');
+    g.togglePrayer('piety');
+    expect([...p.activePrayers]).toEqual(['piety']);
+    expect(p.prayerBoost('attack')).toBeCloseTo(0.2);
+    expect(p.prayerBoost('strength')).toBeCloseTo(0.23);
+    expect(p.prayerBoost('defence')).toBeCloseTo(0.25);
+    g.togglePrayer('rigour'); // shares defence with Piety
+    expect([...p.activePrayers]).toEqual(['rigour']);
+    g.togglePrayer('protect_melee');
+    expect(p.activePrayers.size).toBe(2);
+  });
+});
