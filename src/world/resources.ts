@@ -25,11 +25,17 @@ const CHEST_CHANCE = 0.45;
 
 const CARDINAL = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
+/** The player's levels, so each floor has a shortcut and a lock they can actually attempt. */
+export interface FloorLevels {
+  agility: number;
+  thieving: number;
+}
+
 /**
  * Places resources and stations on room edges. Every placement is checked so it
  * never cuts off part of the floor; ones that would are skipped.
  */
-export function placeResources(map: FloorMap): ResourceNode[] {
+export function placeResources(map: FloorMap, levels?: FloorLevels): ResourceNode[] {
   const nodes: ResourceNode[] = [];
   let walkable = reachableCount(map, map.spawn);
   const candidates = RNG.shuffle(edgeTiles(map));
@@ -85,16 +91,21 @@ export function placeResources(map: FloorMap): ResourceNode[] {
   if (map.depth >= 2 && !isBossFloor(map.depth) && RNG.getUniform() < MERCHANT_CHANCE) {
     tryPlace((p) => Object.assign(new ResourceNode(p, 'merchant'), { stock: generateStock(map.depth) }));
   }
+  let easyLock = true;
   for (let i = 0; i < 2; i++) {
     if (RNG.getUniform() >= CHEST_CHANCE) continue;
     const locked = map.depth >= LOCKED_CHEST_MIN_DEPTH && RNG.getUniform() < LOCKED_CHEST_CHANCE;
-    tryPlace((p) => Object.assign(new ResourceNode(p, 'chest'), locked ? { lockLevel: lockLevelFor(map.depth) } : {}));
+    // The first lock on a floor never outpaces your Thieving, so a low level can still catch up.
+    let lockLevel = lockLevelFor(map.depth);
+    if (locked && easyLock && levels) lockLevel = Math.min(lockLevel, Math.max(1, levels.thieving));
+    if (locked) easyLock = false;
+    tryPlace((p) => Object.assign(new ResourceNode(p, 'chest'), locked ? { lockLevel } : {}));
   }
   // Last, so nothing gets placed on a shortcut's landing spots afterwards.
   if (map.depth >= HIDDEN_ROOM_MIN_DEPTH && !isBossFloor(map.depth) && RNG.getUniform() < HIDDEN_ROOM_CHANCE) {
-    nodes.push(...placeHiddenRoom(map));
+    nodes.push(...placeHiddenRoom(map, levels?.agility));
   }
-  nodes.push(...placeShortcuts(map, RNG.getUniformInt(1, 2)));
+  nodes.push(...placeShortcuts(map, RNG.getUniformInt(1, 2), levels?.agility));
   return nodes;
 }
 
@@ -102,7 +113,7 @@ export function placeResources(map: FloorMap): ResourceNode[] {
  * Agility shortcuts: a single wall tile between two floor tiles where walking around
  * takes much longer. The wall stays a wall; the shortcut is how you cross it.
  */
-function placeShortcuts(map: FloorMap, count: number): ResourceNode[] {
+function placeShortcuts(map: FloorMap, count: number, agility?: number): ResourceNode[] {
   const out: ResourceNode[] = [];
   const spots: Array<{ wall: Point; a: Point; b: Point }> = [];
   for (let y = 1; y < map.height - 1; y++) {
@@ -126,8 +137,11 @@ function placeShortcuts(map: FloorMap, count: number): ResourceNode[] {
     if (taken(s.wall)) continue;
     const around = findPath(map, s.a, s.b).length;
     if (around < SHORTCUT_MIN_SAVING) continue;
+    // The first shortcut on a floor never outpaces your Agility, so a low level can still catch up.
+    let level = shortcutLevelFor(map.depth, RNG.getUniform());
+    if (!out.length && agility !== undefined) level = Math.min(level, Math.max(1, agility));
     out.push(Object.assign(new ResourceNode(s.wall, 'shortcut'), {
-      shortcut: { a: s.a, b: s.b, level: shortcutLevelFor(map.depth, RNG.getUniform()), kind: RNG.getUniformInt(0, OPEN_SHORTCUT_KINDS - 1) },
+      shortcut: { a: s.a, b: s.b, level, kind: RNG.getUniformInt(0, OPEN_SHORTCUT_KINDS - 1) },
     }));
   }
   return out;
@@ -137,7 +151,7 @@ function placeShortcuts(map: FloorMap, count: number): ResourceNode[] {
  * A hidden room: a small room carved into solid rock, reached only through a cracked wall
  * next to an existing corridor or room. Returns the crack and anything placed inside.
  */
-function placeHiddenRoom(map: FloorMap): ResourceNode[] {
+function placeHiddenRoom(map: FloorMap, agility?: number): ResourceNode[] {
   for (let tries = 0; tries < 300; tries++) {
     const w = RNG.getUniformInt(3, 5);
     const h = RNG.getUniformInt(3, 4);
@@ -168,7 +182,7 @@ function placeHiddenRoom(map: FloorMap): ResourceNode[] {
     for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) setTile(map, xx, yy, Tile.Floor);
     map.hidden = { x, y, w, h, variant };
     const out: ResourceNode[] = [Object.assign(new ResourceNode(door.wall, 'shortcut'), {
-      shortcut: { a: door.out, b: door.inside, level: hiddenRoomLevel(shortcutLevelFor(map.depth, RNG.getUniform())), kind: HIDDEN_ROOM_KIND },
+      shortcut: { a: door.out, b: door.inside, level: crackLevel(map.depth, agility), kind: HIDDEN_ROOM_KIND },
     })];
     // The prize sits in the corner farthest from the crack (a corner never splits the room).
     const corners = [{ x, y }, { x: x + w - 1, y }, { x, y: y + h - 1 }, { x: x + w - 1, y: y + h - 1 }];
@@ -181,6 +195,12 @@ function placeHiddenRoom(map: FloorMap): ResourceNode[] {
     return out;
   }
   return [];
+}
+
+/** The room is the prize, so the crack is never above your Agility. */
+function crackLevel(depth: number, agility?: number): number {
+  const level = hiddenRoomLevel(shortcutLevelFor(depth, RNG.getUniform()));
+  return agility === undefined ? level : Math.min(level, Math.max(1, agility));
 }
 
 function resourceNode(pos: Point, def: ResourceDef): ResourceNode {

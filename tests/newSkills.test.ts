@@ -147,6 +147,41 @@ describe('locked chest fairness', () => {
   });
 });
 
+describe('low-level catch-up', () => {
+  it('a level-1 player always gets a shortcut and lock they can attempt, even deep down', () => {
+    let shortcuts = 0;
+    let locks = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const g = new GameState(seed);
+      g.loadFloor(12);
+      const sc = g.nodes.filter((n) => n.kind === 'shortcut');
+      if (sc.length) {
+        shortcuts++;
+        expect(Math.min(...sc.map((n) => n.shortcut!.level))).toBe(1);
+      }
+      const locked = g.nodes.filter((n) => n.kind === 'chest' && n.lockLevel);
+      if (locked.length) {
+        locks++;
+        expect(Math.min(...locked.map((n) => n.lockLevel!))).toBe(1);
+      }
+    }
+    expect(shortcuts).toBeGreaterThan(20);
+    expect(locks).toBeGreaterThan(3);
+  });
+
+  it('a high-level player still meets depth-scaled shortcuts', () => {
+    const g = new GameState(5);
+    g.player.skills.xp.agility = xpForLevel(99);
+    let high = false;
+    for (let seed = 1; seed <= 20 && !high; seed++) {
+      g.seed = seed;
+      g.loadFloor(12);
+      high = g.nodes.some((n) => n.kind === 'shortcut' && n.shortcut!.level > 30);
+    }
+    expect(high).toBe(true);
+  });
+});
+
 describe('autoplay death', () => {
   it('a run that died on autoplay pays no tokens', () => {
     const g = new GameState(321);
