@@ -63,6 +63,8 @@ export const RECIPES: Recipe[] = [
   cook('raw_trout', 'trout', 10, 70, 30),
   cook('raw_lobster', 'lobster', 25, 120, 45),
   cook('raw_swordfish', 'swordfish', 30, 140, 55),
+  cook('raw_shark', 'shark', 50, 210, 75),
+  cook('raw_manta_ray', 'manta_ray', 70, 216, 90),
 
   mix('attack_potion', 1, 25, 'guam_leaf', 'eye_of_newt'),
   mix('strength_potion', 5, 50, 'tarromin', 'limpwurt_root'),

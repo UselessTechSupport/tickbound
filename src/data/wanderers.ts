@@ -20,7 +20,7 @@ export interface WandererDeal {
 export const WANDERER_CHANCE = 0.12;
 export const WANDERER_MIN_DEPTH = 2;
 
-const FISH = ['shrimps', 'trout', 'lobster', 'swordfish'];
+const FISH = ['shrimps', 'trout', 'lobster', 'swordfish', 'shark', 'manta_ray'];
 const BARS = ['bronze_bar', 'iron_bar', 'steel_bar', 'mithril_bar', 'adamant_bar', 'rune_bar'];
 const LOGS = ['logs', 'oak_logs', 'willow_logs', 'maple_logs', 'yew_logs'];
 const HERBS = ['guam_leaf', 'tarromin', 'harralander', 'ranarr_weed', 'irit_leaf', 'kwuarm', 'cadantine', 'dwarf_weed', 'lantadyme'];

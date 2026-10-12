@@ -94,6 +94,8 @@ const list: ItemDef[] = [
   { id: 'trout', name: 'Trout', color: 0xc07a5a, heal: 7, examine: 'Some nicely cooked trout.' },
   { id: 'lobster', name: 'Lobster', color: 0xd04a2a, heal: 12, examine: 'This looks tricky to eat.' },
   { id: 'swordfish', name: 'Swordfish', color: 0x8090c0, heal: 14, examine: 'I\'d better be careful eating this!' },
+  { id: 'shark', name: 'Shark', color: 0x8a9aa0, heal: 20, examine: 'I\'d better be careful eating this!' },
+  { id: 'manta_ray', name: 'Manta ray', color: 0x5a6a8a, heal: 22, examine: 'A rare catch from the deepest waters.' },
 
   { id: 'bronze_dagger', name: 'Bronze dagger', color: BRONZE, equip: weapon(4, 3, 1), examine: 'Short but pointy.' },
   { id: 'bronze_sword', name: 'Bronze sword', color: BRONZE, equip: weapon(7, 6, 1), examine: 'A razor sharp sword.' },
@@ -253,6 +255,8 @@ const list: ItemDef[] = [
   { id: 'raw_trout', name: 'Raw trout', color: 0x909aa0, examine: 'I should try cooking this.' },
   { id: 'raw_lobster', name: 'Raw lobster', color: 0x5a3a7a, examine: 'I should try cooking this.' },
   { id: 'raw_swordfish', name: 'Raw swordfish', color: 0x6a7aa0, examine: 'I should try cooking this.' },
+  { id: 'raw_shark', name: 'Raw shark', color: 0x6a7a80, examine: 'I should try cooking this.' },
+  { id: 'raw_manta_ray', name: 'Raw manta ray', color: 0x4a5a7a, examine: 'I should try cooking this.' },
   { id: 'burnt_fish', name: 'Burnt fish', color: 0x2a2a2a, examine: 'Oops!' },
 ];
 

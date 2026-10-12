@@ -22,7 +22,7 @@ export function catchUpFor(depth: number, style: StartStyle): CatchUp {
   if (style === 'melee') Object.assign(levels, { attack: combat, strength: combat });
   if (style === 'ranged') levels.ranged = combat;
   if (style === 'magic') levels.magic = combat;
-  const food = depth >= 11 ? 'swordfish' : depth >= 6 ? 'lobster' : 'trout';
+  const food = depth >= 21 ? 'shark' : depth >= 11 ? 'swordfish' : depth >= 6 ? 'lobster' : 'trout';
   return {
     levels,
     items: [
