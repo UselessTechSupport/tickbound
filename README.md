@@ -48,6 +48,8 @@ npm run dev        # then open http://localhost:5173
   Slayer category). Past floor 20, monsters keep getting 4% stronger per floor, so there's always further to go.
   Bosses: the Lich (floor 25) and the Ancient Wyrm (floor 30), then ever-stronger Wyrms.
 - **Tokens from coins**: 20 coins = 1 token up to 2,000 coins; bigger piles taper off, so hoarding can't flood the economy.
+- **Run modifiers** (after your first Goblin Warlord kill, at the ladder): optional handicaps for more tokens:
+  Hardened (+30%), Frenzied (+20%), Fragile (+25%), Famished (+15%), Relicless (+20%), Ironman (+10%). They stack.
 - **Wandering adventurers** (floor 2+): trade a few supplies (fish, bars, logs, herbs or bones) for a relic, tokens
   or coins.
 - **Dark shrines** (floor 4+): pick a relic, but take a random curse for the run (Frailty, Exposure, Famine or Unrest).

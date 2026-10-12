@@ -52,6 +52,8 @@ export interface MetaSave {
   startRelic: string | null;
   /** Floors each pet has come along for (pet levels). */
   petFloors: Record<string, number>;
+  /** Run modifiers you last chose at the ladder. */
+  modifiers?: string[];
   /** Today's daily contracts (see data/contracts.ts). */
   contracts?: ContractState;
   /** Skill mastery points per skill (levels gained in runs). */

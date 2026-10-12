@@ -16,6 +16,7 @@ import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { CURSE_BY_ID } from '../data/curses';
+import { MODIFIERS, modifierBonus } from '../data/modifiers';
 import { MASTERY_BONUS, MASTERY_THRESHOLDS, MAX_MASTERY, masteryLevel, nextMasteryAt } from '../data/mastery';
 import { QUESTS, describeReward, isQuestPosted, questProgress } from '../data/quests';
 import { contractBonus, contractProgress, describeContract, ensureContracts } from '../data/contracts';
@@ -1002,11 +1003,15 @@ export class UIScene extends Phaser.Scene {
 
   /** Taking the ladder: floor 1, skip past a beaten boss, or autoplay to your best floor. */
   private buildStartRun(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const d = this.dungeon;
     const W = this.panelX;
-    let y = 100;
-    for (const opt of this.dungeon.runStartOptions()) {
-      const b = add(this.add.text(W / 2, y, opt.label, {
-        ...FONT, fontSize: '16px', color: '#ffffff', backgroundColor: '#3e3529', padding: { x: 14, y: 6 }, fixedWidth: 360, align: 'center',
+    const mods = d.modifiersUnlocked;
+    // Start choices on the left (or centred when modifiers aren't unlocked yet).
+    const cx = mods ? W / 2 - 230 : W / 2;
+    let y = 96;
+    for (const opt of d.runStartOptions()) {
+      const b = add(this.add.text(cx, y, opt.label, {
+        ...FONT, fontSize: '14px', color: '#ffffff', backgroundColor: '#3e3529', padding: { x: 12, y: 5 }, fixedWidth: 320, align: 'center',
       }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true }));
       b.on('pointerover', () => b.setBackgroundColor('#5d5447'));
       b.on('pointerout', () => b.setBackgroundColor('#3e3529'));
@@ -1014,9 +1019,28 @@ export class UIScene extends Phaser.Scene {
         this.closeModal();
         opt.start();
       });
-      add(this.add.text(W / 2, y + 34, opt.detail, { ...FONT, fontSize: '11px', color: '#c8c8c8', align: 'center', wordWrap: { width: 600 } }).setOrigin(0.5, 0));
-      y += 76;
+      add(this.add.text(cx, y + 28, opt.detail, { ...FONT, fontSize: '10px', color: '#c8c8c8', align: 'center', wordWrap: { width: 400 } }).setOrigin(0.5, 0));
+      y += 58;
     }
+    if (!mods) return;
+    // Modifiers on the right: optional handicaps for more tokens.
+    const chosen = new Set(d.meta.modifiers ?? []);
+    const mx = W / 2 + 40;
+    add(this.add.text(mx, 96, `Modifiers: +${Math.round(modifierBonus([...chosen]) * 100)}% tokens`, { ...FONT, fontSize: '14px', color: '#ff981f' }));
+    add(this.add.text(mx, 116, 'Optional handicaps for this and future runs.', { ...FONT, fontSize: '10px', color: '#c8c8c8' }));
+    MODIFIERS.forEach((m, i) => {
+      const my = 140 + i * 44;
+      const on = chosen.has(m.id);
+      const t = add(this.add.text(mx, my, on ? 'ON ' : 'OFF', {
+        ...FONT, fontSize: '12px', color: on ? '#60ff60' : '#ff8080', backgroundColor: '#3e3529', padding: { x: 6, y: 3 },
+      }).setInteractive({ useHandCursor: true }));
+      t.on('pointerdown', () => {
+        d.toggleModifier(m.id);
+        this.openModal('startRun');
+      });
+      add(this.add.text(mx + 48, my, `${m.name}  (+${Math.round(m.bonus * 100)}%)`, { ...FONT, fontSize: '13px', color: on ? '#ffffff' : '#a08a5a' }));
+      add(this.add.text(mx + 48, my + 17, m.desc, { ...FONT, fontSize: '10px', color: '#c8c8c8' }));
+    });
   }
 
   /** Autoplay: "fast-forwarding" banner with a button to take control early. */
@@ -1843,7 +1867,8 @@ export class UIScene extends Phaser.Scene {
     this.updateLowHp(g);
     const ev = g.floorEvent && !g.isCamp ? FLOOR_EVENT_BY_ID[g.floorEvent] : null;
     const curses = g.isCamp ? '' : g.curses.map((c) => CURSE_BY_ID[c].name).join(', ');
-    this.eventLabel.setText([ev ? `${ev.name}: ${ev.desc}` : '', curses ? `Cursed: ${curses}` : ''].filter(Boolean).join('\n'));
+    const modText = g.isCamp || !g.modifiers.length ? '' : `Modifiers: ${g.modifiers.map((m) => MODIFIERS.find((x) => x.id === m)?.name).join(', ')}`;
+    this.eventLabel.setText([ev ? `${ev.name}: ${ev.desc}` : '', curses ? `Cursed: ${curses}` : '', modText].filter(Boolean).join('\n'));
 
     this.header.setText(g.isCamp ? `Camp  Tokens ${this.dungeon.meta.tokens}` : `Floor ${g.depth}  Combat ${p.combatLevel}`);
     const running = this.dungeon.running;

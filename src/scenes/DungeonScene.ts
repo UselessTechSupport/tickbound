@@ -33,6 +33,7 @@ import {
 } from '../meta/camp';
 import { ensureContracts } from '../data/contracts';
 import { campAdvice } from '../meta/advice';
+import { MODIFIERS_UNLOCK_BOSS } from '../data/modifiers';
 import { MASTERY_BONUS } from '../data/mastery';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { QUEST_BY_ID, describeReward } from '../data/quests';
@@ -248,6 +249,7 @@ export class DungeonScene extends Phaser.Scene {
       tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
       armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth, enchants: this.meta.enchants,
       campSetup: this.campSetup(), questRelics: this.meta.questRelics, mastery: masteryLevels(this.meta),
+      modifiers: this.modifiersUnlocked ? [...(this.meta.modifiers ?? [])] : [],
       veteranOf: Object.entries(this.meta.killCounts).filter(([, n]) => n >= 100).map(([id]) => id),
       logSlots: ALL_LOG_SLOTS.filter((id) => (this.meta.collection[id] ?? 0) > 0 || this.meta.pets.includes(id)).length,
     }));
@@ -510,6 +512,19 @@ export class DungeonScene extends Phaser.Scene {
     saveMeta(this.meta);
     sfx.play('buy');
     return true;
+  }
+
+  /** Run modifiers open up after your first Goblin Warlord kill. */
+  get modifiersUnlocked(): boolean {
+    return (this.meta.killCounts[MODIFIERS_UNLOCK_BOSS] ?? 0) > 0;
+  }
+
+  toggleModifier(id: string): void {
+    const list = new Set(this.meta.modifiers ?? []);
+    if (list.has(id)) list.delete(id);
+    else list.add(id);
+    this.meta.modifiers = [...list];
+    saveMeta(this.meta);
   }
 
   /** Ways to start a run: floor 1, the floor after each beaten boss, and autoplay. */
@@ -831,7 +846,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.startPending) {
       this.startPending = false;
       // With skip-ahead or autoplay available, let the player choose how to start.
-      if (this.runStartOptions().length > 1) this.ui.openModal('startRun');
+      if (this.runStartOptions().length > 1 || this.modifiersUnlocked) this.ui.openModal('startRun');
       else this.startRun();
     }
     if (!this.state.player.path.length) this.destMarker.setVisible(false);
