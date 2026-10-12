@@ -6,7 +6,7 @@
 import { saveSettings, settings } from '../save/settings';
 
 export type SoundName =
-  | 'hit' | 'miss' | 'hurt' | 'spec' | 'block' | 'eat' | 'pickup' | 'mine' | 'chop' | 'fish' | 'cook' | 'burn'
+  | 'hit' | 'miss' | 'hurt' | 'spec' | 'dig' | 'squeal' | 'curse' | 'block' | 'eat' | 'pickup' | 'mine' | 'chop' | 'fish' | 'cook' | 'burn'
   | 'smith' | 'prayerOn' | 'prayerOff' | 'levelup' | 'death' | 'stairs' | 'magic' | 'arrow' | 'buy' | 'bury' | 'warning';
 
 
@@ -97,6 +97,12 @@ class Sfx {
       case 'smith': this.tone(1400, 0.25, 'triangle', 0.25); this.tone(2100, 0.18, 'sine', 0.1); break;
       case 'prayerOn': this.tone(440, 0.15, 'sine', 0.25, 880); break;
       case 'prayerOff': this.tone(880, 0.15, 'sine', 0.2, 440); break;
+      // Treasure: two spade thuds, then a chest-lid chime.
+      case 'dig': this.noise(0.08, 0.3, 'lowpass', 500); this.noise(0.08, 0.3, 'lowpass', 500, 0.18); this.tone(880, 0.15, 'triangle', 0.12, undefined, 0.4); break;
+      // Treasure goblin: a quick rising squeak.
+      case 'squeal': this.tone(700, 0.12, 'square', 0.1, 1400); this.tone(900, 0.1, 'square', 0.08, 1800, 0.1); break;
+      // Dark shrine: a low, falling minor chord.
+      case 'curse': [196, 233, 294].forEach((f) => this.tone(f, 0.6, 'sawtooth', 0.06, f * 0.7)); break;
       case 'levelup': [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.12, 'square', 0.15, undefined, i * 0.1)); break;
       case 'death': this.tone(300, 0.9, 'sawtooth', 0.25, 50); break;
       case 'stairs': this.noise(0.35, 0.25, 'lowpass', 500); this.tone(300, 0.35, 'sine', 0.15, 120); break;
