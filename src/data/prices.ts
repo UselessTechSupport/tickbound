@@ -23,6 +23,8 @@ const FIXED: Record<string, number> = {
   dragon_dagger: 3000, granite_maul: 4000, magic_shortbow: 4000, ancient_staff: 4000, dragon_warhammer: 7000, dragon_claws: 9000,
   leather_buckler: 40, studded_buckler: 300, dhide_buckler: 1500, black_dhide_buckler: 6000,
   apprentice_tome: 60, mages_book: 1200, arcane_tome: 3000, ancestral_tome: 9000,
+  wooden_buckler: 20, oak_buckler: 60, willow_buckler: 150, maple_buckler: 400, yew_buckler: 1000, magic_buckler: 2500,
+  sapphire_orb: 80, emerald_orb: 200, ruby_orb: 450, diamond_orb: 900, dragonstone_orb: 2200,
   treasure_map: 500,
   sapphire: 50, emerald: 100, ruby: 200, diamond: 400, dragonstone: 1000,
   amulet_of_magic: 150, amulet_of_accuracy: 300, amulet_of_strength: 600, amulet_of_power: 1200, dragonstone_amulet: 3000,
@@ -38,6 +40,7 @@ export function priceOf(id: string): number {
   const [metal, ...rest] = id.split('_');
   const kind = rest.join('_');
   if (kind === 'arrow') return ARROW_VALUE[metal] ?? 0;
+  if (kind === 'arrowtips') return Math.ceil((ARROW_VALUE[metal] ?? 0) * 0.6);
   if (METAL_VALUE[metal] && KIND_FACTOR[kind]) return Math.round(METAL_VALUE[metal] * KIND_FACTOR[kind]);
   return 0;
 }

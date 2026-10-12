@@ -132,6 +132,12 @@ const list: ItemDef[] = [
   { id: 'amulet_of_accuracy', name: 'Amulet of accuracy', color: 0x30c050, equip: amulet({ attackBonus: 8, rangedBonus: 8 }), examine: 'An emerald amulet that steadies your aim.' },
   { id: 'amulet_of_strength', name: 'Amulet of strength', color: 0xe03040, equip: amulet({ strengthBonus: 10 }), examine: 'A ruby amulet that lends you strength.' },
   { id: 'amulet_of_power', name: 'Amulet of power', color: 0xe0f0ff, equip: amulet({ attackBonus: 6, strengthBonus: 6, defenceBonus: 6, rangedBonus: 6, magicBonus: 6 }), examine: 'A diamond amulet humming with power.' },
+  // Orbs: the magic off-hand a gem can be cut into instead of an amulet.
+  { id: 'sapphire_orb', name: 'Sapphire orb', color: 0x3050e0, equip: offhand(0, 0, 4, 'magic', 1), examine: 'A sapphire cut smooth to focus your spells.' },
+  { id: 'emerald_orb', name: 'Emerald orb', color: 0x30c050, equip: offhand(1, 0, 8, 'magic', 20), examine: 'An emerald cut smooth to focus your spells.' },
+  { id: 'ruby_orb', name: 'Ruby orb', color: 0xe03040, equip: offhand(2, 0, 12, 'magic', 35), examine: 'A ruby cut smooth to focus your spells.' },
+  { id: 'diamond_orb', name: 'Diamond orb', color: 0xe0f0ff, equip: offhand(3, 0, 16, 'magic', 50), examine: 'A diamond cut smooth to focus your spells.' },
+  { id: 'dragonstone_orb', name: 'Dragonstone orb', color: 0xa040e0, equip: offhand(5, 0, 21, 'magic', 65), examine: 'A dragonstone cut smooth. Spells leap from it.' },
   { id: 'dragonstone_amulet', name: 'Dragonstone amulet', color: 0xa040e0, equip: amulet({ attackBonus: 10, strengthBonus: 10, defenceBonus: 10, rangedBonus: 10, magicBonus: 10 }), examine: 'A dragonstone amulet. Its power is unmistakable.' },
   // Late-game Armourer tier (after the Ancient Wyrm).
   { id: 'dragon_platebody', name: 'Dragon platebody', color: 0xd03020, equip: body(110, 60), examine: 'Forged from the scales of something enormous.' },
@@ -146,6 +152,12 @@ const list: ItemDef[] = [
   { id: 'mithril_scimitar', name: 'Mithril scimitar', color: MITHRIL, equip: weapon(21, 20, 20), examine: 'A vicious, curved sword.' },
   { id: 'adamant_scimitar', name: 'Adamant scimitar', color: ADAMANT, equip: weapon(29, 28, 30), examine: 'A vicious, curved sword.' },
   { id: 'rune_scimitar', name: 'Rune scimitar', color: RUNE, equip: weapon(45, 44, 40), examine: 'A vicious, curved sword.' },
+  // Daggers: one bar at the anvil, weaker than a scimitar.
+  { id: 'iron_dagger', name: 'Iron dagger', color: IRON, equip: weapon(6, 5, 1), examine: 'Short but pointy.' },
+  { id: 'steel_dagger', name: 'Steel dagger', color: STEEL, equip: weapon(9, 8, 5), examine: 'Short but pointy.' },
+  { id: 'mithril_dagger', name: 'Mithril dagger', color: MITHRIL, equip: weapon(13, 12, 20), examine: 'Short but pointy.' },
+  { id: 'adamant_dagger', name: 'Adamant dagger', color: ADAMANT, equip: weapon(18, 17, 30), examine: 'Short but pointy.' },
+  { id: 'rune_dagger', name: 'Rune dagger', color: RUNE, equip: weapon(27, 26, 40), examine: 'Short but pointy.' },
 
   { id: 'bronze_platebody', name: 'Bronze platebody', color: BRONZE, equip: body(15, 1), examine: 'Provides excellent protection.' },
   { id: 'iron_platebody', name: 'Iron platebody', color: IRON, equip: body(21, 1), examine: 'Provides excellent protection.' },
@@ -175,6 +187,21 @@ const list: ItemDef[] = [
   { id: 'adamant_arrow', name: 'Adamant arrow', color: ADAMANT, stackable: true, equip: arrows(31, 30), examine: 'Arrows with adamant heads.' },
   { id: 'rune_arrow', name: 'Rune arrow', color: RUNE, stackable: true, equip: arrows(49, 40), examine: 'Arrows with rune heads.' },
   { id: 'dragon_arrow', name: 'Dragon arrow', color: 0xd03020, stackable: true, equip: arrows(60, 60), examine: 'Arrows with dragon heads.' },
+  // Arrowtips: smithed from a bar, fletched onto shafts.
+  { id: 'bronze_arrowtips', name: 'Bronze arrowtips', color: BRONZE, stackable: true, examine: 'I can make some arrows with these.' },
+  { id: 'iron_arrowtips', name: 'Iron arrowtips', color: IRON, stackable: true, examine: 'I can make some arrows with these.' },
+  { id: 'steel_arrowtips', name: 'Steel arrowtips', color: STEEL, stackable: true, examine: 'I can make some arrows with these.' },
+  { id: 'mithril_arrowtips', name: 'Mithril arrowtips', color: MITHRIL, stackable: true, examine: 'I can make some arrows with these.' },
+  { id: 'adamant_arrowtips', name: 'Adamant arrowtips', color: ADAMANT, stackable: true, examine: 'I can make some arrows with these.' },
+  { id: 'rune_arrowtips', name: 'Rune arrowtips', color: RUNE, stackable: true, examine: 'I can make some arrows with these.' },
+  { id: 'dragon_arrowtips', name: 'Dragon arrowtips', color: 0xd03020, stackable: true, examine: 'I can make some arrows with these.' },
+  // Wooden bucklers: fletched from two logs, a step below the Armourer's leather ones.
+  { id: 'wooden_buckler', name: 'Wooden buckler', color: 0x8b5a2b, equip: offhand(3, 2, 0, 'ranged', 1), examine: 'A small wooden shield that leaves your draw arm free.' },
+  { id: 'oak_buckler', name: 'Oak buckler', color: 0x9c6b30, equip: offhand(6, 4, 0, 'ranged', 10), examine: 'A small oak shield that leaves your draw arm free.' },
+  { id: 'willow_buckler', name: 'Willow buckler', color: 0x9a8a4a, equip: offhand(9, 6, 0, 'ranged', 20), examine: 'Light and springy willow.' },
+  { id: 'maple_buckler', name: 'Maple buckler', color: 0xa0522d, equip: offhand(13, 8, 0, 'ranged', 30), examine: 'A sturdy maple buckler.' },
+  { id: 'yew_buckler', name: 'Yew buckler', color: 0x6b4423, equip: offhand(18, 11, 0, 'ranged', 40), examine: 'Yew, hard as iron and half the weight.' },
+  { id: 'magic_buckler', name: 'Magic buckler', color: 0x5a7ad0, equip: offhand(25, 14, 0, 'ranged', 55), examine: 'It hums faintly, like the tree it came from.' },
   { id: 'leather_body', name: 'Leather body', color: 0x8a5a2a, equip: robe(0, 2, 8, 'defence', 1), examine: 'Better than no armour!' },
   { id: 'hardleather_body', name: 'Hardleather body', color: 0x6a4a2a, equip: robe(-4, 6, 14, 'ranged', 10), examine: 'Harder than normal leather.' },
   { id: 'studded_body', name: 'Studded body', color: 0x7a6a5a, equip: robe(-6, 10, 20, 'ranged', 20), examine: 'Leather armour reinforced with metal studs.' },

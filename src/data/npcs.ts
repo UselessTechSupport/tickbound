@@ -86,17 +86,18 @@ const HERBLORE_DROPS: Record<string, Drop[]> = {
 
 /** Ranged and magic supplies, appended to the drop tables above. */
 const SUPPLY_DROPS: Record<string, Drop[]> = {
-  goblin: [{ item: 'bronze_arrow', chance: 0.2, min: 5, max: 15 }, { item: 'shortbow', chance: 0.03 }],
+  goblin: [{ item: 'bronze_arrow', chance: 0.2, min: 5, max: 15 }, { item: 'shortbow', chance: 0.03 }, { item: 'wooden_buckler', chance: 0.03 }],
   zombie: [{ item: 'air_rune', chance: 0.25, min: 5, max: 15 }, { item: 'mind_rune', chance: 0.25, min: 5, max: 15 }],
   skeleton: [{ item: 'iron_arrow', chance: 0.2, min: 5, max: 15 }],
   dark_wizard: [
     { item: 'air_rune', chance: 0.5, min: 8, max: 20 }, { item: 'mind_rune', chance: 0.5, min: 8, max: 20 },
     { item: 'water_rune', chance: 0.25, min: 5, max: 15 }, { item: 'earth_rune', chance: 0.25, min: 5, max: 15 },
     { item: 'staff', chance: 0.06 }, { item: 'wizard_robe', chance: 0.05 },
+    { item: 'sapphire_orb', chance: 0.04 }, { item: 'apprentice_tome', chance: 0.03 },
   ],
   skeleton_archer: [
     { item: 'iron_arrow', chance: 0.5, min: 10, max: 30 }, { item: 'oak_shortbow', chance: 0.05 },
-    { item: 'leather_body', chance: 0.05 },
+    { item: 'leather_body', chance: 0.05 }, { item: 'oak_buckler', chance: 0.04 }, { item: 'leather_buckler', chance: 0.03 },
   ],
   hill_giant: [{ item: 'steel_arrow', chance: 0.15, min: 5, max: 15 }, { item: 'chaos_rune', chance: 0.12, min: 3, max: 8 }],
   giant_spider: [{ item: 'fire_rune', chance: 0.2, min: 10, max: 25 }],
@@ -107,14 +108,15 @@ const SUPPLY_DROPS: Record<string, Drop[]> = {
   infernal_mage: [
     { item: 'chaos_rune', chance: 0.45, min: 8, max: 20 }, { item: 'fire_rune', chance: 0.45, min: 15, max: 40 },
     { item: 'death_rune', chance: 0.12, min: 2, max: 6 }, { item: 'staff_of_fire', chance: 0.05 },
-    { item: 'mystic_robe_top', chance: 0.03 },
+    { item: 'mystic_robe_top', chance: 0.03 }, { item: 'ruby_orb', chance: 0.03 }, { item: 'mages_book', chance: 0.015 },
   ],
   dark_archer: [
     { item: 'adamant_arrow', chance: 0.45, min: 10, max: 30 }, { item: 'maple_shortbow', chance: 0.05 },
     { item: 'yew_shortbow', chance: 0.02 }, { item: 'green_dhide_body', chance: 0.03 },
+    { item: 'maple_buckler', chance: 0.04 }, { item: 'studded_buckler', chance: 0.03 }, { item: 'dhide_buckler', chance: 0.01 },
   ],
   lesser_demon: [{ item: 'death_rune', chance: 0.2, min: 3, max: 8 }, { item: 'rune_arrow', chance: 0.1, min: 5, max: 15 }],
-  greater_demon: [{ item: 'death_rune', chance: 0.3, min: 5, max: 12 }, { item: 'mystic_fire_staff', chance: 0.02 }],
+  greater_demon: [{ item: 'death_rune', chance: 0.3, min: 5, max: 12 }, { item: 'mystic_fire_staff', chance: 0.02 }, { item: 'arcane_tome', chance: 0.01 }],
   demonic_gorilla: [{ item: 'dragon_scimitar', chance: 0.1 }],
   goblin_warlord: [{ item: 'willow_shortbow', chance: 0.25 }, { item: 'iron_arrow', chance: 1, min: 40, max: 80 }, { item: 'staff_of_water', chance: 0.25 }],
   tztok_jad: [{ item: 'mystic_air_staff', chance: 0.25 }, { item: 'chaos_rune', chance: 1, min: 30, max: 60 }, { item: 'maple_shortbow', chance: 0.25 }],

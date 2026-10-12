@@ -1896,11 +1896,11 @@ export class UIScene extends Phaser.Scene {
       const ready = mixes.find((r) => r.inputs.every((i) => g.player.inventory.count(i.item) >= i.qty)) ?? mixes[0];
       opts.push({ label: `Mix ${item(ready.output).name}`, action: () => g.mix(ready) });
     }
-    // Gems: Craft the amulet they make (needs a chisel).
+    // Gems: Craft the amulet or orb they make (needs a chisel).
     for (const r of recipesFor('craft').filter((r) => r.inputs[0].item === stack.id)) {
       opts.push({ label: `Craft ${item(r.output).name}`, action: () => g.fletch(r) });
     }
-    // Logs and bars: Fletch what they make (bows from logs; arrows from a bar + logs).
+    // Logs and arrowtips: Fletch what they make (bows and bucklers from logs; arrows from tips + logs).
     for (const r of recipesFor('fletch').filter((r) => r.inputs[0].item === stack.id)) {
       opts.push({ label: `Fletch ${r.outputQty ? `${r.outputQty} ` : ''}${item(r.output).name}${r.outputQty ? 's' : ''}`, action: () => g.fletch(r) });
     }

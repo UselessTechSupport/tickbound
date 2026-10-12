@@ -850,7 +850,7 @@ export class DungeonScene extends Phaser.Scene {
         const choices = recipesFor('anvil')
           .filter((r) => has(r.inputs[0].item))
           .map((r) => ({
-            label: `Smith ${name(r.output)} (${r.inputs[0].qty} bars, lvl ${r.level})`,
+            label: `Smith ${r.outputQty ? `${r.outputQty} ` : ''}${name(r.output)} (${r.inputs[0].qty} bar${r.inputs[0].qty > 1 ? 's' : ''}, lvl ${r.level})`,
             action: () => g.process(node, r, false),
           }));
         if (!choices.length) {

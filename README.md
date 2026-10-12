@@ -89,8 +89,9 @@ npm run dev        # then open http://localhost:5173
 - 18 skills on the OSRS XP curve, reset every run: combat, Prayer, Mining, Woodcutting, Fishing, Cooking, Smithing,
   Herblore, Fletching, Thieving, Agility, Crafting and Slayer.
 - **Gathering and crafting** keep you alive: fish and cook (up to sharks and manta rays), mine and smith (up to dragon),
-  chop and fletch (up to magic logs, the magic shortbow and dragon arrows), mix potions (up to super combat), cut gems
-  into amulets (new amulet slot). Tools come from the Toolsmith.
+  chop and fletch (up to magic logs, the magic shortbow and dragon arrows from smithed arrowtips), fletch wooden
+  bucklers for archers, mix potions (up to super combat), cut gems into amulets (new amulet slot) or orbs for mages.
+  Tools come from the Toolsmith.
 - **Thieving**: pickpocket humanoids and pick locked chests. **Agility**: shortcuts through walls.
 - **Slayer** (after the Goblin Warlord): kill tasks from the Slayer master that carry across runs, plus permanent
   Slayer rewards (longer tasks, elite task monsters, treasure maps, restoration).
