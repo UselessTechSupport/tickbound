@@ -895,6 +895,17 @@ export class UIScene extends Phaser.Scene {
       `Tokens spent so far: about ${Math.max(0, journalSpent(m)).toLocaleString()}`,
     ];
     add(this.add.text(W / 2, 104 + 7 * 52 + 6, lifetime.join('    '), { ...FONT, fontSize: '11px', color: '#c8c8c8' }).setOrigin(0.5, 0));
+    // Recent runs.
+    const hist = m.history ?? [];
+    if (hist.length) {
+      const hy = 104 + 7 * 52 + 30;
+      add(this.add.text(x0, hy, 'Recent runs', { ...FONT, fontSize: '12px', color: '#ff981f' }));
+      hist.slice(0, 5).forEach((r, i) => {
+        add(this.add.text(x0 + (i % 5) * 122, hy + 18, `Floor ${r.depth}\n${r.kills} kills\n+${r.tokens} tokens\n${r.killedBy}`, {
+          ...FONT, fontSize: '10px', color: '#c8c8c8', lineSpacing: 1,
+        }));
+      });
+    }
   }
 
   /** Skill mastery: level, progress and bonus per skill, in two columns. */
