@@ -139,3 +139,13 @@ describe('style armour and the kit-perk rework', () => {
     delete (globalThis as { localStorage?: unknown }).localStorage;
   });
 });
+
+describe('late-game Armourer tier', () => {
+  it('every line ends in a tier that needs an Ancient Wyrm kill', () => {
+    for (const line of ARMOURY_LINES) {
+      const tiers = ARMOURY[line].tiers;
+      expect(tiers[tiers.length - 1].requiresKill, line).toBe('ancient_wyrm');
+      for (const t of tiers.slice(0, -1)) expect(t.requiresKill).toBeUndefined();
+    }
+  });
+});

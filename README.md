@@ -62,7 +62,9 @@ npm run dev        # then open http://localhost:5173
 - **Armourer** (camp, unlocked by the Mentor's Veteran's Kit perk): permanent starting-gear tiers: melee, ranged
   (with arrows) and magic (with runes) weapons; melee (platebodies), ranged (leather to blue d'hide) and magic (wizard
   robe to Ahrim's) armour; and shields. Pick a starting style and you start in its weapon and armour; gear above your
-  level starts in your pack until you can wield it. (Mentor perks give levels and bonuses; the Armourer gives gear.)
+  level starts in your pack until you can wield it. Beating the Ancient Wyrm (floor 30) opens a final
+  dragon-era tier for every line (dragon platebody/kiteshield/scimitar, dark bow, staff of light, black d'hide,
+  ancestral robe top). (Mentor perks give levels and bonuses; the Armourer gives gear.)
 - **Enchanter** (camp, arrives after your first TzTok-Jad kill): one enchantment per Armourer gear line, ranks I-III.
   Weapons: Keen, Brutal, Leeching, Flaming, Slayer's. Armour: Fortified, Thorns, Renewal, Blessed. Switching costs a fee.
 - **Fletching** (needs a knife from the Toolsmith): use logs to fletch shortbows, or a bar + logs to fletch 15 arrows.
