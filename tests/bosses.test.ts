@@ -53,3 +53,26 @@ describe('the demonic gorilla', () => {
     expect(before - boss.hp).toBe(5);
   });
 });
+
+describe('new elite affixes', () => {
+  it('Regenerating heals over time; Splitting leaves two lesser copies', async () => {
+    const { ELITE_AFFIXES, eliteDef } = await import('../src/data/elites');
+    const { NPCS } = await import('../src/data/npcs');
+    const { Npc } = await import('../src/entities/Npc');
+    const g = new GameState(77);
+    g.npcs.length = 0;
+    const regen = ELITE_AFFIXES.find((a) => a.id === 'regenerating')!;
+    const far = { x: g.player.pos.x, y: g.player.pos.y };
+    const r = Object.assign(new Npc(eliteDef(NPCS.hill_giant, regen), far), { elite: regen });
+    r.hp = 10;
+    g.npcs.push(r);
+    for (let i = 0; i < 10; i++) g.tick();
+    expect(r.hp).toBeGreaterThan(10);
+    const split = ELITE_AFFIXES.find((a) => a.id === 'splitting')!;
+    const s = Object.assign(new Npc(eliteDef(NPCS.hill_giant, split), far), { elite: split });
+    g.npcs = [s];
+    (g as unknown as { killNpc(n: unknown): void }).killNpc(s);
+    expect(g.npcs.filter((n) => n.name.startsWith('Lesser')).length).toBe(2);
+    expect(g.npcs.every((n) => n.def.drops.length === 0)).toBe(true);
+  });
+});

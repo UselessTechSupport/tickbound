@@ -23,6 +23,8 @@ export const ELITE_AFFIXES: EliteAffix[] = [
   { id: 'swift', name: 'Swift', desc: 'Attacks faster and notices you sooner.', apply: (d) => ({ ...d, attackSpeed: Math.max(2, d.attackSpeed - 1), aggroRadius: d.aggroRadius + 2 }) },
   { id: 'vampiric', name: 'Vampiric', desc: 'Heals for half the damage it deals.', apply: (d) => ({ ...d }) },
   { id: 'savage', name: 'Savage', desc: 'Rarely misses.', apply: (d) => ({ ...d, attack: scale(d.attack, 1.3), attackBonus: d.attackBonus + 20 }) },
+  { id: 'regenerating', name: 'Regenerating', desc: 'Heals steadily; burst it down.', apply: (d) => ({ ...d }) },
+  { id: 'splitting', name: 'Splitting', desc: 'Splits in two when killed.', apply: (d) => ({ ...d }) },
 ];
 
 /** Every elite is beefier; the affix adds its twist on top. */

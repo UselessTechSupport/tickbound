@@ -120,7 +120,7 @@ npm run dev        # then open http://localhost:5173
 - **Herblore**: pick herbs from herb patches or loot them, then Mix them (right-click the herb) with a secondary
   ingredient and a vial of water into Attack/Strength/Defence/Prayer potions, Super versions, Ranging and Magic
   potions. Potions boost your levels (shown in green) and fade by 1 a minute.
-- **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric or Savage variants in a gold aura. Tougher, but
+- **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric, Savage, Regenerating or Splitting variants in a gold aura. Tougher, but
   they roll their loot twice, always drop a herb and give bonus tokens.
 - **Achievements**: 90 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
   challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
