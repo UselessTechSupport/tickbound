@@ -21,7 +21,7 @@ import { priceOf } from '../data/prices';
 import { Notice, ProgressTracker } from '../meta/tracker';
 import { PET_BY_ID } from '../data/collectionLog';
 import type { AchievementDef } from '../data/achievements';
-import { SKIP_TASK_COST, SLAYER_BY_ID, SLAYER_UNLOCK_BOSS, assignTask } from '../data/slayer';
+import { SLAYER_UNLOCKS, SKIP_TASK_COST, SLAYER_BY_ID, SLAYER_UNLOCK_BOSS, assignTask } from '../data/slayer';
 import { themeForDepth } from '../data/themes';
 import { ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
@@ -262,6 +262,7 @@ export class DungeonScene extends Phaser.Scene {
       armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth, enchants: this.meta.enchants,
       campSetup: this.campSetup(), questRelics: this.meta.questRelics, mastery: masteryLevels(this.meta),
       modifiers: this.modifiersUnlocked ? [...(this.meta.modifiers ?? [])] : [],
+      slayerUnlocks: [...(this.meta.slayerUnlocks ?? [])],
       veteranOf: Object.entries(this.meta.killCounts).filter(([, n]) => n >= 100).map(([id]) => id),
       logSlots: ALL_LOG_SLOTS.filter((id) => (this.meta.collection[id] ?? 0) > 0 || this.meta.pets.includes(id)).length,
     }));
@@ -517,10 +518,22 @@ export class DungeonScene extends Phaser.Scene {
     sfx.play('levelup');
   }
 
+  /** Slayer master: buy a permanent unlock. */
+  buySlayerUnlock(id: string): boolean {
+    const u = SLAYER_UNLOCKS.find((x) => x.id === id);
+    const owned = this.meta.slayerUnlocks ?? [];
+    if (!u || owned.includes(id) || this.meta.tokens < u.cost) return false;
+    this.meta.tokens -= u.cost;
+    this.meta.slayerUnlocks = [...owned, id];
+    saveMeta(this.meta);
+    sfx.play('buy');
+    return true;
+  }
+
   /** Slayer master: hand out a task if you don't have one. */
   getSlayerTask(): void {
     if (this.meta.slayerTask || !this.meta.slayerUnlocked) return;
-    this.meta.slayerTask = assignTask(this.meta.bestDepth, Math.random);
+    this.meta.slayerTask = assignTask(this.meta.bestDepth, Math.random, undefined, (this.meta.slayerUnlocks ?? []).includes('extended'));
     saveMeta(this.meta);
     sfx.play('buy');
   }

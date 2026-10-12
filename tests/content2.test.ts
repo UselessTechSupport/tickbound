@@ -114,3 +114,15 @@ describe('slayer unlock', () => {
     delete (globalThis as { localStorage?: unknown }).localStorage;
   });
 });
+
+describe('slayer unlocks', () => {
+  it('Extended Tasks makes tasks longer', async () => {
+    const { assignTask } = await import('../src/data/slayer');
+    let r = 0.5;
+    const rand = () => r;
+    const normal = assignTask(10, rand);
+    r = 0.5;
+    const longer = assignTask(10, rand, undefined, true);
+    expect(longer.total).toBe(Math.round(normal.total * 1.5));
+  });
+});
