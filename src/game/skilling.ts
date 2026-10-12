@@ -56,7 +56,7 @@ export function gatherRoll(g: GameState, node: ResourceNode): boolean {
   const p = g.player;
   const def = node.def!;
   const sure = g.perkRank('master_gatherer') > 0;
-  if (!sure && RNG.getUniform() >= gatherChance(p.skills.level(def.skill), def, toolTier(p, def), g.mods.gatherBonus)) return true;
+  if (!sure && RNG.getUniform() >= gatherChance(p.skills.level(def.skill), def, toolTier(p, def), g.mods.gatherBonus + (def.kind === 'herb' ? 0 : g.masteryOf(def.skill)))) return true;
 
   // Field Cook: a fish comes out already cooked.
   const cooked = def.kind === 'fishing' && RNG.getUniform() < 0.1 * g.perkRank('field_cook');
@@ -135,7 +135,7 @@ export function processStep(g: GameState, recipe: Recipe): void {
   for (const i of recipe.inputs) p.inventory.remove(i.item, i.qty);
   const what = lower(recipe.output);
 
-  if (recipe.station === 'fire' && RNG.getUniform() < burnChance(p.skills.level('cooking'), recipe) * g.mods.burnMult) {
+  if (recipe.station === 'fire' && RNG.getUniform() < burnChance(p.skills.level('cooking'), recipe) * g.mods.burnMult * (1 - g.masteryOf('cooking'))) {
     p.inventory.add('burnt_fish');
     g.sound('burn');
     g.message(`You accidentally burn the ${what}.`);
@@ -147,7 +147,8 @@ export function processStep(g: GameState, recipe: Recipe): void {
   // Fine Fletching adds arrows; Efficient Smelting and Herbalist sometimes make a second.
   let qty = Math.floor((recipe.outputQty ?? 1) * kit) + (arrows ? 2 * g.perkRank('fine_fletching') : 0);
   if (recipe.station === 'furnace' && RNG.getUniform() < 0.1 * g.perkRank('efficient_smelting')) qty++;
-  if (recipe.station === 'mix' && RNG.getUniform() < 0.1 * g.perkRank('herbalist')) qty++;
+  if (recipe.station === 'mix' && RNG.getUniform() < 0.1 * g.perkRank('herbalist') + g.masteryOf('herblore')) qty++;
+  if (arrows) qty += Math.floor(g.masteryOf('fletching'));
   // Bulk Smelting gives coal back.
   const coal = recipe.station === 'furnace' ? recipe.inputs.find((i) => i.item === 'coal')?.qty ?? 0 : 0;
   if (coal) p.inventory.add('coal', Math.min(coal, g.perkRank('bulk_smelting')));
@@ -169,7 +170,7 @@ export function processStep(g: GameState, recipe: Recipe): void {
   g.made(recipe.output);
   if (recipe.station === 'fire') g.stat('cooks');
   if (recipe.station === 'anvil') g.stat('smiths');
-  if (recipe.station === 'anvil' && RNG.getUniform() < g.mods.saveBarChance) {
+  if (recipe.station === 'anvil' && RNG.getUniform() < g.mods.saveBarChance + g.masteryOf('smithing')) {
     p.inventory.add(recipe.inputs[0].item);
     g.message('Master Smith: you save a bar!');
   }

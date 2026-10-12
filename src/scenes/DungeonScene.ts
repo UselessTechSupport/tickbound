@@ -1,3 +1,4 @@
+import { SKILL_LABELS } from '../data/skills';
 import { ALL_LOG_SLOTS } from '../data/collectionLog';
 import Phaser from 'phaser';
 import { TickScheduler } from '../core/tick';
@@ -27,7 +28,8 @@ import { catchUpFor } from '../data/catchup';
 import { enchantCost } from '../data/enchants';
 import { PICKPOCKET } from '../data/thieving';
 import { Materials, STRUCTURES, STRUCTURE_BY_ID, StructureId, nextStructureLevel } from '../data/construction';
-import { campSetupFor, claimQuest, claimableQuests, settleRun } from '../meta/camp';
+import { addMastery, campSetupFor, claimQuest, claimableQuests, masteryLevels, settleRun } from '../meta/camp';
+import { MASTERY_BONUS } from '../data/mastery';
 import { QUEST_BY_ID, describeReward } from '../data/quests';
 import { RELIC_BY_ID } from '../data/relics';
 import { SHORTCUT_KINDS } from '../data/agility';
@@ -226,7 +228,7 @@ export class DungeonScene extends Phaser.Scene {
     this.setState(new GameState(randomSeed(), (e) => this.onGameEvent(e), {
       tools: this.meta.tools, perks: this.meta.perks, slayerTask: this.meta.slayerTask,
       armoury: this.meta.armoury, startStyle: this.meta.startStyle, startDepth: opts.startDepth, enchants: this.meta.enchants,
-      campSetup: this.campSetup(), questRelics: this.meta.questRelics,
+      campSetup: this.campSetup(), questRelics: this.meta.questRelics, mastery: masteryLevels(this.meta),
       veteranOf: Object.entries(this.meta.killCounts).filter(([, n]) => n >= 100).map(([id]) => id),
       logSlots: ALL_LOG_SLOTS.filter((id) => (this.meta.collection[id] ?? 0) > 0 || this.meta.pets.includes(id)).length,
     }));
@@ -408,7 +410,14 @@ export class DungeonScene extends Phaser.Scene {
     clearRun();
     const g = this.state;
     this.lastMaterials = null;
-    if (!g.noRewards) this.settleCamp(g);
+    if (!g.noRewards) {
+      this.settleCamp(g);
+      for (const { skill, level } of addMastery(this.meta, g)) {
+        const text = `${SKILL_LABELS[skill]} mastery is now level ${level}: ${MASTERY_BONUS[skill].per} per level.`;
+        g.message(text);
+        this.bus.emit('notice', { kind: 'unlock', name: `${SKILL_LABELS[skill]} mastery ${level}!` });
+      }
+    }
     this.lastEarned = g.tokensEarned;
     this.meta.tokens += this.lastEarned;
     this.meta.runs++;

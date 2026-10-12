@@ -14,6 +14,7 @@ import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIERS, Tier, tierOf } from '../data/ac
 import { SKIP_TASK_COST, SLAYER_BY_ID } from '../data/slayer';
 import { MIMIC_CHANCE, NPCS } from '../data/npcs';
 import { SPEC_BY_WEAPON } from '../data/specials';
+import { MASTERY_BONUS, MASTERY_THRESHOLDS, MAX_MASTERY, masteryLevel, nextMasteryAt } from '../data/mastery';
 import { QUESTS, describeReward, isQuestPosted, questProgress } from '../data/quests';
 import { PET_BUFFS, PET_MAX_LEVEL, STRUCTURES, TROPHY_BONUS, TROPHY_MOUNTS, nextStructureLevel, petBonus, petLevel } from '../data/construction';
 import { ARMOURY, ARMOURY_LINES, ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
@@ -57,7 +58,7 @@ const PANEL_EDGE = 0x1c1812;
 
 type Tab = 'inventory' | 'prayer' | 'magic' | 'gear';
 type ModalKind = 'mentor' | 'toolsmith' | 'merchant' | 'achievements' | 'log' | 'slayer' | 'settings' | 'drops'
-  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests';
+  | 'armoury' | 'startRun' | 'enchanter' | 'builder' | 'quests' | 'mastery';
 
 /** What the drop-table window is showing. */
 export type DropsSubject = { kind: 'npc'; npc: Npc } | { kind: 'chest'; depth: number };
@@ -212,6 +213,7 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-Q', () => this.state.toggleQuickPrayers(settings.quickPrayers));
     this.input.keyboard?.on('keydown-E', () => !this.modalKind && this.state.toggleSpec());
     this.input.keyboard?.on('keydown-L', () => this.toggleModal('log'));
+    this.input.keyboard?.on('keydown-K', () => this.toggleModal('mastery'));
     // Not captured, so Shift still works normally in the browser.
     this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT, false);
     this.input.keyboard?.on('keydown-R', () => this.dungeon.setRunning(!this.dungeon.running));
@@ -344,6 +346,7 @@ export class UIScene extends Phaser.Scene {
       const bar = this.add.rectangle(sx, sy + 14, 0, 2, 0x00b000).setOrigin(0);
       const hit = this.add.rectangle(sx, sy, SKILL_COL_W - 8, SKILL_ROW_H - 2, 0, 0).setOrigin(0).setInteractive();
       hit.on('pointerover', () => (this.hoveredSkill = s));
+      hit.on('pointerdown', () => this.toggleModal('mastery'));
       hit.on('pointerout', () => this.hoveredSkill === s && (this.hoveredSkill = null));
       this.skillViews.set(s, { text, bar });
       root.add([text, track, bar, hit]);
@@ -597,7 +600,7 @@ export class UIScene extends Phaser.Scene {
     const title = {
       mentor: 'Mentor: Skill Tree', toolsmith: 'Toolsmith', merchant: 'Wandering Merchant',
       achievements: 'Achievements', log: 'Collection Log', slayer: 'Slayer master', settings: 'Settings',
-      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board',
+      armoury: 'Armourer: starting gear', startRun: 'Enter the dungeon', enchanter: 'Enchanter', builder: 'Builder: camp structures', quests: 'Quest board', mastery: 'Skill mastery',
       drops: this.dropsSubject?.kind === 'npc' ? `${this.dropsSubject.npc.name}: drops` : `Chest: possible loot (floor ${this.dropsSubject?.depth})`,
     }[kind];
     add(this.add.text(W / 2, 24, title, { ...FONT, fontSize: '22px', color: '#ff981f' }).setOrigin(0.5, 0));
@@ -615,6 +618,7 @@ export class UIScene extends Phaser.Scene {
       enchanter: `Dungeoneering tokens: ${meta.tokens}`,
       builder: `Tokens: ${meta.tokens}   Timber: ${meta.materials.timber}   Metal: ${meta.materials.metal}`,
       quests: `Quests complete: ${meta.questsDone.length}/${QUESTS.length}`,
+      mastery: 'Every level you gain in a run adds mastery points to that skill, for good.',
       startRun: `Best floor: ${meta.bestDepth}   Deepest boss beaten: ${meta.deepestBoss ? `floor ${meta.deepestBoss}` : 'none yet'}`,
       drops: this.dropsSubject?.kind === 'npc' ? this.dropsSubject.npc.def.examine : 'Opening it gives coins plus one or two bonus items.',
     }[kind];
@@ -633,12 +637,13 @@ export class UIScene extends Phaser.Scene {
     else if (kind === 'enchanter') this.buildEnchanter(add);
     else if (kind === 'builder') this.buildBuilder(add);
     else if (kind === 'quests') this.buildQuests(add);
+    else if (kind === 'mastery') this.buildMastery(add);
     else if (kind === 'startRun') this.buildStartRun(add);
     else this.buildToolsmith(add);
   }
 
   /** Hotkeys toggle these windows; they never replace a shop or relic choice in progress. */
-  private toggleModal(kind: 'achievements' | 'log' | 'settings'): void {
+  private toggleModal(kind: 'achievements' | 'log' | 'settings' | 'mastery'): void {
     if (this.modalKind === kind) this.closeModal();
     else if (!this.modalKind || ['achievements', 'log', 'settings'].includes(this.modalKind)) this.openModal(kind);
   }
@@ -800,6 +805,33 @@ export class UIScene extends Phaser.Scene {
       }
       y += 34;
     }
+  }
+
+  /** Skill mastery: level, progress and bonus per skill, in two columns. */
+  private buildMastery(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
+    const m = this.dungeon.meta;
+    const W = this.panelX;
+    const colW = Math.min(470, (W - 60) / 2);
+    const x0 = (W - colW * 2) / 2;
+    SKILLS.forEach((skill, i) => {
+      const x = x0 + (i % 2) * colW;
+      const y = 96 + Math.floor(i / 2) * 50;
+      const points = m.masteryPoints[skill] ?? 0;
+      const level = masteryLevel(points);
+      const next = nextMasteryAt(points);
+      const prev = level ? MASTERY_THRESHOLDS[level - 1] : 0;
+      const bonus = MASTERY_BONUS[skill];
+      add(this.add.text(x, y, `${SKILL_LABELS[skill]}`, { ...FONT, fontSize: '13px', color: level ? '#ff981f' : '#a08a5a' }));
+      add(this.add.text(x + 110, y, `Mastery ${level}/${MAX_MASTERY}`, { ...FONT, fontSize: '12px', color: level >= MAX_MASTERY ? '#60ff60' : '#ffffff' }));
+      add(this.add.text(x + colW - 20, y, next === null ? 'MAX' : `${points.toLocaleString()} / ${next.toLocaleString()}`, {
+        ...FONT, fontSize: '11px', color: '#c8c8c8',
+      }).setOrigin(1, 0));
+      const barW = colW - 20;
+      add(this.add.rectangle(x, y + 17, barW, 4, 0x1c1812).setOrigin(0));
+      const frac = next === null ? 1 : (points - prev) / (next - prev);
+      add(this.add.rectangle(x, y + 17, barW * frac, 4, 0x00b000).setOrigin(0));
+      add(this.add.text(x, y + 24, `${bonus.per} per level${level ? ` (now: x${level})` : ''}`, { ...FONT, fontSize: '10px', color: '#c8c8c8' }));
+    });
   }
 
   /** Quest board: every posted quest with its giver, progress and reward; claim finished ones. */
@@ -1085,6 +1117,7 @@ export class UIScene extends Phaser.Scene {
       '1 2 3        protect prayers',
       'Q            quick-prayers',
       'E            special attack',
+      'K            skill mastery',
       'R            run / walk',
       'G            go to stairs',
       'A / L        achievements / log',
@@ -1654,6 +1687,8 @@ export class UIScene extends Phaser.Scene {
       const xp = Math.floor(p.skills.xp[s]);
       const level = p.skills.level(s);
       const lines = [`${SKILL_LABELS[s]} XP: ${xp.toLocaleString()}`];
+      const ml = masteryLevel(this.dungeon.meta.masteryPoints[s] ?? 0);
+      lines.push(`Mastery ${ml}/${MAX_MASTERY}: ${MASTERY_BONUS[s].per} per level (click or K)`);
       if (p.boosts[s]) lines.push(`Boosted +${p.boosts[s]} (fades 1 level per minute)`);
       if (level < MAX_LEVEL) {
         const next = xpForLevel(level + 1);
