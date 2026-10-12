@@ -1789,6 +1789,16 @@ export class GameState {
 
   private strikeFixed(npc: Npc, raw: number, c: CombatPreview): number {
     const p = this.player;
+    // Demonic gorilla: it prays against a style you keep using.
+    if (npc.def.id === 'demonic_gorilla') {
+      if (npc.prayingAgainst === c.mode) raw = Math.floor(raw * 0.25);
+      npc.styleRun = npc.lastStyleHit === c.mode ? npc.styleRun + 1 : 1;
+      npc.lastStyleHit = c.mode;
+      if (npc.styleRun >= 3 && npc.prayingAgainst !== c.mode) {
+        npc.prayingAgainst = c.mode;
+        this.message(`The demonic gorilla starts praying against ${c.mode}! Switch styles.`);
+      }
+    }
     let dmg = Math.min(npc.hp, raw);
     if (dmg > 0) dmg = Math.min(npc.hp, dmg + this.enchantPower('flaming')); // Flaming: bonus fire damage on hits
     if (dmg > 0 && this.enchantPower('leeching')) {

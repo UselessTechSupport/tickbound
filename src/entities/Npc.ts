@@ -19,6 +19,10 @@ export class Npc extends Actor {
   /** Bosses: attacks made (for periodic specials) and HP thresholds already triggered. */
   specialCount = 0;
   summonPhase = 0;
+  /** Demonic gorilla: the style it's praying against, and the run of hits that taught it. */
+  prayingAgainst: AttackType | null = null;
+  styleRun = 0;
+  lastStyleHit: AttackType | null = null;
   /** Treasure goblin: ticks spent fleeing. */
   fleeTicks = 0;
   /** Successful pickpockets so far (each monster's pockets run out). */

@@ -42,3 +42,14 @@ describe('boss mechanics', () => {
     expect(g.player.hp).toBeLessThan(hp);
   });
 });
+
+describe('the demonic gorilla', () => {
+  it('prays against a style you use three times in a row', () => {
+    const { g, boss } = bossFight(20);
+    for (let i = 0; i < 3; i++) strike(g, boss, 1);
+    expect(boss.prayingAgainst).toBe('melee');
+    const before = boss.hp;
+    strike(g, boss, 20);
+    expect(before - boss.hp).toBe(5);
+  });
+});
