@@ -727,6 +727,7 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'quest_board') return [{ label: 'Read Quest board', action: () => g.talkTo(node) }];
     if (node.kind in STRUCTURE_BY_ID) return [{ label: `Use ${node.name}`, action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
+    if (node.kind === 'wanderer') return node.used ? [] : [{ label: 'Trade-with Wandering adventurer', action: () => g.talkTo(node) }];
     if (node.kind === 'dark_shrine') return node.used ? [] : [{ label: 'Bargain-with Dark shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
     if (node.kind === 'chest') {
