@@ -56,7 +56,7 @@ export const WEAKNESS_PENALTY = 30;
 const WEAKNESSES: Record<string, AttackType> = {
   zombie: 'magic', skeleton: 'magic', hill_giant: 'magic', moss_giant: 'magic', lesser_demon: 'magic',
   greater_demon: 'magic', goblin_warlord: 'magic',
-  dark_wizard: 'ranged', infernal_mage: 'ranged', lich: 'ranged', giant_spider: 'ranged', tztok_jad: 'ranged',
+  dark_wizard: 'ranged', infernal_mage: 'ranged', lich: 'ranged', shadow_reaper: 'ranged', abyssal_fiend: 'magic', soul_eater: 'melee', giant_spider: 'ranged', tztok_jad: 'ranged',
   skeleton_archer: 'melee', dark_archer: 'melee',
   ghoul: 'magic', mummy: 'magic', wight: 'ranged', hellhound: 'ranged', fire_elemental: 'ranged', salamander: 'melee',
   ice_beast: 'magic', frost_giant: 'magic', freezing_wraith: 'ranged',
@@ -365,6 +365,43 @@ const list: NpcDef[] = [
   },
 
   // ---- Bosses (one every 5 floors; never in the random pool) ----
+  // ---- The Abyss (floor 21+): stats here are for floor 21; deeper floors scale them up. ----
+  {
+    id: 'abyssal_fiend', name: 'Abyssal fiend', color: 0x8a2a4a, attack: 74, strength: 80, defence: 66, hitpoints: 95,
+    attackBonus: 60, strengthBonus: 65, defenceBonus: 50, attackSpeed: 4, aggroRadius: 6,
+    minDepth: 21, maxDepth: 999, weight: 4, examine: 'It came from somewhere below the bottom.',
+    drops: [
+      { item: 'big_bones', chance: 1 }, { item: 'coins', chance: 0.6, min: 200, max: 500 },
+      { item: 'rune_platebody', chance: 0.02 }, { item: 'dragon_scimitar', chance: 0.01 },
+    ],
+  },
+  {
+    id: 'shadow_reaper', name: 'Shadow reaper', color: 0x3a3a4a, attack: 72, strength: 70, defence: 56, hitpoints: 78,
+    attackBonus: 65, strengthBonus: 55, defenceBonus: 35, attackSpeed: 5, aggroRadius: 6, attackStyle: 'magic', attackRange: 7,
+    minDepth: 21, maxDepth: 999, weight: 3, examine: 'Where it passes, the light forgets to come back.',
+    drops: [
+      { item: 'death_rune', chance: 0.5, min: 10, max: 25 }, { item: 'prayer_potion', chance: 0.2 },
+      { item: 'coins', chance: 0.5, min: 150, max: 400 },
+    ],
+  },
+  {
+    id: 'soul_eater', name: 'Soul eater', color: 0x5a6a3a, attack: 70, strength: 68, defence: 58, hitpoints: 82,
+    attackBonus: 60, strengthBonus: 55, defenceBonus: 40, attackSpeed: 5, aggroRadius: 7, attackStyle: 'ranged', attackRange: 6,
+    minDepth: 21, maxDepth: 999, weight: 3, examine: 'It spits something you would rather not think about.',
+    drops: [
+      { item: 'rune_arrow', chance: 0.3, min: 10, max: 30 }, { item: 'coins', chance: 0.5, min: 150, max: 400 },
+      { item: 'swordfish', chance: 0.2 },
+    ],
+  },
+  {
+    id: 'tormentor', name: 'Tormentor', color: 0x7a3a2a, attack: 76, strength: 82, defence: 76, hitpoints: 130,
+    attackBonus: 55, strengthBonus: 70, defenceBonus: 65, attackSpeed: 6, aggroRadius: 5,
+    minDepth: 21, maxDepth: 999, weight: 2, examine: 'Covered in hooks. It enjoys its work.',
+    drops: [
+      { item: 'big_bones', chance: 1, min: 2, max: 2 }, { item: 'coins', chance: 0.7, min: 300, max: 700 },
+      { item: 'rune_bar', chance: 0.1 },
+    ],
+  },
   {
     id: 'goblin_warlord', name: 'Goblin Warlord', color: 0x3f7a1a, attack: 22, strength: 22, defence: 18, hitpoints: 40,
     attackBonus: 20, strengthBonus: 15, defenceBonus: 15, attackSpeed: 5, aggroRadius: 7, attackRange: 7,
@@ -504,11 +541,10 @@ export const DEEP_FLOOR = 20;
 export const DEEP_SCALE_PER_FLOOR = 0.04;
 
 export function npcsForDepth(depth: number): NpcDef[] {
-  if (depth <= DEEP_FLOOR) return list.filter((n) => !n.boss && n.weight > 0 && depth >= n.minDepth && depth <= n.maxDepth);
-  // The endless deep: the last band's monsters, ever stronger.
+  const pool = list.filter((n) => !n.boss && n.weight > 0 && depth >= n.minDepth && depth <= n.maxDepth);
+  if (depth <= DEEP_FLOOR) return pool;
+  // The endless deep: the Abyss roster, ever stronger.
   const scale = 1 + DEEP_SCALE_PER_FLOOR * (depth - DEEP_FLOOR);
   const s = (v: number) => Math.round(v * scale);
-  return npcsForDepth(DEEP_FLOOR).map((n) => ({
-    ...n, attack: s(n.attack), strength: s(n.strength), defence: s(n.defence), hitpoints: s(n.hitpoints),
-  }));
+  return pool.map((n) => ({ ...n, attack: s(n.attack), strength: s(n.strength), defence: s(n.defence), hitpoints: s(n.hitpoints) }));
 }

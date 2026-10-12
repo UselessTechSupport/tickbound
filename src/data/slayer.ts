@@ -22,6 +22,7 @@ export const SLAYER_CATEGORIES: SlayerCategory[] = [
   { id: 'crypt', name: 'Crypt dwellers', npcIds: ['ghoul', 'wight', 'mummy'], minBestDepth: 6, count: [8, 14], tokensPerKill: 5 },
   { id: 'fire', name: 'Fire creatures', npcIds: ['hellhound', 'fire_elemental', 'salamander'], minBestDepth: 11, count: [8, 14], tokensPerKill: 7 },
   { id: 'demons', name: 'Demons', npcIds: ['lesser_demon', 'greater_demon'], minBestDepth: 11, count: [6, 12], tokensPerKill: 8 },
+  { id: 'abyss', name: 'Abyssal horrors', npcIds: ['abyssal_fiend', 'shadow_reaper', 'soul_eater', 'tormentor'], minBestDepth: 21, count: [8, 14], tokensPerKill: 12 },
   { id: 'ice', name: 'Ice creatures', npcIds: ['ice_beast', 'frost_giant', 'freezing_wraith'], minBestDepth: 16, count: [8, 14], tokensPerKill: 10 },
 ];
 
