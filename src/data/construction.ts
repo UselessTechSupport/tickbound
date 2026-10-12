@@ -93,8 +93,8 @@ export const KENNEL_MULT = [0, 1, 1.5, 2];
 export const MATERIAL_VALUE: Record<string, Partial<Materials>> = {
   logs: { timber: 1 }, oak_logs: { timber: 2 }, willow_logs: { timber: 3 }, maple_logs: { timber: 4 }, yew_logs: { timber: 5 }, magic_logs: { timber: 8 },
   copper_ore: { metal: 1 }, tin_ore: { metal: 1 }, iron_ore: { metal: 1 }, coal: { metal: 1 },
-  mithril_ore: { metal: 2 }, adamantite_ore: { metal: 3 }, runite_ore: { metal: 4 },
-  bronze_bar: { metal: 2 }, iron_bar: { metal: 3 }, steel_bar: { metal: 4 }, mithril_bar: { metal: 6 }, adamant_bar: { metal: 8 }, rune_bar: { metal: 10 },
+  mithril_ore: { metal: 2 }, adamantite_ore: { metal: 3 }, runite_ore: { metal: 4 }, dragonite_ore: { metal: 6 },
+  bronze_bar: { metal: 2 }, iron_bar: { metal: 3 }, steel_bar: { metal: 4 }, mithril_bar: { metal: 6 }, adamant_bar: { metal: 8 }, rune_bar: { metal: 10 }, dragon_bar: { metal: 15 },
 };
 
 /** Materials from a carried pack. */
