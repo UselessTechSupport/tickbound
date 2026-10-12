@@ -77,6 +77,30 @@ export const QUESTS: QuestDef[] = [
     goal: { kind: 'boss', npc: 'tztok_jad' }, reward: { tokens: 200, relic: 'fire_cape' }, posted: (m) => m.enchanterUnlocked || (m.killCounts.goblin_warlord ?? 0) > 0,
   },
   { id: 'into_the_abyss', name: 'Into the Abyss', giver: 'Mentor', desc: 'Reach floor 20.', goal: { kind: 'depth', floor: 20 }, reward: { tokens: 500 } },
+  // Later quests: they point at the deeper and rarer content.
+  {
+    id: 'goblin_chase', name: 'Goblin Chase', giver: 'Toolsmith', desc: 'Catch 3 treasure goblins.',
+    goal: { kind: 'counter', counter: 'goblins', count: 3 }, reward: { tokens: 250, metal: 40 },
+  },
+  {
+    id: 'strange_floors', name: 'Strange Floors', giver: 'Mentor', desc: 'Arrive on 10 floors with an event.',
+    goal: { kind: 'counter', counter: 'floorEvents', count: 10 }, reward: { tokens: 200, timber: 60 },
+  },
+  {
+    id: 'trade_routes', name: 'Trade Routes', giver: 'Builder', desc: 'Trade with 5 wandering adventurers.',
+    goal: { kind: 'counter', counter: 'trades', count: 5 }, reward: { timber: 120, metal: 120 },
+  },
+  {
+    id: 'shiny_things', name: 'Shiny Things', giver: 'Toolsmith', desc: 'End a run carrying 3 gems.',
+    goal: { kind: 'carry', items: ['sapphire', 'emerald', 'ruby', 'diamond', 'dragonstone'], count: 3, what: 'gems' }, reward: { tokens: 200, metal: 60 },
+  },
+  { id: 'abyss_gazer', name: 'Abyss Gazer', giver: 'Slayer master', desc: 'Reach floor 21, the Abyss.', goal: { kind: 'depth', floor: 21 }, reward: { tokens: 600 }, posted: (m) => m.slayerUnlocked },
+  {
+    id: 'lich_bane', name: 'Lich Bane', giver: 'Enchanter', desc: 'Defeat the Lich (floor 25).',
+    goal: { kind: 'boss', npc: 'lich' }, reward: { tokens: 1200 }, posted: (m) => m.enchanterUnlocked,
+  },
+  { id: 'wyrm_bane', name: 'The Oldest Thing', giver: 'Mentor', desc: 'Defeat the Ancient Wyrm (floor 30).', goal: { kind: 'boss', npc: 'ancient_wyrm' }, reward: { tokens: 2500 }, posted: (m) => (m.killCounts.lich ?? 0) > 0 },
+  { id: 'bottomless', name: 'Bottomless', giver: 'Mentor', desc: 'Reach floor 40.', goal: { kind: 'depth', floor: 40 }, reward: { tokens: 4000 }, posted: (m) => m.bestDepth >= 30 },
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
