@@ -67,7 +67,7 @@ npm run dev        # then open http://localhost:5173
   hammer, tinderbox). Climb down the ladder to start a run. A new save has no tools.
 - **Armourer** (camp, unlocked by the Mentor's Veteran's Kit perk): permanent starting-gear tiers: melee, ranged
   (with arrows) and magic (with runes) weapons; melee (platebodies), ranged (leather to blue d'hide) and magic (wizard
-  robe to Ahrim's) armour; and shields. Pick a starting style and you start in its weapon and armour; gear above your
+  robe to Ahrim's) armour; and off-hands per style (kiteshields, bucklers, spellbooks). Pick a starting style and you start in its weapon and armour; gear above your
   level starts in your pack until you can wield it. Beating the Ancient Wyrm (floor 30) opens a final
   dragon-era tier for every line (dragon platebody/kiteshield/scimitar, dark bow, staff of light, black d'hide,
   ancestral robe top). (Mentor perks give levels and bonuses; the Armourer gives gear.)

@@ -25,7 +25,7 @@ import { herbForDepth } from '../data/resources';
 export const HERB_DROP_CHANCE = 0.12;
 import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer';
 import { themeForDepth } from '../data/themes';
-import { ArmouryRanks, NO_ARMOURY, STYLE_ARMOUR, StartStyle, armouryKit } from '../data/armoury';
+import { ArmouryRanks, NO_ARMOURY, STYLE_ARMOUR, STYLE_SHIELD, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
 import { CURSES } from '../data/curses';
 import { modifierBonus } from '../data/modifiers';
@@ -328,12 +328,14 @@ export class GameState {
     const kit = armouryKit({ ...NO_ARMOURY, ...setup.armoury });
     // Your style's armour goes on first if you can wear it; other bodies only if they're better.
     const styleBody = kit.find((k) => k.line === STYLE_ARMOUR[style] && canWield(k.id))?.id;
+    const styleShield = kit.find((k) => k.line === STYLE_SHIELD[style] && canWield(k.id))?.id;
     for (const { line, id, qty } of kit) {
       const e = item(id).equip;
       const isWeapon = e?.slot === 'weapon';
       const wear = e && canWield(id) && (isWeapon ? line === style
         : e.slot === 'ammo' ? style === 'ranged' && !p.equipment.ammo
           : e.slot === 'body' && styleBody ? id === styleBody
+            : e.slot === 'shield' && styleShield ? id === styleShield
             : score(id) > score(p.equipment[e.slot]));
       if (wear && e.slot === 'ammo') {
         p.equipment.ammo = id;

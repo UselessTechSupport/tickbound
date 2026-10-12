@@ -149,3 +149,14 @@ describe('late-game Armourer tier', () => {
     }
   });
 });
+
+describe('style off-hands', () => {
+  it('each style starts with its own off-hand', () => {
+    const armoury = { ...NO_ARMOURY, shield: 2, ranged_shield: 1, magic_shield: 1, ranged: 1, magic: 1 };
+    expect(new GameState(980, () => {}, { armoury, startStyle: 'melee' }).player.equipment.shield).toBe('iron_kiteshield');
+    expect(new GameState(981, () => {}, { armoury, startStyle: 'ranged' }).player.equipment.shield).toBe('leather_buckler');
+    const mage = new GameState(982, () => {}, { armoury, startStyle: 'magic' });
+    expect(mage.player.equipment.shield).toBe('apprentice_tome');
+    expect(mage.player.inventory.count('iron_kiteshield')).toBe(1);
+  });
+});

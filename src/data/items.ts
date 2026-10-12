@@ -75,6 +75,12 @@ const robe = (magicBonus: number, rangedBonus: number, defenceBonus: number, ski
   req: level > 1 ? { skill, level } : undefined,
 });
 
+/** Ranged and magic off-hands: no penalty to their style, unlike metal shields. */
+const offhand = (defenceBonus: number, rangedBonus: number, magicBonus: number, skill: SkillName, level: number): EquipStats => ({
+  slot: 'shield', attackBonus: 0, strengthBonus: 0, defenceBonus, rangedBonus, magicBonus,
+  req: level > 1 ? { skill, level } : undefined,
+});
+
 /** Amulets: small all-round equipment bonuses in their own slot. */
 const amulet = (b: Partial<EquipStats>): EquipStats => ({ slot: 'amulet', attackBonus: 0, strengthBonus: 0, defenceBonus: 0, ...b });
 
@@ -102,6 +108,15 @@ const list: ItemDef[] = [
   // Boss uniques (floor 25 Lich, floor 30 Ancient Wyrm).
   { id: 'staff_of_the_dead', name: 'Staff of the dead', color: 0x4a6a3a, equip: staff(28, 65), examine: 'A staff that hums with the Lich\'s stolen life.' },
   { id: 'wyrmhide_body', name: 'Wyrmhide body', color: 0x3a3a5a, equip: robe(-12, 32, 65, 'ranged', 65), examine: 'Scales from the oldest thing in the dungeon.' },
+  // Off-hands for ranged and magic (Armourer).
+  { id: 'leather_buckler', name: 'Leather buckler', color: 0x8a5a2a, equip: offhand(5, 3, 0, 'ranged', 1), examine: 'A small shield that leaves your draw arm free.' },
+  { id: 'studded_buckler', name: 'Studded buckler', color: 0x7a6a5a, equip: offhand(10, 6, 0, 'ranged', 20), examine: 'A buckler reinforced with metal studs.' },
+  { id: 'dhide_buckler', name: "D'hide buckler", color: 0x3a8a3a, equip: offhand(18, 10, 0, 'ranged', 40), examine: 'Dragonhide stretched over a light frame.' },
+  { id: 'black_dhide_buckler', name: "Black d'hide buckler", color: 0x303030, equip: offhand(30, 15, 0, 'ranged', 60), examine: 'Black dragonhide, light and very tough.' },
+  { id: 'apprentice_tome', name: "Apprentice's tome", color: 0x5a6ab0, equip: offhand(0, 0, 5, 'magic', 1), examine: 'A battered book of beginner spells.' },
+  { id: 'mages_book', name: "Mage's book", color: 0x4a4ad0, equip: offhand(2, 0, 12, 'magic', 30), examine: 'A book of powerful incantations.' },
+  { id: 'arcane_tome', name: 'Arcane tome', color: 0x8a40c0, equip: offhand(4, 0, 18, 'magic', 50), examine: 'Its pages turn by themselves.' },
+  { id: 'ancestral_tome', name: 'Ancestral tome', color: 0x6040a0, equip: offhand(6, 0, 24, 'magic', 70), examine: 'The collected wisdom of an ancient order.' },
   // Crafting: gems found while mining, cut into amulets with a chisel.
   { id: 'sapphire', name: 'Sapphire', color: 0x3050e0, examine: 'A blue gem. A chisel could shape it.' },
   { id: 'emerald', name: 'Emerald', color: 0x30c050, examine: 'A green gem. A chisel could shape it.' },
