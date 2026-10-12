@@ -534,6 +534,12 @@ export class DungeonScene extends Phaser.Scene {
     saveMeta(this.meta);
   }
 
+  /** Redraw every monster from scratch (e.g. after toggling arachnophobia mode). */
+  refreshNpcSprites(): void {
+    for (const v of this.npcViews.values()) this.destroyView(v);
+    this.npcViews.clear();
+  }
+
   /** Pick which owned pet follows you (null = none). */
   setActivePet(id: string | null): void {
     this.meta.activePet = id;

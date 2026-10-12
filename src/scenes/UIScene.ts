@@ -195,7 +195,7 @@ export class UIScene extends Phaser.Scene {
 
     const bus = this.dungeon.bus;
     bus.on('xp', (e: Extract<GameEvent, { type: 'xp' }>) => this.xpDrop(e.skill, e.amount));
-    bus.on('levelup', () => this.cameras.main.flash(250, 255, 255, 160));
+    bus.on('levelup', () => settings.levelUpFlash && this.levelUpGlow());
     bus.on('death', () => this.deathOverlay.setVisible(true));
     bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
     bus.on('relicChoice', () => this.showRelicChoice());
@@ -1066,6 +1066,11 @@ export class UIScene extends Phaser.Scene {
     toggle('Auto-pickup arrows', () => settings.autoPickup.arrows, (v) => (settings.autoPickup.arrows = v));
     toggle('Auto-pickup runes', () => settings.autoPickup.runes, (v) => (settings.autoPickup.runes = v));
     heading('View');
+    toggle('Level-up glow', () => settings.levelUpFlash, (v) => (settings.levelUpFlash = v));
+    toggle('Arachnophobia mode', () => settings.arachnophobia, (v) => {
+      settings.arachnophobia = v;
+      this.dungeon.refreshNpcSprites();
+    });
     stepper('Zoom (or mouse wheel)', `${Math.round(settings.zoom * 100)}%`, () => this.dungeon.setZoom(settings.zoom - 0.25), () => this.dungeon.setZoom(settings.zoom + 0.25));
 
     add(this.add.text(x0 + 400, 96, [
@@ -1196,6 +1201,21 @@ export class UIScene extends Phaser.Scene {
         ? [`Materials brought home: ${this.dungeon.lastMaterials.timber} timber, ${this.dungeon.lastMaterials.metal} metal (for the Builder).`] : []),
       'Spend them at camp with the Mentor, the Toolsmith and the Builder.',
     ];
+  }
+
+  /** Level-up: a soft gold glow around the edge of the game view that fades out (no full-screen flash). */
+  private levelUpGlow(): void {
+    const W = this.panelX;
+    const H = this.scale.height;
+    const glow = this.add.container(0, 0).setDepth(39);
+    // Bands fading inward from the edge; the middle of the screen is never touched.
+    for (let i = 0; i < 5; i++) {
+      const inset = 3 + i * 5;
+      glow.add(this.add.rectangle(inset, inset, W - inset * 2, H - inset * 2).setOrigin(0)
+        .setStrokeStyle(6, 0xffd040, 0.6 - i * 0.12));
+    }
+    this.root.add(glow);
+    this.tweens.add({ targets: glow, alpha: 0, delay: 250, duration: 650, ease: 'Quad.easeOut', onComplete: () => glow.destroy(true) });
   }
 
   /** Pulsing red border and a warning beep when HP drops below a quarter. */

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ITEMS, item } from '../data/items';
+import { settings } from '../save/settings';
 
 /** CC0 Dungeon Crawl tiles copied into public/assets/tiles (see CREDITS.txt there). */
 const TILE_KEYS = [
@@ -78,8 +79,26 @@ export function itemSprite(id: string): SpriteRef {
   return { key: `gen_${id}` };
 }
 
+/** Monsters swapped for a brown blob in arachnophobia mode. */
+const SPIDERS = new Set(['giant_spider']);
+
 export function npcSprite(npcId: string): string {
+  if (settings.arachnophobia && SPIDERS.has(npcId)) return 'npc_blob';
   return `npc_${npcId}`;
+}
+
+/** Arachnophobia mode's stand-in: a round brown blob with a friendly face. */
+function makeBlob(scene: Phaser.Scene): void {
+  if (scene.textures.exists('npc_blob')) return;
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0x000000, 0.25).fillEllipse(16, 27, 22, 6);
+  g.fillStyle(0x5a3a1e, 1).fillEllipse(16, 19, 24, 18);
+  g.fillStyle(0x7a5230, 1).fillEllipse(15, 17, 20, 13);
+  g.fillStyle(0x9a6a40, 1).fillEllipse(12, 14, 7, 4);
+  g.fillStyle(0xffffff, 1).fillCircle(12, 18, 2.5).fillCircle(20, 18, 2.5);
+  g.fillStyle(0x101010, 1).fillCircle(12, 18.5, 1.2).fillCircle(20, 18.5, 1.2);
+  g.generateTexture('npc_blob', 32, 32);
+  g.destroy();
 }
 
 /** Paperdoll layers for the player's equipment (DCSS player tiles share one 32x32 frame). */
@@ -333,6 +352,7 @@ const ROCK = { o: 0x2a2622, m: 0x7a746c, l: 0x9a948c, d: 0x55504a };
 
 /** Builds every generated texture; call once after preload. */
 export function generateSprites(scene: Phaser.Scene): void {
+  makeBlob(scene);
   for (const def of Object.values(ITEMS)) {
     const c = def.color;
     const tones = { o: 0x1a1612, x: c, X: shade(c, 1.35), d: shade(c, 0.65), k: 0x101010, l: 0xd8b880 };
