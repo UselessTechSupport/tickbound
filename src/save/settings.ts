@@ -20,6 +20,8 @@ export interface Settings {
   arachnophobia: boolean;
   /** Fight back automatically when attacked while idle or skilling. */
   autoRetaliate: boolean;
+  /** Newest changelog entry you've seen ("What's new" opens once after an update). */
+  seenChangelog: number;
 }
 
 const KEY = 'tickbound.settings';
@@ -38,6 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   levelUpFlash: true,
   arachnophobia: false,
   autoRetaliate: true,
+  seenChangelog: 0,
 };
 
 function read(key: string): string | null {

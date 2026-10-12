@@ -117,10 +117,20 @@ export function nextArmouryTier(ranks: ArmouryRanks, line: ArmouryLine): Armoury
   return ARMOURY[line].tiers[ranks[line]] ?? null;
 }
 
-/** Everything your Armoury purchases give at the start of a run. */
-export function armouryKit(ranks: ArmouryRanks): Array<{ line: ArmouryLine; id: string; qty: number }> {
+/**
+ * Everything your Armoury purchases give at the start of a run. With `canWield`, a line whose
+ * best tier you can't use yet also brings the best tier you can (listed first, so it's worn),
+ * so you're never left without a bow or staff to train with.
+ */
+export function armouryKit(ranks: ArmouryRanks, canWield?: (id: string) => boolean): Array<{ line: ArmouryLine; id: string; qty: number }> {
   return ARMOURY_LINES.flatMap((line) => {
-    const tier = ranks[line] > 0 ? ARMOURY[line].tiers[ranks[line] - 1] : null;
-    return tier ? tier.items.map((i) => ({ line, ...i })) : [];
+    const tiers = ARMOURY[line].tiers.slice(0, ranks[line]);
+    const top = tiers[tiers.length - 1];
+    if (!top) return [];
+    const kit = top.items.map((i) => ({ line, ...i }));
+    const fits = (t: ArmouryTier) => t.items.every((i) => canWield!(i.id));
+    if (!canWield || fits(top)) return kit;
+    const fallback = [...tiers].reverse().find(fits);
+    return fallback ? [...fallback.items.map((i) => ({ line, ...i })), ...kit] : kit;
   });
 }

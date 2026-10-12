@@ -13,8 +13,9 @@ describe('Armourer starting gear', () => {
     const armoury = { ...NO_ARMOURY, melee: 6, body: 2, shield: 1, ranged: 1 };
     const g = new GameState(901, () => {}, { armoury, startStyle: 'melee' });
     const p = g.player;
-    // Rune scimitar needs Attack 40: carried. Iron platebody & bronze kiteshield: worn.
-    expect(p.equipment.weapon).toBe('bronze_dagger');
+    // Rune scimitar needs Attack 40: carried, with the best scimitar you can wield (iron) worn.
+    // Iron platebody & bronze kiteshield: worn.
+    expect(p.equipment.weapon).toBe('iron_scimitar');
     expect(p.inventory.count('rune_scimitar')).toBe(1);
     expect(p.equipment.body).toBe('iron_platebody');
     expect(p.equipment.shield).toBe('bronze_kiteshield');

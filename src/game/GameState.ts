@@ -16,7 +16,7 @@ import { SPELLS, SPELL_BY_ID, SpellDef } from '../data/spells';
 import { NPCS, NpcDef, isBossFloor, WEAKNESS_PENALTY } from '../data/npcs';
 import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
 import { Drop, MIMIC_CHANCE, mimicFor } from '../data/npcs';
-import { chestLoot } from '../data/loot';
+import { chestLoot, metalForDepth } from '../data/loot';
 import { PET_CHANCE } from '../data/collectionLog';
 import { ELITE_AFFIXES, ELITE_TOKENS, eliteDef } from '../data/elites';
 import { generateStock } from '../data/loot';
@@ -154,6 +154,8 @@ export interface RunSetup {
   slayerTask?: SlayerTask | null;
 }
 
+/** Chance a regular kill drops arrows or runes for the style you're fighting with. */
+const SUPPLY_DROP_CHANCE = 0.35;
 const MAX_MESSAGES = 50;
 
 const chebyshev = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
@@ -243,6 +245,8 @@ export class GameState {
   traps: Array<{ x: number; y: number; found: boolean }> = [];
   /** Slayer master unlocks owned. */
   slayerUnlocks: string[] = [];
+  /** The combat style chosen at the ladder (autoplay keeps to it). */
+  startStyle: StartStyle = 'melee';
   /** Run modifiers in effect. */
   modifiers: string[] = [];
   /** Curses taken at dark shrines this run. */
@@ -287,6 +291,7 @@ export class GameState {
     this.mastery = { ...setup.mastery };
     this.modifiers = [...(setup.modifiers ?? [])];
     this.slayerUnlocks = [...(setup.slayerUnlocks ?? [])];
+    this.startStyle = setup.startStyle ?? 'melee';
     this.applyStartingKit(setup, startDepth);
     this.levelsAtStart = Object.fromEntries(SKILLS.map((s) => [s, this.player.skills.level(s)]));
     this.loadFloor(startDepth);
@@ -347,7 +352,7 @@ export class GameState {
         : style === 'ranged' ? (e.rangedBonus ?? 0) + (e.rangedStrength ?? 0) : (e.magicBonus ?? 0);
       return e.defenceBonus + offence;
     };
-    const kit = armouryKit({ ...NO_ARMOURY, ...setup.armoury });
+    const kit = armouryKit({ ...NO_ARMOURY, ...setup.armoury }, canWield);
     // Your style's armour goes on first if you can wear it; other bodies only if they're better.
     const styleBody = kit.find((k) => k.line === STYLE_ARMOUR[style] && canWield(k.id))?.id;
     const styleShield = kit.find((k) => k.line === STYLE_SHIELD[style] && canWield(k.id))?.id;
@@ -2224,6 +2229,7 @@ export class GameState {
       this.message(`Rare drop: ${item(w).name}!`);
       this.sound('levelup');
     }
+    this.supplyDrop(npc);
     // Elites roll their whole table twice.
     for (const d of npc.elite ? [...npc.def.drops, ...npc.def.drops] : npc.def.drops) {
       if (rand() >= this.dropChance(d)) continue;
@@ -2242,6 +2248,27 @@ export class GameState {
       } else {
         for (let i = 0; i < qty; i++) this.groundItems.push(new GroundItem(d.item, 1, { ...npc.pos }));
         this.emit({ type: 'obtain', item: d.item, qty, source: npc.def.id });
+      }
+    }
+  }
+
+  /**
+   * Supplies for your style: archers find arrows like the ones they're firing, mages the runes
+   * for their spell (not the ones their staff provides). About 1 kill in 3; elites always.
+   */
+  private supplyDrop(npc: Npc): void {
+    const p = this.player;
+    if (npc.def.id === 'mimic' || npc.def.drops.length === 0 || (!npc.elite && !npc.isBoss && rand() >= SUPPLY_DROP_CHANCE)) return;
+    const scale = (npc.elite || npc.isBoss ? 2 : 1) * (1 + Math.floor(this.depth / 10));
+    if (p.weaponType === 'ranged') {
+      const arrows = p.equipment.ammo ?? `${metalForDepth(this.depth)}_arrow`;
+      this.dropOnTile(arrows, (4 + Math.floor(rand() * 5)) * scale, npc.pos); // fewer: arrows are also recovered
+    } else if (p.weaponType === 'magic') {
+      const spell = p.autocast ? SPELL_BY_ID[p.autocast] : [...SPELLS].reverse().find((s) => p.skills.level('magic') >= s.level);
+      if (!spell) return;
+      const casts = (3 + Math.floor(rand() * 4)) * scale;
+      for (const [rune, n] of Object.entries(spell.runes)) {
+        if (this.runesFor(rune) !== Infinity) this.dropOnTile(rune, n * casts, npc.pos);
       }
     }
   }
