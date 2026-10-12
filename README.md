@@ -55,6 +55,8 @@ npm run dev        # then open http://localhost:5173
 - **Tokens from coins**: 20 coins = 1 token up to 2,000 coins; bigger piles taper off, so hoarding can't flood the economy.
 - **Run modifiers** (after your first Goblin Warlord kill, at the ladder): optional handicaps for more tokens:
   Hardened (+30%), Frenzied (+20%), Fragile (+25%), Famished (+15%), Relicless (+20%), Ironman (+10%). They stack.
+- **Treasure maps** (rare drops, floor 3+): every floor you carry one to has buried treasure; the map hints which way.
+  Dig it up for coins, a gem, bars, bonus tokens and a small chance at a special weapon.
 - **Wandering adventurers** (floor 2+): trade a few supplies (fish, bars, logs, herbs or bones) for a relic, tokens
   or coins.
 - **Dark shrines** (floor 4+): pick a relic, but take a random curse for the run (Frailty, Exposure, Famine or Unrest).
@@ -122,7 +124,7 @@ npm run dev        # then open http://localhost:5173
   potions. Potions boost your levels (shown in green) and fade by 1 a minute.
 - **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric, Savage, Regenerating or Splitting variants in a gold aura. Tougher, but
   they roll their loot twice, always drop a herb and give bonus tokens.
-- **Achievements**: 90 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
+- **Achievements**: 91 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
   challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
 - **Collection log**: every notable drop from bosses, monsters and chests, with kill counts. Bosses have a 1/50
   pet drop; choose which pet follows you from the log.

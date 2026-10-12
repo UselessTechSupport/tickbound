@@ -8,7 +8,7 @@ import { STRUCTURE_BY_ID, StructureId } from '../data/construction';
 
 /** Non-resource node kinds: crafting stations, altars, and camp NPCs. */
 export type FixtureKind = Exclude<Station, 'mix' | 'fletch' | 'craft'> | 'shortcut' | 'altar' | 'mentor' | 'toolsmith' | 'shrine' | 'merchant' | 'chest' | 'slayer_master' | 'armourer' | 'enchanter'
-  | 'builder' | 'quest_board' | 'dark_shrine' | 'wanderer' | StructureId;
+  | 'builder' | 'quest_board' | 'dark_shrine' | 'wanderer' | 'buried_treasure' | StructureId;
 export type NodeKind = 'resource' | FixtureKind;
 
 /** A blocking world object the player interacts with: a resource or a crafting station. */
@@ -46,7 +46,7 @@ export class ResourceNode {
     if (this.kind === 'chest' && this.lockLevel) return 'Locked chest';
     if (this.kind === 'shortcut') return SHORTCUT_KINDS[this.shortcut!.kind].name;
     if (this.kind in STRUCTURE_BY_ID) return STRUCTURE_BY_ID[this.kind as StructureId].name;
-    return { builder: 'Builder', quest_board: 'Quest board', dark_shrine: 'Dark shrine', wanderer: 'Wandering adventurer', shortcut: '', fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest', slayer_master: 'Slayer master', armourer: 'Armourer', enchanter: 'Enchanter' }[this.kind as Exclude<FixtureKind, StructureId>];
+    return { builder: 'Builder', quest_board: 'Quest board', dark_shrine: 'Dark shrine', wanderer: 'Wandering adventurer', buried_treasure: 'Mound of earth', shortcut: '', fire: 'Fire', furnace: 'Furnace', anvil: 'Anvil', altar: 'Altar', mentor: 'Mentor', toolsmith: 'Toolsmith', shrine: 'Relic shrine', merchant: 'Wandering merchant', chest: 'Chest', slayer_master: 'Slayer master', armourer: 'Armourer', enchanter: 'Enchanter' }[this.kind as Exclude<FixtureKind, StructureId>];
   }
 
   get examine(): string {
@@ -63,6 +63,7 @@ export class ResourceNode {
     return {
       builder: 'Builds and upgrades camp structures from tokens and the materials you bring home.',
       quest_board: 'Jobs from the folk around camp. Rewards for the brave.',
+      buried_treasure: this.used ? 'An empty hole.' : 'Freshly turned earth. Your treasure map says to dig here.',
       wanderer: this.used ? 'They look happy with the trade.'
         : this.deal ? `They want ${this.deal.request.qty} ${this.deal.request.what}, and offer ${REWARD_TEXT[this.deal.reward]}.` : 'A fellow adventurer.',
       dark_shrine: this.used ? 'Its hunger is sated.' : 'It offers power, for a price: a relic of your choice, and a curse for the rest of the run.',

@@ -117,6 +117,7 @@ const list: ItemDef[] = [
   { id: 'mages_book', name: "Mage's book", color: 0x4a4ad0, equip: offhand(2, 0, 12, 'magic', 30), examine: 'A book of powerful incantations.' },
   { id: 'arcane_tome', name: 'Arcane tome', color: 0x8a40c0, equip: offhand(4, 0, 18, 'magic', 50), examine: 'Its pages turn by themselves.' },
   { id: 'ancestral_tome', name: 'Ancestral tome', color: 0x6040a0, equip: offhand(6, 0, 24, 'magic', 70), examine: 'The collected wisdom of an ancient order.' },
+  { id: 'treasure_map', name: 'Treasure map', color: 0xc0a060, examine: 'X marks the spot... somewhere on every floor you carry it to.' },
   // Crafting: gems found while mining, cut into amulets with a chisel.
   { id: 'sapphire', name: 'Sapphire', color: 0x3050e0, examine: 'A blue gem. A chisel could shape it.' },
   { id: 'emerald', name: 'Emerald', color: 0x30c050, examine: 'A green gem. A chisel could shape it.' },
