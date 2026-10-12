@@ -22,7 +22,7 @@ export const BRANCHES: Array<{ id: Branch; name: string; color: number; theme: s
   { id: 'survival', name: 'Survival', color: 0x50a040, theme: 'Food, healing and cheating death.' },
   { id: 'devotion', name: 'Prayer', color: 0x60a0e0, theme: 'Prayer points, potions and altars.' },
   { id: 'gathering', name: 'Gathering', color: 0xc0a040, theme: 'Mining, woodcutting, fishing and herbs.' },
-  { id: 'crafting', name: 'Crafting', color: 0xd08040, theme: 'Cooking, smithing, fletching and herblore.' },
+  { id: 'crafting', name: 'Crafting', color: 0xd08040, theme: 'Cooking, smithing, fletching, herblore and jewellery.' },
   { id: 'rogue', name: 'Rogue', color: 0x9060a0, theme: 'Thieving, agility and Slayer.' },
   { id: 'fortune', name: 'Fortune', color: 0xe0c020, theme: 'Tokens, coins, drops and relics.' },
 ];
@@ -154,6 +154,8 @@ export const PERKS: PerkDef[] = [
   perk('crafting', 2, 2, 'herbalist', 'Herbalist', 3, '10% chance per rank to mix two potions from one set of ingredients.'),
   perk('crafting', 3, 0, 'preservation', 'Preservation', 3, 'Potions have a 10% chance per rank not to be used up when you drink them.'),
   perk('crafting', 3, 2, 'bulk_smelting', 'Bulk Smelting', 3, 'Smelting gives back 1 coal per rank.'),
+  perk('crafting', 4, 0, 'jeweller', 'Jeweller', 3, '+2% chance per rank to find a gem while mining.'),
+  perk('crafting', 4, 2, 'gem_cutter', 'Gem Cutter', 3, '+20% Crafting XP per rank.'),
   perk('crafting', 4, 1, 'masterwork', 'Masterwork', 3, '5% chance per rank that something you smith comes out one metal tier better.'),
   perk('crafting', 5, 1, 'herbal_infusion', 'Herbal Infusion', 3, 'Potion boosts fade 50% slower per rank.'),
   perk('crafting', 6, 1, 'grandmaster_crafter', 'Grandmaster Crafter', 1, 'Capstone: you never burn food, and every craft has a 10% chance to keep its materials.'),

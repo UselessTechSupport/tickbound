@@ -1957,6 +1957,7 @@ export class GameState {
     if (GATHER_SKILLS.includes(skill)) amount *= 1 + 0.1 * this.perkRank('gatherers_lore');
     if (COMBAT_SKILLS.includes(skill)) amount *= 1 + 0.1 * this.perkRank('battle_hardened');
     if (skill === 'thieving') amount *= 1 + 0.2 * this.perkRank('cutpurse');
+    if (skill === 'crafting') amount *= 1 + 0.2 * this.perkRank('gem_cutter');
     if (this.floorEvent === 'darkness') amount *= 1.5;
     if (skill === 'agility') amount *= 1 + 0.25 * this.perkRank('parkour');
     if (skill === 'slayer') amount *= 1 + 0.2 * this.perkRank('slayer_lore');
