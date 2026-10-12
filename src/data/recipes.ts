@@ -110,6 +110,7 @@ export const RECIPES: Recipe[] = [
   arrows('mithril', 'willow_logs', 45, 7.5),
   arrows('adamant', 'maple_logs', 60, 10),
   arrows('rune', 'yew_logs', 75, 12.5),
+  arrows('dragon', 'magic_logs', 90, 15),
 ];
 
 export function recipesFor(station: Station): Recipe[] {
