@@ -18,7 +18,8 @@ import { RELICS, RELIC_BY_ID, RELIC_CHOICES } from '../data/relics';
 import { Drop, MIMIC_CHANCE, mimicFor } from '../data/npcs';
 import { chestLoot } from '../data/loot';
 import { PET_CHANCE } from '../data/collectionLog';
-import { ELITE_TOKENS } from '../data/elites';
+import { ELITE_AFFIXES, ELITE_TOKENS, eliteDef } from '../data/elites';
+import { generateStock } from '../data/loot';
 import { herbForDepth } from '../data/resources';
 
 /** Chance a regular monster drops a random herb for its depth. */
@@ -409,6 +410,24 @@ export class GameState {
     } else if (this.floorEvent === 'infested') {
       const extra = spawnMonsters(this.map).filter((n) => !n.isBoss && !this.npcs.some((o) => samePos(o.pos, n.pos)));
       this.npcs.push(...extra.slice(0, Math.ceil(this.npcs.length / 2)));
+    } else if (this.floorEvent === 'elite_den') {
+      this.npcs = this.npcs.map((n) => {
+        if (n.isBoss || n.elite) return n;
+        const affix = ELITE_AFFIXES[Math.floor(rand() * ELITE_AFFIXES.length)];
+        return Object.assign(new Npc(eliteDef(n.def, affix), n.pos), { elite: affix });
+      });
+    } else if (this.floorEvent === 'overgrown') {
+      for (const n of this.nodes) if (n.kind === 'resource') n.remaining += 3;
+    } else if (this.floorEvent === 'caravan') {
+      if (!this.nodes.some((n) => n.kind === 'merchant')) {
+        const spot = this.openFloorSpot();
+        if (spot) {
+          setTile(this.map, spot.x, spot.y, Tile.Object);
+          this.nodes.push(Object.assign(new ResourceNode(spot, 'merchant'), { stock: generateStock(depth) }));
+        } else {
+          this.floorEvent = null;
+        }
+      }
     } else if (this.floorEvent === 'treasure_goblin') {
       const spot = free()[0];
       if (spot) this.npcs.push(new Npc(treasureGoblin(depth), spot));
@@ -455,6 +474,22 @@ export class GameState {
 
   hasModifier(id: string): boolean {
     return this.modifiers.includes(id);
+  }
+
+  /** A room-interior floor tile with floor all around (placing an object there never blocks a path). */
+  private openFloorSpot(minDistFromSpawn = 8): Point | null {
+    const spots: Point[] = [];
+    for (const r of this.map.rooms) {
+      for (let y = r.top + 1; y < r.bottom; y++) {
+        for (let x = r.left + 1; x < r.right; x++) {
+          const open = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]
+            .every(([dx, dy]) => tileAt(this.map, x + dx, y + dy) === Tile.Floor);
+          const far = Math.max(Math.abs(x - this.map.spawn.x), Math.abs(y - this.map.spawn.y)) >= minDistFromSpawn;
+          if (open && far && !this.npcAt(x, y)) spots.push({ x, y });
+        }
+      }
+    }
+    return spots.length ? spots[Math.floor(rand() * spots.length)] : null;
   }
 
   /** Carrying a treasure map: bury a treasure in a room on this floor and hint which way it lies. */
@@ -587,7 +622,7 @@ export class GameState {
 
   /** Merchant prices after Haggler. */
   buyPrice(price: number): number {
-    return Math.max(1, Math.round(price * (1 - 0.1 * this.perkRank('haggler'))));
+    return Math.max(1, Math.round(price * (1 - 0.1 * this.perkRank('haggler')) * (this.floorEvent === 'caravan' ? 0.75 : 1)));
   }
 
   sellPrice(id: string): number {
@@ -661,6 +696,7 @@ export class GameState {
       this.npcs = this.npcs.map((n) => Object.assign(new Npc({ ...n.def, hitpoints: Math.round(n.def.hitpoints * 1.25) }, n.pos), { elite: n.elite }));
     }
     if (this.hasModifier('ironman')) {
+      if (this.floorEvent === 'caravan') this.floorEvent = null; // no merchants for ironmen
       for (const n of this.nodes.filter((x) => x.kind === 'merchant' || x.kind === 'wanderer')) setTile(this.map, n.pos.x, n.pos.y, Tile.Floor);
       this.nodes = this.nodes.filter((x) => x.kind !== 'merchant' && x.kind !== 'wanderer');
     }

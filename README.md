@@ -63,7 +63,8 @@ npm run dev        # then open http://localhost:5173
 - **Dark shrines** (floor 4+): pick a relic, but take a random curse for the run (Frailty, Exposure, Famine or Unrest).
 - **Floor events** (from floor 3, about 1 in 4 non-boss floors): Gilded Halls (double coins, tougher monsters),
   Infested (more monsters, +1 token per kill), Cursed (monsters hit harder, +2 tokens per kill), Darkness (short sight,
-  +50% XP), Blessed Ground (slow prayer drain, slow healing) and the Treasure Goblin (catch it before it escapes).
+  +50% XP), Blessed Ground (slow prayer drain, slow healing), Merchant Caravan (cheap merchant), Elite Den (all
+  elites), Overgrown (longer-lasting resources) and the Treasure Goblin (catch it before it escapes).
 - **Skill mastery** (K, or click a skill): every level you gain in a run adds permanent mastery points to that
   skill. 10 mastery levels per skill (50 to 4,000 points), each a small bonus (e.g. +2% mining success, 3% less
   burning, 0.5% dodge chance from Agility).

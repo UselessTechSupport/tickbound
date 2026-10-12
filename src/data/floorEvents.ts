@@ -5,7 +5,7 @@ import type { NpcDef } from './npcs';
  * so they're interesting rather than free power. Rolled when you arrive on a non-boss floor.
  */
 
-export type FloorEventId = 'gilded' | 'infested' | 'cursed' | 'darkness' | 'blessed' | 'treasure_goblin';
+export type FloorEventId = 'gilded' | 'infested' | 'cursed' | 'darkness' | 'blessed' | 'treasure_goblin' | 'caravan' | 'elite_den' | 'overgrown';
 
 export interface FloorEventDef {
   id: FloorEventId;
@@ -22,6 +22,9 @@ export const FLOOR_EVENTS: FloorEventDef[] = [
   { id: 'cursed', name: 'Cursed', desc: 'Monsters hit 20% harder, and every kill pays +2 tokens.', weight: 2, minDepth: 5 },
   { id: 'darkness', name: 'Darkness', desc: 'You can barely see, but you learn fast: +50% XP on this floor.', weight: 2, minDepth: 4 },
   { id: 'blessed', name: 'Blessed Ground', desc: 'Prayer drains at half speed and you slowly heal.', weight: 2, minDepth: 3 },
+  { id: 'caravan', name: 'Merchant Caravan', desc: 'A merchant is camped on this floor, and everything is 25% cheaper.', weight: 2, minDepth: 3 },
+  { id: 'elite_den', name: 'Elite Den', desc: 'Every monster here is an elite. Double loot, bonus tokens... if you survive.', weight: 1, minDepth: 6 },
+  { id: 'overgrown', name: 'Overgrown', desc: 'Rocks, trees, fishing spots and herbs last 3 gathers longer.', weight: 2, minDepth: 3 },
   { id: 'treasure_goblin', name: 'Treasure Goblin', desc: 'A goblin laden with gold is on this floor. Catch it before it escapes!', weight: 2, minDepth: 3 },
 ];
 
