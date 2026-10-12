@@ -27,7 +27,7 @@ import { ENCHANTS, ENCHANT_COSTS, ENCHANT_SWITCH_FEE, ROMAN, describeEnchant, en
 import { recipesFor } from '../data/recipes';
 import { herbForDepth } from '../data/resources';
 import { HERB_DROP_CHANCE } from '../game/GameState';
-import { ALL_LOG_SLOTS, LOG_CATEGORIES, PET_BY_ID, PET_CHANCE, petForBoss } from '../data/collectionLog';
+import { ALL_LOG_SLOTS, LOG_MILESTONES, LOG_CATEGORIES, PET_BY_ID, PET_CHANCE, petForBoss } from '../data/collectionLog';
 import { CHEST_SECOND_PICK, CHEST_TABLE, chestCoins, metalForDepth } from '../data/loot';
 import type { Npc } from '../entities/Npc';
 import type { Notice } from '../meta/tracker';
@@ -633,7 +633,11 @@ export class UIScene extends Phaser.Scene {
       merchant: `Coins: ${this.state.player.inventory.count('coins').toLocaleString()}   (the game is paused)`,
       achievements: `Completed ${meta.achievements.length} / ${ACHIEVEMENTS.length}   Tokens earned: ${meta.achievements
         .reduce((n, id) => n + tierOf(ACHIEVEMENT_BY_ID[id]).reward, 0)}`,
-      log: `Unique items: ${ALL_LOG_SLOTS.filter((id) => meta.collection[id]).length} / ${ALL_LOG_SLOTS.length}`,
+      log: (() => {
+        const have = ALL_LOG_SLOTS.filter((id) => meta.collection[id] || meta.pets.includes(id)).length;
+        const next = LOG_MILESTONES.find((ms) => !(meta.logMilestones ?? []).includes(ms.at));
+        return `Unique items: ${have} / ${ALL_LOG_SLOTS.length}${next ? `   Next reward: ${Math.round(next.at * 100)}% filled (+${next.tokens} tokens)` : ''}`;
+      })(),
       mentor: `Dungeoneering tokens: ${meta.tokens}`,
       toolsmith: `Dungeoneering tokens: ${meta.tokens}`,
       slayer: `Dungeoneering tokens: ${meta.tokens}   Tasks completed: ${meta.lifetime.tasks ?? 0}`,

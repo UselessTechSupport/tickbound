@@ -75,3 +75,17 @@ describe('camp building', () => {
     expect(g.player.skills.xp.smithing).toBeGreaterThan(plain.player.skills.xp.smithing);
   });
 });
+
+describe('collection log milestones', () => {
+  it('pays each milestone once as the log fills', async () => {
+    const { payLogMilestones } = await import('../src/meta/camp');
+    const { ALL_LOG_SLOTS } = await import('../src/data/collectionLog');
+    const m = freshMeta();
+    expect(payLogMilestones(m)).toEqual([]);
+    for (const id of ALL_LOG_SLOTS.slice(0, Math.ceil(ALL_LOG_SLOTS.length * 0.3))) m.collection[id] = 1;
+    const paid = payLogMilestones(m);
+    expect(paid.map((p) => p.at)).toEqual([0.1, 0.25]);
+    expect(m.tokens).toBe(200);
+    expect(payLogMilestones(m)).toEqual([]);
+  });
+});

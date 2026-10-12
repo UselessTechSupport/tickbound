@@ -3,6 +3,7 @@ import {
   WORKBENCH_XP, materialsFrom, petBonus,
 } from '../data/construction';
 import { NPCS } from '../data/npcs';
+import { ALL_LOG_SLOTS, LOG_MILESTONES } from '../data/collectionLog';
 import { SKILLS, SkillName } from '../data/skills';
 import { masteryLevel } from '../data/mastery';
 import { contractBonus, contractProgress } from '../data/contracts';
@@ -126,4 +127,17 @@ export function claimableContracts(m: MetaSave): number {
   const s = m.contracts;
   if (!s) return 0;
   return s.contracts.filter((c) => !s.claimed.includes(c.id) && contractProgress(c, m)[0] >= contractProgress(c, m)[1]).length;
+}
+
+/** Pay any collection log milestones newly reached. Returns them (fraction and tokens). */
+export function payLogMilestones(m: MetaSave): Array<{ at: number; tokens: number }> {
+  const filled = ALL_LOG_SLOTS.filter((id) => (m.collection[id] ?? 0) > 0 || m.pets.includes(id)).length / ALL_LOG_SLOTS.length;
+  const paid = new Set(m.logMilestones ?? []);
+  const fresh = LOG_MILESTONES.filter((ms) => filled >= ms.at && !paid.has(ms.at));
+  for (const ms of fresh) {
+    paid.add(ms.at);
+    m.tokens += ms.tokens;
+  }
+  m.logMilestones = [...paid];
+  return fresh;
 }

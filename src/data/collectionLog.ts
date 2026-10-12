@@ -66,3 +66,8 @@ export const LOG_CATEGORIES: LogCategory[] = [
 
 /** Every distinct loggable id, for "x / y" totals. */
 export const ALL_LOG_SLOTS = uniq(LOG_CATEGORIES.flatMap((c) => c.slots));
+
+/** Filling the log pays out at these milestones (fraction filled -> tokens). */
+export const LOG_MILESTONES: Array<{ at: number; tokens: number }> = [
+  { at: 0.1, tokens: 50 }, { at: 0.25, tokens: 150 }, { at: 0.5, tokens: 400 }, { at: 0.75, tokens: 1000 }, { at: 1, tokens: 3000 },
+];
