@@ -14,6 +14,10 @@ export interface Settings {
   zoom: number;
   /** Offer "Autoplay to your best floor" when starting a run. */
   allowAutoplay: boolean;
+  /** Soft gold glow around the screen edge on a level-up. */
+  levelUpFlash: boolean;
+  /** Spiders are drawn as harmless-looking brown blobs. */
+  arachnophobia: boolean;
 }
 
 const KEY = 'tickbound.settings';
@@ -29,6 +33,8 @@ export const DEFAULT_SETTINGS: Settings = {
   quickPrayers: [],
   zoom: 1,
   allowAutoplay: true,
+  levelUpFlash: true,
+  arachnophobia: false,
 };
 
 function read(key: string): string | null {
