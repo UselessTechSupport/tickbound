@@ -28,6 +28,7 @@ import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, STYLE_ARMOUR, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
 import { CURSES } from '../data/curses';
+import { modifierBonus } from '../data/modifiers';
 import { REWARD_TEXT } from '../data/wanderers';
 import { DARKNESS_FOV, FLOOR_EVENT_BY_ID, FloorEventId, GOBLIN_ESCAPE_TICKS, rollFloorEvent, treasureGoblin } from '../data/floorEvents';
 import { MasteryLevels, masteryValue } from '../data/mastery';
@@ -133,6 +134,8 @@ export interface RunSetup {
   enchanterUnlocked?: boolean;
   /** Relics unlocked by quests. */
   questRelics?: string[];
+  /** Run modifiers chosen at the ladder (see data/modifiers.ts). */
+  modifiers?: string[];
   /** Skill mastery levels (see data/mastery.ts). */
   mastery?: MasteryLevels;
   /** Monsters you've killed 100+ times (Monster Lore), and collection log slots filled (Collector). */
@@ -220,6 +223,8 @@ export class GameState {
   activeMerchant: ResourceNode | null = null;
   /** Quest relics unlocked so far (they join the relic pool). */
   questRelics: string[] = [];
+  /** Run modifiers in effect. */
+  modifiers: string[] = [];
   /** Curses taken at dark shrines this run. */
   curses: string[] = [];
   /** This floor's event, if any; bonus tokens earned from events this run. */
@@ -260,6 +265,7 @@ export class GameState {
     this.logSlots = setup.logSlots ?? 0;
     const startDepth = Math.max(1, setup.startDepth ?? 1);
     this.mastery = { ...setup.mastery };
+    this.modifiers = [...(setup.modifiers ?? [])];
     this.applyStartingKit(setup, startDepth);
     this.levelsAtStart = Object.fromEntries(SKILLS.map((s) => [s, this.player.skills.level(s)]));
     this.loadFloor(startDepth);
@@ -345,6 +351,10 @@ export class GameState {
     const garden = setup.campSetup?.gardenPotions ?? 0;
     const pool = setup.campSetup?.superPotions ? GARDEN_SUPER_POOL : GARDEN_POOL;
     for (let i = 0; i < garden; i++) p.inventory.add(pool[Math.floor(rand() * pool.length)]);
+    if (this.hasModifier('famished')) {
+      p.inventory.slots.forEach((s, i) => s && item(s.id).heal && p.inventory.take(i));
+    }
+    if (this.hasModifier('fragile')) p.hpBonus -= Math.round(p.maxHp * 0.25);
     p.hp = p.maxHp;
     p.prayerPoints = p.maxPrayer;
   }
@@ -434,6 +444,10 @@ export class GameState {
       if (!inv.add('coins', coins)) this.dropHere('coins', coins);
       this.message(`"A fair trade!" You receive ${coins} coins.`);
     }
+  }
+
+  hasModifier(id: string): boolean {
+    return this.modifiers.includes(id);
   }
 
   hasCurse(id: string): boolean {
@@ -547,7 +561,7 @@ export class GameState {
     if (this.noRewards) return 0;
     // Tokens from skipped or autoplayed floors (the baseline) only count half.
     const base = this.rawTokens() - this.tokenBaseline / 2;
-    const collector = 1 + 0.002 * this.perkRank('collector') * this.logSlots;
+    const collector = (1 + 0.002 * this.perkRank('collector') * this.logSlots) * (1 + modifierBonus(this.modifiers));
     return Math.floor(base * this.mods.tokenMult * collector * (this.hasRelic('lucky_charm') ? 1.25 : 1));
   }
 
@@ -571,6 +585,13 @@ export class GameState {
     for (const n of this.nodes) if (n.kind === 'resource') n.remaining += this.perkRank('bountiful');
     this.npcs = spawnMonsters(this.map);
     this.startFloorEvent(depth);
+    if (this.hasModifier('hardened')) {
+      this.npcs = this.npcs.map((n) => Object.assign(new Npc({ ...n.def, hitpoints: Math.round(n.def.hitpoints * 1.25) }, n.pos), { elite: n.elite }));
+    }
+    if (this.hasModifier('ironman')) {
+      for (const n of this.nodes.filter((x) => x.kind === 'merchant' || x.kind === 'wanderer')) setTile(this.map, n.pos.x, n.pos.y, Tile.Floor);
+      this.nodes = this.nodes.filter((x) => x.kind !== 'merchant' && x.kind !== 'wanderer');
+    }
     this.floorKills = 0;
     this.hitThisFloor = false;
     this.saintUsedFloor = false;
@@ -956,6 +977,10 @@ export class GameState {
 
   /** Offers RELIC_CHOICES random relics the player doesn't have yet. */
   offerRelics(): void {
+    if (this.hasModifier('relicless')) {
+      this.message('Relicless: the relic crumbles to dust in your hands.');
+      return;
+    }
     const pool = RELICS.filter((r) => !this.hasRelic(r.id) && (!r.quest || this.questRelics.includes(r.id))).map((r) => r.id);
     if (!pool.length) return;
     this.pendingRelics = RNG.shuffle(pool).slice(0, RELIC_CHOICES + this.perkRank('relic_hunter'));
@@ -1080,7 +1105,8 @@ export class GameState {
     } else if (def.heal) {
       if (p.eatCooldown > 0) return;
       p.inventory.take(slot, 1);
-      const heal = (def.heal + this.mods.foodHealBonus) * (this.hasRelic('gourmet') ? 1.5 : 1) * (this.hasCurse('famine') ? 0.8 : 1);
+      const heal = (def.heal + this.mods.foodHealBonus) * (this.hasRelic('gourmet') ? 1.5 : 1) * (this.hasCurse('famine') ? 0.8 : 1)
+        * (this.hasModifier('famished') ? 0.75 : 1);
       p.hp = Math.min(p.maxHp, p.hp + Math.floor(heal));
       p.eatCooldown = EAT_DELAY;
       p.attackCooldown += Math.max(0, EAT_DELAY - this.perkRank('quick_eater'));
@@ -1964,7 +1990,8 @@ export class GameState {
 
     if (!npc.target) {
       const d = chebyshev(npc.pos, p.pos);
-      const aggro = npc.def.aggroRadius - (npc.isBoss ? 0 : (this.hasRelic('graceful') ? 2 : 0) + this.perkRank('light_footed'));
+      const aggro = npc.def.aggroRadius + (this.hasModifier('frenzied') ? 3 : 0)
+        - (npc.isBoss ? 0 : (this.hasRelic('graceful') ? 2 : 0) + this.perkRank('light_footed'));
       if (aggro > 0 && d <= aggro && this.isVisible(npc.pos.x, npc.pos.y)) {
         npc.target = p;
       } else {
@@ -1998,9 +2025,10 @@ export class GameState {
     const petDefence = this.campBonus.pet?.kind === 'defence' ? this.campBonus.pet.amount : 0;
     const defRoll = Math.floor(roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence)
       * (1 + this.enchantPower('fortified') + petDefence + 0.03 * this.perkRank('toughness') + this.masteryOf('defence')));
-    const max = Math.floor(maxHit(d.strength + 9, d.strengthBonus) * (this.floorEvent === 'cursed' ? 1.2 : 1));
+    const max = Math.floor(maxHit(d.strength + 9, d.strengthBonus) * (this.floorEvent === 'cursed' ? 1.2 : 1)
+      * (this.hasModifier('hardened') ? 1.25 : 1));
     const dmg = rollDamage(hitChance(attRoll, defRoll), max, rand);
-    npc.attackCooldown = d.attackSpeed;
+    npc.attackCooldown = this.hasModifier('frenzied') ? Math.max(2, d.attackSpeed - 1) : d.attackSpeed;
 
     if (style === 'melee') {
       this.landHit(npc, style, dmg);
