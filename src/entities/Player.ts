@@ -86,11 +86,13 @@ export class Player extends Actor {
 
   /** Boost from the active stat prayer in `group` (e.g. 0.1 for Rock Skin). */
   prayerBoost(group: PrayerGroup): number {
+    let best = 0;
     for (const id of this.activePrayers) {
       const def = PRAYER_BY_ID[id];
-      if (def.group === group) return def.boost ?? 0;
+      const b = def.group === group ? def.boost ?? 0 : def.boosts?.[group] ?? 0;
+      best = Math.max(best, b);
     }
-    return 0;
+    return best;
   }
 
   isProtectedFrom(style: AttackType): boolean {
