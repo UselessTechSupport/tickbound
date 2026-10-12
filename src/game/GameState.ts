@@ -1937,6 +1937,19 @@ export class GameState {
       this.offerRelics();
     }
     this.player.intent = null;
+    // Splitting elites: two smaller (lootless) copies take its place.
+    if (npc.elite?.id === 'splitting') {
+      const half: NpcDef = { ...npc.def, name: `Lesser ${npc.def.name.toLowerCase()}`, hitpoints: Math.max(1, Math.round(npc.def.hitpoints / 4)), drops: [] };
+      const spots = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]
+        .map(([dx, dy]) => ({ x: npc.pos.x + dx, y: npc.pos.y + dy }))
+        .filter((t) => isWalkable(this.map, t.x, t.y) && !this.npcAt(t.x, t.y) && !samePos(t, this.player.pos));
+      for (const spot of [npc.pos, ...spots].slice(0, 2)) {
+        const child = new Npc(half, spot);
+        child.target = this.player;
+        this.npcs.push(child);
+      }
+      this.message(`The ${npc.name.toLowerCase()} splits in two!`);
+    }
     if (npc.elite) {
       this.eliteKills++;
       this.stat('eliteKills');
@@ -2017,6 +2030,10 @@ export class GameState {
     if (npc.def.id === 'treasure_goblin') {
       this.treasureGoblinTick(npc);
       return;
+    }
+    // Regenerating elites: 2% of max HP every other tick.
+    if (npc.elite?.id === 'regenerating' && this.tickCount % 2 === 0 && npc.hp < npc.maxHp) {
+      npc.hp = Math.min(npc.maxHp, npc.hp + Math.max(1, Math.round(npc.maxHp * 0.02)));
     }
 
     if (!npc.target) {
