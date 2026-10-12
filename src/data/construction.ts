@@ -130,6 +130,8 @@ export const PET_BUFFS: Record<string, { kind: 'melee' | 'ranged' | 'magic' | 'd
   pet_demonic_gorilla: { kind: 'defence', label: 'defence' },
   pet_lich: { kind: 'magic', label: 'magic max hit' },
   pet_ancient_wyrm: { kind: 'defence', label: 'defence' },
+  pet_hollow_king: { kind: 'magic', label: 'magic max hit' },
+  pet_void_titan: { kind: 'melee', label: 'melee max hit' },
 };
 
 export const PET_MAX_LEVEL = 10;

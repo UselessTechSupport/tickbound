@@ -49,7 +49,7 @@ npm run dev        # then open http://localhost:5173
   thieve...), each paying tokens that scale with your best floor, plus a bonus for all three.
 - **The Abyss** (floor 21+): a new theme with abyssal fiends, shadow reapers, soul eaters and tormentors (plus a new
   Slayer category). Past floor 20, monsters keep getting 4% stronger per floor, so there's always further to go.
-  Bosses: the Lich (floor 25) and the Ancient Wyrm (floor 30), then ever-stronger Wyrms.
+  Bosses: the Lich (25), the Ancient Wyrm (30), the Hollow King (35) and the Void Titan (40), then ever-stronger Titans.
 - **Boss mechanics**: the Goblin Warlord calls guards at half HP, the Chaos Elemental throws you across the room,
   the Lich raises skeletons at 2/3 and 1/3 HP, and the Ancient Wyrm's dragonfire (every 5th attack) gets through
   protection prayers at half strength. The Demonic gorilla prays against any style you use three times in a row.
@@ -125,7 +125,7 @@ npm run dev        # then open http://localhost:5173
   potions. Potions boost your levels (shown in green) and fade by 1 a minute.
 - **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric, Savage, Regenerating or Splitting variants in a gold aura. Tougher, but
   they roll their loot twice, always drop a herb and give bonus tokens.
-- **Achievements**: 91 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
+- **Achievements**: 93 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
   challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
 - **Collection log**: every notable drop from bosses, monsters and chests, with kill counts. Bosses have a 1/50
   pet drop; choose which pet follows you from the log.

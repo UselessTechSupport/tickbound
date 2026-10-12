@@ -18,7 +18,7 @@ const TILE_KEYS = [
   'frozen_floor_0', 'frozen_floor_1', 'frozen_floor_2', 'frozen_floor_3',
   'frozen_wall_0', 'frozen_wall_1', 'frozen_wall_2', 'frozen_wall_3', 'npc_skeleton', 'npc_giant_spider', 'npc_hill_giant', 'npc_moss_giant',
   'npc_lesser_demon', 'npc_greater_demon', 'npc_dark_wizard', 'npc_skeleton_archer', 'npc_infernal_mage',
-  'npc_dark_archer', 'npc_goblin_warlord', 'npc_tztok_jad', 'npc_chaos_elemental', 'npc_demonic_gorilla', 'npc_lich', 'npc_ancient_wyrm', 'npc_abyssal_fiend', 'npc_shadow_reaper', 'npc_soul_eater', 'npc_tormentor',
+  'npc_dark_archer', 'npc_goblin_warlord', 'npc_tztok_jad', 'npc_chaos_elemental', 'npc_demonic_gorilla', 'npc_lich', 'npc_ancient_wyrm', 'npc_hollow_king', 'npc_void_titan', 'npc_void_spawn', 'npc_abyssal_fiend', 'npc_shadow_reaper', 'npc_soul_eater', 'npc_tormentor',
   'abyss_wall_0', 'abyss_wall_1', 'abyss_wall_2', 'abyss_wall_3', 'abyss_floor_0', 'abyss_floor_1', 'abyss_floor_2', 'abyss_floor_3',
   'pd_base', 'pd_plate', 'pd_dagger', 'pd_sword', 'pd_scimitar', 'pd_wooden_shield', 'pd_kiteshield',
   'item_coins', 'item_bones', 'item_prayer_potion', 'item_dagger', 'item_sword', 'item_scimitar',

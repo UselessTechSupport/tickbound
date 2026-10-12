@@ -76,3 +76,17 @@ describe('new elite affixes', () => {
     expect(g.npcs.every((n) => n.def.drops.length === 0)).toBe(true);
   });
 });
+
+describe('floor 35 and 40 bosses', () => {
+  it('the Hollow King halves your prayer every 4th attack; the Void Titan summons void spawn', () => {
+    const hk = bossFight(35);
+    hk.g.player.prayerPoints = 40;
+    hk.boss.specialCount = 3;
+    (hk.g as unknown as { npcAttack(n: unknown): void }).npcAttack(hk.boss);
+    expect(hk.g.player.prayerPoints).toBe(20);
+    const vt = bossFight(40);
+    vt.boss.specialCount = 5;
+    (vt.g as unknown as { npcAttack(n: unknown): void }).npcAttack(vt.boss);
+    expect(vt.g.npcs.some((n) => n.name === 'Void spawn')).toBe(true);
+  });
+});

@@ -487,6 +487,34 @@ const list: NpcDef[] = [
       { item: 'wyrmhide_body', chance: 0.12 },
     ],
   },
+  {
+    id: 'hollow_king', name: 'The Hollow King', color: 0x5a4a6a, attack: 112, strength: 112, defence: 96, hitpoints: 300,
+    attackBonus: 120, strengthBonus: 170, defenceBonus: 105, attackSpeed: 5, aggroRadius: 9, attackRange: 8,
+    minDepth: 0, maxDepth: -1, weight: 0, examine: 'A crown with nothing beneath it, and it still rules.',
+    boss: { styles: ['melee', 'magic'], switchEvery: 3, floor: 35 },
+    drops: [
+      { item: 'big_bones', chance: 1, min: 4, max: 6 },
+      { item: 'coins', chance: 1, min: 3000, max: 6000 },
+      { item: 'prayer_potion', chance: 1, min: 5, max: 7 },
+      { item: 'shark', chance: 1, min: 4, max: 6 },
+      { item: 'blood_rune', chance: 1, min: 30, max: 60 },
+      { item: 'hollow_crown', chance: 0.1 },
+    ],
+  },
+  {
+    id: 'void_titan', name: 'Void Titan', color: 0x1a1a2a, attack: 125, strength: 125, defence: 108, hitpoints: 360,
+    attackBonus: 130, strengthBonus: 185, defenceBonus: 115, attackSpeed: 6, aggroRadius: 9, attackRange: 8,
+    minDepth: 0, maxDepth: -1, weight: 0, examine: 'Where it stands, the world is thinner.',
+    boss: { styles: ['melee', 'ranged', 'magic'], switchEvery: 3, floor: 40 },
+    drops: [
+      { item: 'big_bones', chance: 1, min: 5, max: 6 },
+      { item: 'coins', chance: 1, min: 4000, max: 8000 },
+      { item: 'prayer_potion', chance: 1, min: 5, max: 7 },
+      { item: 'shark', chance: 1, min: 5, max: 7 },
+      { item: 'dragon_bar', chance: 1, min: 1, max: 3 },
+      { item: 'void_blade', chance: 0.1 },
+    ],
+  },
 ];
 
 for (const n of list) {
