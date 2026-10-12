@@ -200,3 +200,30 @@ describe('more floor events', () => {
     expect(avg(over)).toBeGreaterThan(avg(plain) + 2);
   });
 });
+
+describe('traps', () => {
+  it('floors 2+ have hidden traps; stepping on one hurts and spends it; spotted traps can be disarmed', () => {
+    const g = new GameState(61);
+    g.loadFloor(1);
+    expect(g.traps).toHaveLength(0);
+    g.loadFloor(8);
+    expect(g.traps.length).toBeGreaterThan(0);
+    g.npcs.length = 0;
+    g.player.skills.xp.hitpoints = 1e6;
+    g.player.hp = 99;
+    const trap = g.traps[0];
+    g.player.prev = { x: trap.x - 1, y: trap.y };
+    g.player.pos = { x: trap.x, y: trap.y };
+    (g as unknown as { checkTraps(): void }).checkTraps();
+    expect(g.traps.includes(trap)).toBe(false);
+    expect(g.player.hp).toBeLessThan(99);
+    const other = g.traps[0];
+    if (other) {
+      other.found = true;
+      const xp = g.player.skills.xp.thieving;
+      (g as unknown as { disarmTrap(t: unknown): void }).disarmTrap(other);
+      expect(g.traps.includes(other)).toBe(false);
+      expect(g.player.skills.xp.thieving >= xp).toBe(true);
+    }
+  });
+});
