@@ -185,3 +185,18 @@ describe('treasure maps', () => {
     expect(g.nodes.some((n) => n.kind === 'buried_treasure')).toBe(false);
   });
 });
+
+describe('more floor events', () => {
+  it('Elite Den makes every regular monster elite; Caravan brings a cheap merchant; Overgrown extends resources', () => {
+    const den = floorWith('elite_den', 8);
+    expect(den.npcs.filter((n) => !n.isBoss).every((n) => n.elite)).toBe(true);
+    const car = floorWith('caravan');
+    expect(car.nodes.some((n) => n.kind === 'merchant')).toBe(true);
+    expect(car.buyPrice(100)).toBe(75);
+    const over = floorWith('overgrown');
+    const plain = new GameState(1);
+    plain.loadFloor(6);
+    const avg = (g: GameState) => { const r = g.nodes.filter((n) => n.kind === 'resource'); return r.reduce((t, n) => t + n.remaining, 0) / r.length; };
+    expect(avg(over)).toBeGreaterThan(avg(plain) + 2);
+  });
+});
