@@ -1455,6 +1455,7 @@ export class UIScene extends Phaser.Scene {
       g.noRewards ? 'Autoplay died before handing over: no rewards from this run.'
         : `This run earned ${this.dungeon.lastEarned} Dungeoneering tokens (total ${this.dungeon.meta.tokens}).`,
       ...(this.dungeon.lastDailyBonus ? [`First run of the day: +${this.dungeon.lastDailyBonus} bonus tokens included!`] : []),
+      ...(this.dungeon.lastRecordBonus ? [`New depth record! +${this.dungeon.lastRecordBonus} tokens.`] : []),
       ...(this.dungeon.lastMaterials
         ? [`Materials brought home: ${this.dungeon.lastMaterials.timber} timber, ${this.dungeon.lastMaterials.metal} metal (for the Builder).`] : []),
       'Spend them at camp with the Mentor, the Toolsmith and the Builder.',
