@@ -2,7 +2,7 @@
 
 const METAL_VALUE: Record<string, number> = { bronze: 30, iron: 80, steel: 200, mithril: 500, adamant: 1200, rune: 3000 };
 const KIND_FACTOR: Record<string, number> = { dagger: 0.6, sword: 0.8, scimitar: 1, kiteshield: 1.5, platebody: 2.5 };
-const ARROW_VALUE: Record<string, number> = { bronze: 1, iron: 2, steel: 4, mithril: 8, adamant: 15, rune: 40 };
+const ARROW_VALUE: Record<string, number> = { bronze: 1, iron: 2, steel: 4, mithril: 8, adamant: 15, rune: 40, dragon: 90 };
 
 const FIXED: Record<string, number> = {
   guam_leaf: 10, tarromin: 15, harralander: 20, ranarr_weed: 60, irit_leaf: 30, kwuarm: 40, cadantine: 50,

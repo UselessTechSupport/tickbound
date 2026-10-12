@@ -483,6 +483,7 @@ const list: NpcDef[] = [
       { item: 'prayer_potion', chance: 1, min: 4, max: 6 },
       { item: 'swordfish', chance: 1, min: 5, max: 7 },
       { item: 'rune_bar', chance: 1, min: 2, max: 4 },
+      { item: 'dragon_arrow', chance: 0.6, min: 30, max: 60 },
       { item: 'wyrmhide_body', chance: 0.12 },
     ],
   },

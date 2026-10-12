@@ -172,6 +172,7 @@ const list: ItemDef[] = [
   { id: 'mithril_arrow', name: 'Mithril arrow', color: MITHRIL, stackable: true, equip: arrows(22, 20), examine: 'Arrows with mithril heads.' },
   { id: 'adamant_arrow', name: 'Adamant arrow', color: ADAMANT, stackable: true, equip: arrows(31, 30), examine: 'Arrows with adamant heads.' },
   { id: 'rune_arrow', name: 'Rune arrow', color: RUNE, stackable: true, equip: arrows(49, 40), examine: 'Arrows with rune heads.' },
+  { id: 'dragon_arrow', name: 'Dragon arrow', color: 0xd03020, stackable: true, equip: arrows(60, 60), examine: 'Arrows with dragon heads.' },
   { id: 'leather_body', name: 'Leather body', color: 0x8a5a2a, equip: robe(0, 2, 8, 'defence', 1), examine: 'Better than no armour!' },
   { id: 'hardleather_body', name: 'Hardleather body', color: 0x6a4a2a, equip: robe(-4, 6, 14, 'ranged', 10), examine: 'Harder than normal leather.' },
   { id: 'studded_body', name: 'Studded body', color: 0x7a6a5a, equip: robe(-6, 10, 20, 'ranged', 20), examine: 'Leather armour reinforced with metal studs.' },
