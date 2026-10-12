@@ -156,6 +156,7 @@ export class UIScene extends Phaser.Scene {
   private logCategory = LOG_CATEGORIES[0].id;
   private dropsSubject: DropsSubject | null = null;
   private autoplayOverlay?: Phaser.GameObjects.Container;
+  private pauseBanner?: Phaser.GameObjects.Text;
   /** Quest board: quests or daily contracts. */
   private boardTab: 'quests' | 'contracts' = 'quests';
   /** Mentor window: which branch tab is open. */
@@ -207,6 +208,15 @@ export class UIScene extends Phaser.Scene {
     bus.on('campMenu', (e: Extract<GameEvent, { type: 'campMenu' }>) => this.openModal(e.kind));
     bus.on('relicChoice', () => this.showRelicChoice());
     bus.on('notice', (n: Notice) => this.toast(n));
+    bus.on('paused', (on: boolean) => {
+      this.pauseBanner?.destroy();
+      this.pauseBanner = undefined;
+      if (!on) return;
+      this.pauseBanner = this.add.text(this.panelX / 2, this.scale.height / 2, 'PAUSED  (P to resume)', {
+        ...FONT, fontSize: '22px', color: '#ffd040', stroke: '#000000', strokeThickness: 4,
+      }).setOrigin(0.5).setDepth(45);
+      this.root.add(this.pauseBanner);
+    });
     bus.on('autoplay', (a: { target: number; floor: number } | null) => this.updateAutoplayOverlay(a));
     this.input.keyboard?.on('keydown-ESC', () => {
       if (this.forfeitConfirm) this.closeForfeitConfirm();
@@ -1175,6 +1185,8 @@ export class UIScene extends Phaser.Scene {
       'K            skill mastery',
       'R            run / walk',
       'G            go to stairs',
+      'F            quick-eat',
+      'P            pause',
       'A / L        achievements / log',
       'O            settings',
       'M            mute',
