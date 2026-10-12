@@ -172,6 +172,7 @@ export const PERKS: PerkDef[] = [
   perk('rogue', 3, 0, 'slayer_studies', 'Slayer Studies', 3, 'Slayer tasks pay 15% more tokens per rank.'),
   perk('rogue', 3, 2, 'light_footed', 'Light Footed', 2, 'Monsters notice you from 1 tile closer per rank (not bosses).'),
   perk('rogue', 4, 1, 'master_thief', 'Master Thief', 3, '10% chance per rank to steal double loot.'),
+  perk('rogue', 5, 0, 'occultist', 'Occultist', 1, 'Dark shrines offer one more relic to choose from.'),
   perk('rogue', 5, 1, 'ambusher', 'Ambusher', 3, "+10% accuracy and max hit per rank against monsters that haven't noticed you."),
   perk('rogue', 6, 1, 'shadowstep', 'Shadowstep', 1, 'Capstone: pickpockets and Agility shortcuts never fail.'),
 
@@ -179,6 +180,10 @@ export const PERKS: PerkDef[] = [
   perk('fortune', 0, 1, 'treasure_hunter', 'Treasure Hunter', 5, '+10% tokens earned per rank.'),
   perk('fortune', 1, 0, 'deep_pockets', 'Deep Pockets', 2, '+50% coins from drops per rank.'),
   perk('fortune', 1, 2, 'haggler', 'Haggler', 3, 'Merchants charge 10% less and pay 10% more per rank.'),
+  perk('fortune', 2, 0, 'cartographer', 'Cartographer', 2, 'Treasure maps drop 50% more often per rank.'),
+  perk('fortune', 2, 2, 'contractor', 'Contractor', 3, 'Daily contracts pay 20% more per rank.'),
+  perk('fortune', 4, 0, 'goblin_bane', 'Goblin Bane', 2, 'Treasure goblins take 25% longer to escape per rank.'),
+  perk('fortune', 4, 2, 'dealmaker', 'Dealmaker', 2, 'Wandering adventurers pay 25% more per rank.'),
   perk('fortune', 2, 1, 'lucky', 'Lucky', 3, 'Rare drops (under 10%) are 25% more likely per rank.'),
   perk('fortune', 3, 0, 'bounty', 'Bounty', 3, '+25 tokens per boss kill per rank.'),
   perk('fortune', 3, 2, 'elite_hunter', 'Elite Hunter', 3, '+10 tokens per elite kill per rank.'),
