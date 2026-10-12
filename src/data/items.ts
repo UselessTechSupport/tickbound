@@ -198,6 +198,7 @@ const list: ItemDef[] = [
   { id: 'mind_rune', name: 'Mind rune', color: 0xe08030, stackable: true, examine: 'Used for basic level missile spells.' },
   { id: 'chaos_rune', name: 'Chaos rune', color: 0xe0c030, stackable: true, examine: 'Used for medium level missile spells.' },
   { id: 'death_rune', name: 'Death rune', color: 0xd0d0d0, stackable: true, examine: 'Used for high level missile spells.' },
+  { id: 'blood_rune', name: 'Blood rune', color: 0xc02030, stackable: true, examine: 'Used for the most powerful combat spells.' },
 
   { id: 'prayer_potion', name: 'Prayer potion', color: 0x40c0b0, restoresPrayer: true, examine: 'A potion that restores prayer points.' },
 

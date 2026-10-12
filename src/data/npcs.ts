@@ -380,7 +380,7 @@ const list: NpcDef[] = [
     attackBonus: 65, strengthBonus: 55, defenceBonus: 35, attackSpeed: 5, aggroRadius: 6, attackStyle: 'magic', attackRange: 7,
     minDepth: 21, maxDepth: 999, weight: 3, examine: 'Where it passes, the light forgets to come back.',
     drops: [
-      { item: 'death_rune', chance: 0.5, min: 10, max: 25 }, { item: 'prayer_potion', chance: 0.2 },
+      { item: 'death_rune', chance: 0.5, min: 10, max: 25 }, { item: 'blood_rune', chance: 0.25, min: 5, max: 15 }, { item: 'prayer_potion', chance: 0.2 },
       { item: 'coins', chance: 0.5, min: 150, max: 400 },
     ],
   },
@@ -468,6 +468,7 @@ const list: NpcDef[] = [
       { item: 'prayer_potion', chance: 1, min: 4, max: 6 },
       { item: 'swordfish', chance: 1, min: 4, max: 6 },
       { item: 'death_rune', chance: 1, min: 40, max: 80 },
+      { item: 'blood_rune', chance: 1, min: 25, max: 50 },
       { item: 'staff_of_the_dead', chance: 0.12 },
     ],
   },
