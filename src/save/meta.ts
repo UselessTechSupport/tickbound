@@ -52,6 +52,8 @@ export interface MetaSave {
   startRelic: string | null;
   /** Floors each pet has come along for (pet levels). */
   petFloors: Record<string, number>;
+  /** Bestiary kill milestones already paid ("npcId:kills"). */
+  bestiaryPaid?: string[];
   /** The last few runs, newest first (for the journal). */
   history?: RunRecord[];
   /** Collection log milestones already paid (fractions, e.g. 0.25). */

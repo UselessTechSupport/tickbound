@@ -3,6 +3,7 @@ import {
   WORKBENCH_XP, materialsFrom, petBonus,
 } from '../data/construction';
 import { NPCS } from '../data/npcs';
+import { BESTIARY, BESTIARY_MILESTONES, milestoneKey } from '../data/bestiary';
 import { ALL_LOG_SLOTS, LOG_MILESTONES } from '../data/collectionLog';
 import { SKILLS, SkillName } from '../data/skills';
 import { masteryLevel } from '../data/mastery';
@@ -140,4 +141,24 @@ export function payLogMilestones(m: MetaSave): Array<{ at: number; tokens: numbe
   }
   m.logMilestones = [...paid];
   return fresh;
+}
+
+/** Pay bestiary kill milestones newly reached. Returns the total tokens paid and how many milestones. */
+export function payBestiary(m: MetaSave): { tokens: number; count: number } {
+  const paid = new Set(m.bestiaryPaid ?? []);
+  let tokens = 0;
+  let count = 0;
+  for (const npc of BESTIARY) {
+    for (const ms of BESTIARY_MILESTONES) {
+      const key = milestoneKey(npc.id, ms.kills);
+      if ((m.killCounts[npc.id] ?? 0) >= ms.kills && !paid.has(key)) {
+        paid.add(key);
+        tokens += ms.tokens;
+        count++;
+      }
+    }
+  }
+  m.bestiaryPaid = [...paid];
+  m.tokens += tokens;
+  return { tokens, count };
 }

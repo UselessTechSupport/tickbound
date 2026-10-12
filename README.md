@@ -35,6 +35,7 @@ npm run dev        # then open http://localhost:5173
 | `E` | Arm your weapon's special attack |
 | `K` | Skill mastery |
 | `J` | Progress journal: completion of every long-term system |
+| `B` | Bestiary: kill 10 / 100 / 1,000 of each monster for tokens |
 | `O` | Settings: volume, toggles (auto-pickup, labels, warnings, toasts), zoom, keybinds |
 | Touch | Tap = left-click, long-press = right-click menu; small screens scale the layout to fit |
 | `M` | Mute sound |
