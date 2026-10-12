@@ -154,6 +154,14 @@ export function decodeGraph(data: Encoded): unknown {
   return dec(data);
 }
 
+/** Copy over any field `target` doesn't have from a freshly constructed `defaults`. */
+function fillMissing(target: object, defaults: object): void {
+  const t = target as Record<string, unknown>;
+  for (const [k, v] of Object.entries(defaults)) {
+    if (!(k in t) && typeof v !== 'function') t[k] = v;
+  }
+}
+
 /** Snapshot of a run, including the shared random number generator's state. */
 export function serializeRun(g: GameState): string {
   return JSON.stringify({ v: VERSION, rng: RNG.getState(), game: encodeGraph(g) });
@@ -166,6 +174,12 @@ export function deserializeRun(json: string, emit: (e: GameEvent) => void): Game
     if (data.v !== VERSION) return null;
     const g = decodeGraph(data.game) as GameState;
     if (!(g instanceof GameState)) return null;
+    // Fields added by a game update since the run was saved get their fresh defaults
+    // (e.g. a list the game expects to exist), so an old save doesn't break the new code.
+    const fresh = new GameState(0, () => {}, { camp: true });
+    fillMissing(g, fresh);
+    fillMissing(g.player, fresh.player);
+    fillMissing(g.player.skills, fresh.player.skills);
     // Skills added since the run was saved start at 0 XP.
     for (const skill of SKILLS) g.player.skills.xp[skill] ??= 0;
     g.attachEmitter(emit);

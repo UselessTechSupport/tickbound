@@ -138,6 +138,8 @@ export class DungeonScene extends Phaser.Scene {
   private hover!: Phaser.GameObjects.Rectangle;
   private destMarker!: Phaser.GameObjects.Rectangle;
   private playerView!: ActorView;
+  /** Frames left to watch a run restored from a save for errors (covers its first few ticks). */
+  private checkResume = 0;
   private overhead!: Phaser.GameObjects.Container;
   private overheadIcon!: Phaser.GameObjects.Arc;
   private overheadText!: Phaser.GameObjects.Text;
@@ -212,6 +214,7 @@ export class DungeonScene extends Phaser.Scene {
     if (resumed) {
       this.setState(resumed);
       resumed.message('Welcome back! Your run has been restored.');
+      this.checkResume = 180;
     } else {
       this.toCamp();
     }
@@ -1179,6 +1182,21 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   update(): void {
+    if (!this.checkResume) return this.frame();
+    // A restored run that errors would leave you stuck: drop it and go to camp.
+    try {
+      this.frame();
+      this.checkResume--;
+    } catch (err) {
+      console.warn('Restored run failed, returning to camp:', err);
+      this.checkResume = 0;
+      clearRun();
+      this.toCamp();
+      this.state.message('Sorry, your saved run could not be restored after a game update.');
+    }
+  }
+
+  private frame(): void {
     // Game ticks follow the wall clock. Phaser's smoothed frame delta runs slow
     // when the frame rate drops, which would stretch the 600ms tick.
     const wall = performance.now();
