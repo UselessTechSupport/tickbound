@@ -549,7 +549,7 @@ export class GameState {
       if (!inv.add(id, qty)) this.dropHere(id, qty);
     }
     this.stat('treasures');
-    this.sound('buy');
+    this.sound('dig');
     this.message(`You dig up a buried chest! ${loot.map((l) => `${l.qty > 1 ? `${l.qty} x ` : ''}${item(l.id).name}`).join(', ')}, and ${tokens} tokens.`);
   }
 
@@ -1638,7 +1638,7 @@ export class GameState {
               if (curse.id === 'frailty') this.applyFrailty();
               this.message(`The shrine takes its price. You are cursed with ${curse.name}: ${curse.desc}`);
             }
-            this.sound('hurt');
+            this.sound('curse');
             this.offerRelics(this.perkRank('occultist'));
           }
         } else if (node.kind === 'shrine') {
@@ -2428,6 +2428,7 @@ export class GameState {
     if (!npc.target && chebyshev(npc.pos, p.pos) <= npc.def.aggroRadius && this.isVisible(npc.pos.x, npc.pos.y)) {
       npc.target = p;
       this.message('The treasure goblin squeals and runs!');
+      this.sound('squeal');
     }
     if (!npc.target) {
       this.wander(npc);
