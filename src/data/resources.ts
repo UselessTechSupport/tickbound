@@ -76,6 +76,7 @@ const list: ResourceDef[] = [
   tree('willow', 'Willow tree', 20, 67.5, 'willow_logs', [3, 6], 6, 99, 2, 0x6a9a3a),
   tree('maple', 'Maple tree', 30, 100, 'maple_logs', [3, 6], 10, 99, 2, 0xb05a20),
   tree('yew', 'Yew tree', 40, 175, 'yew_logs', [3, 6], 14, 99, 1, 0x2a5a2a),
+  tree('magic', 'Magic tree', 60, 250, 'magic_logs', [3, 6], 21, 999, 1, 0x4a6ac0),
 
   ...HERB_PATCHES,
 

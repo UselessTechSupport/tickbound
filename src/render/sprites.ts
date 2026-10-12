@@ -45,7 +45,7 @@ const METAL_TINT: Record<string, number> = {
 
 const metalOf = (id: string) => METAL_TINT[id.split('_')[0]];
 
-const WOOD_TINT: Record<string, number> = { oak: 0xffe0b0, willow: 0xf0f0a0, maple: 0xffb080, yew: 0xd09070 };
+const WOOD_TINT: Record<string, number> = { oak: 0xffe0b0, willow: 0xf0f0a0, maple: 0xffb080, yew: 0xd09070, magic: 0x90b0ff };
 const woodOf = (id: string) => WOOD_TINT[id.split('_')[0]];
 
 const ELEMENT_TINT: Record<string, number> = { air: 0xf0f0ff, water: 0x80a0ff, earth: 0xc0a070, fire: 0xff8060 };

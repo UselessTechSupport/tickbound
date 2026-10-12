@@ -101,6 +101,7 @@ export const RECIPES: Recipe[] = [
   bow('willow_logs', 'willow_shortbow', 35, 33.3),
   bow('maple_logs', 'maple_shortbow', 50, 50),
   bow('yew_logs', 'yew_shortbow', 65, 67.5),
+  bow('magic_logs', 'magic_shortbow', 80, 83.3),
   arrows('bronze', 'logs', 1, 1.3),
   arrows('iron', 'logs', 15, 2.5),
   arrows('steel', 'oak_logs', 30, 5),
