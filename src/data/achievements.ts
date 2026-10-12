@@ -1,5 +1,10 @@
 import type { GameState } from '../game/GameState';
 import { RECIPES } from './recipes';
+import { SKILLS } from './skills';
+import { masteryLevel } from './mastery';
+import { BRANCHES, PERKS } from './skillTree';
+import { STRUCTURES } from './construction';
+import { QUESTS } from './quests';
 import type { MetaSave } from '../save/meta';
 
 export type Tier = 'easy' | 'medium' | 'hard' | 'elite';
@@ -15,7 +20,7 @@ export const TIERS: Array<{ id: Tier; name: string; reward: number; color: numbe
 export type Counter =
   | 'kills' | 'gathers' | 'cooks' | 'smiths' | 'bones' | 'chests' | 'purchases' | 'blocks'
   | 'weaknessKills' | 'mimicKills' | 'relics' | 'rangedKills' | 'magicKills' | 'tasks' | 'fires'
-  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts';
+  | 'potions' | 'herbs' | 'eliteKills' | 'fletches' | 'pickpockets' | 'locks' | 'shortcuts' | 'goblins' | 'floorEvents';
 
 export interface AchievementContext {
   meta: MetaSave;
@@ -43,6 +48,11 @@ const made = (pred: (id: string) => boolean) => (c: AchievementContext) => Objec
 const inRun = (f: (g: GameState) => boolean) => (c: AchievementContext) => !c.game.isCamp && f(c.game);
 /** Run challenges can't be done with skip-ahead or autoplay. */
 const unassisted = (f: (g: GameState) => boolean) => inRun((g) => !g.assisted && f(g));
+const masteries = (c: AchievementContext) => SKILLS.map((s) => masteryLevel(c.meta.masteryPoints[s] ?? 0));
+const capstones = (c: AchievementContext) => PERKS.filter((p) => p.tier === 6 && (c.meta.perks[p.id] ?? 0) > 0).length;
+const branchMaxed = (c: AchievementContext) => BRANCHES.some((b) => PERKS.filter((p) => p.branch === b.id)
+  .every((p) => (c.meta.perks[p.id] ?? 0) >= p.costs.length));
+const structuresMaxed = (c: AchievementContext) => STRUCTURES.every((s) => (c.meta.structures[s.id] ?? 0) >= s.levels.length);
 const NON_COMBAT = ['mining', 'woodcutting', 'fishing', 'cooking', 'smithing', 'herblore'] as const;
 const MIX_OUTPUTS = RECIPES.filter((r) => r.station === 'mix').map((r) => r.output);
 
@@ -60,6 +70,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'slayer_novice', name: 'Slayer Novice', desc: 'Complete a Slayer task.', tier: 'easy', ...count('tasks', 1) },
   { id: 'firestarter', name: 'Firestarter', desc: 'Light 10 fires.', tier: 'easy', ...count('fires', 10) },
   { id: 'green_thumb', name: 'Green Thumb', desc: 'Pick 10 herbs.', tier: 'easy', ...count('herbs', 10) },
+  { id: 'gold_rush', name: 'Gold Rush', desc: 'Catch a treasure goblin.', tier: 'easy', ...count('goblins', 1) },
+  { id: 'novice_builder', name: 'Home Sweet Home', desc: 'Build a camp structure.', tier: 'easy', check: (c) => Object.values(c.meta.structures).some((l) => (l ?? 0) > 0) },
   { id: 'first_brew', name: 'First Brew', desc: 'Mix a potion.', tier: 'easy', ...count('potions', 1) },
   { id: 'fletcher', name: 'Fletcher', desc: 'Fletch a bow or some arrows.', tier: 'easy', ...count('fletches', 1) },
   { id: 'sticky_fingers', name: 'Sticky Fingers', desc: 'Pick a pocket.', tier: 'easy', ...count('pickpockets', 1) },
@@ -84,6 +96,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'warlords_bane', name: "Warlord's Bane", desc: 'Kill the Goblin Warlord 5 times.', tier: 'medium', check: killedTimes('goblin_warlord', 5) },
   { id: 'mithril_smith', name: 'Mithril Smith', desc: 'Smith a mithril item.', tier: 'medium', check: made((id) => /^mithril_(scimitar|kiteshield|platebody)$/.test(id)) },
   { id: 'herbalist', name: 'Herbalist', desc: 'Mix 25 potions.', tier: 'medium', ...count('potions', 25) },
+  { id: 'eventful', name: 'Eventful', desc: 'Arrive on 25 floors with an event.', tier: 'medium', ...count('floorEvents', 25) },
+  { id: 'adept', name: 'Adept', desc: 'Reach mastery 5 in any skill.', tier: 'medium', check: (c) => masteries(c).some((l) => l >= 5) },
+  { id: 'questing', name: 'Adventurer', desc: 'Complete 6 quests.', tier: 'medium', check: (c) => c.meta.questsDone.length >= 6 },
   { id: 'master_thief', name: 'Master Thief', desc: 'Pick 50 pockets.', tier: 'medium', ...count('pickpockets', 50) },
   { id: 'safecracker', name: 'Safecracker', desc: 'Pick the locks of 10 chests.', tier: 'medium', ...count('locks', 10) },
   { id: 'parkour', name: 'Parkour', desc: 'Use 25 Agility shortcuts.', tier: 'medium', ...count('shortcuts', 25) },
@@ -112,6 +127,16 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'combat_80', name: 'Veteran', desc: 'Reach combat level 80 in a run.', tier: 'hard', check: (c) => !c.game.isCamp && c.game.player.combatLevel >= 80 },
 
   // Elite
+  // Long-term goals: mastery, the skill tree, camp and quests.
+  { id: 'well_rounded', name: 'Well Rounded', desc: 'Reach mastery 1 in every skill.', tier: 'hard', check: (c) => masteries(c).every((l) => l >= 1) },
+  { id: 'true_master', name: 'True Master', desc: 'Reach mastery 10 in any skill.', tier: 'hard', check: (c) => masteries(c).some((l) => l >= 10) },
+  { id: 'grandmaster_of_all', name: 'Master of Many', desc: 'Reach mastery 10 in five skills.', tier: 'elite', check: (c) => masteries(c).filter((l) => l >= 10).length >= 5 },
+  { id: 'capstone', name: 'Capstone', desc: 'Buy a capstone perk.', tier: 'hard', check: (c) => capstones(c) >= 1 },
+  { id: 'branch_master', name: 'Branch Master', desc: 'Buy every perk in a skill tree branch.', tier: 'elite', check: branchMaxed },
+  { id: 'apex', name: 'Apex', desc: 'Buy every capstone perk.', tier: 'elite', check: (c) => capstones(c) >= BRANCHES.length },
+  { id: 'architect', name: 'Architect', desc: 'Build every camp structure to its highest level.', tier: 'hard', check: structuresMaxed },
+  { id: 'quest_cape', name: 'Quest Cape', desc: 'Complete every quest.', tier: 'elite', check: (c) => c.meta.questsDone.length >= QUESTS.length },
+  { id: 'goblin_hunter', name: 'Goblin Hunter', desc: 'Catch 10 treasure goblins.', tier: 'hard', ...count('goblins', 10) },
   { id: 'chaos', name: 'Chaos Theory', desc: 'Defeat the Chaos Elemental.', tier: 'elite', check: killed('chaos_elemental') },
   { id: 'gorilla', name: 'Gorilla Warfare', desc: 'Defeat the Demonic gorilla.', tier: 'elite', check: killed('demonic_gorilla') },
   { id: 'abyss_walker', name: 'Abyss Walker', desc: 'Reach floor 25.', tier: 'elite', check: reached(25) },

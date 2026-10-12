@@ -534,6 +534,7 @@ export class GameState {
     const boss = this.npcs.find((n) => n.isBoss);
     if (boss) this.message(`You sense a powerful presence guarding the stairs: ${boss.name}.`);
     if (this.floorEvent) {
+      this.stat('floorEvents');
       const ev = FLOOR_EVENT_BY_ID[this.floorEvent];
       this.message(`${ev.name}! ${ev.desc}`);
     }
@@ -1758,6 +1759,7 @@ export class GameState {
     if (this.floorEvent === 'infested') this.bonusTokens += 1;
     if (this.floorEvent === 'cursed') this.bonusTokens += 2;
     if (npc.def.id === 'treasure_goblin') {
+      this.stat('goblins');
       this.message('You catch the treasure goblin! Coins spill everywhere.');
       this.floorEvent = null;
     }
