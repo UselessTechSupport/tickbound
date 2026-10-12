@@ -95,3 +95,13 @@ describe('deep bosses', () => {
     expect(ITEMS.wyrmhide_body.equip?.slot).toBe('body');
   });
 });
+
+describe('the Abyss', () => {
+  it('floors past 20 are Abyss monsters (plus dark archers), scaled with depth', async () => {
+    const { npcsForDepth } = await import('../src/data/npcs');
+    const ids = new Set(npcsForDepth(25).map((n) => n.id));
+    for (const id of ['abyssal_fiend', 'shadow_reaper', 'soul_eater', 'tormentor']) expect(ids.has(id), id).toBe(true);
+    expect(ids.has('frost_giant')).toBe(false);
+    expect(npcsForDepth(20).some((n) => n.id === 'abyssal_fiend')).toBe(false);
+  });
+});

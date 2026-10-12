@@ -44,7 +44,9 @@ npm run dev        # then open http://localhost:5173
 
 - **Daily contracts** (quest board): three new goals every day (kill a monster type, reach a floor, gather, cook,
   thieve...), each paying tokens that scale with your best floor, plus a bonus for all three.
-- **The endless deep**: past floor 20, monsters keep getting 4% stronger per floor, so there's always further to go.
+- **The Abyss** (floor 21+): a new theme with abyssal fiends, shadow reapers, soul eaters and tormentors (plus a new
+  Slayer category). Past floor 20, monsters keep getting 4% stronger per floor, so there's always further to go.
+  Bosses: the Lich (floor 25) and the Ancient Wyrm (floor 30), then ever-stronger Wyrms.
 - **Tokens from coins**: 20 coins = 1 token up to 2,000 coins; bigger piles taper off, so hoarding can't flood the economy.
 - **Floor events** (from floor 3, about 1 in 4 non-boss floors): Gilded Halls (double coins, tougher monsters),
   Infested (more monsters, +1 token per kill), Cursed (monsters hit harder, +2 tokens per kill), Darkness (short sight,

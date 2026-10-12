@@ -13,10 +13,15 @@ export const THEMES: ThemeDef[] = [
   { id: 'dungeon', name: 'the Dungeon', floorKeys: ['floor_0', 'floor_1', 'floor_2', 'floor_3'], wallKeys: ['wall_0', 'wall_1', 'wall_2', 'wall_3'], floorTint: 0xb0a088 },
   { id: 'crypt', name: 'the Crypt', floorKeys: ['crypt_floor_0', 'crypt_floor_1'], wallKeys: ['crypt_wall_0', 'crypt_wall_1', 'crypt_wall_2', 'crypt_wall_3'] },
   { id: 'volcanic', name: 'the Volcanic depths', floorKeys: ['volcanic_floor_0', 'volcanic_floor_1', 'volcanic_floor_2', 'volcanic_floor_3'], wallKeys: ['volcanic_wall_0', 'volcanic_wall_1', 'volcanic_wall_2', 'volcanic_wall_3'], wallTint: 0x8a5a50 },
+  { id: 'abyss', name: 'the Abyss', floorKeys: ['abyss_floor_0', 'abyss_floor_1', 'abyss_floor_2', 'abyss_floor_3'], wallKeys: ['abyss_wall_0', 'abyss_wall_1', 'abyss_wall_2', 'abyss_wall_3'] },
   { id: 'frozen', name: 'the Frozen caverns', floorKeys: ['frozen_floor_0', 'frozen_floor_1', 'frozen_floor_2', 'frozen_floor_3'], wallKeys: ['frozen_wall_0', 'frozen_wall_1'], wallTint: 0x9aaabb },
 ];
 
-/** Floors 1-5 Dungeon, 6-10 Crypt, 11-15 Volcanic, 16-20 Frozen, then around again. */
+const BY_ID = Object.fromEntries(THEMES.map((t) => [t.id, t]));
+const ORDER = ['dungeon', 'crypt', 'volcanic', 'frozen'];
+
+/** Floors 1-5 Dungeon, 6-10 Crypt, 11-15 Volcanic, 16-20 Frozen, then the Abyss forever. */
 export function themeForDepth(depth: number): ThemeDef {
-  return THEMES[Math.floor((Math.max(1, depth) - 1) / 5) % THEMES.length];
+  if (depth > 20) return BY_ID.abyss;
+  return BY_ID[ORDER[Math.floor((Math.max(1, depth) - 1) / 5)]];
 }

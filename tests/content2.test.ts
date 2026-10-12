@@ -15,13 +15,14 @@ const adjacentFloor = (g: GameState) => {
 };
 
 describe('themed floors', () => {
-  it('changes every 5 floors and cycles', () => {
+  it('changes every 5 floors, then the Abyss from floor 21', () => {
     expect(themeForDepth(1).id).toBe('dungeon');
     expect(themeForDepth(5).id).toBe('dungeon');
     expect(themeForDepth(6).id).toBe('crypt');
     expect(themeForDepth(11).id).toBe('volcanic');
     expect(themeForDepth(16).id).toBe('frozen');
-    expect(themeForDepth(21).id).toBe('dungeon');
+    expect(themeForDepth(21).id).toBe('abyss');
+    expect(themeForDepth(80).id).toBe('abyss');
     for (const t of THEMES) expect(t.floorKeys.length && t.wallKeys.length).toBeTruthy();
   });
 
