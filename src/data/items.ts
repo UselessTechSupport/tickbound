@@ -209,6 +209,8 @@ const list: ItemDef[] = [
   { id: 'cadantine', name: 'Cadantine', color: 0x3a8a5a, herblore: true, examine: 'A fresh herb.' },
   { id: 'dwarf_weed', name: 'Dwarf weed', color: 0x6a8a2a, herblore: true, examine: 'A fresh herb.' },
   { id: 'lantadyme', name: 'Lantadyme', color: 0x8ab040, herblore: true, examine: 'A fresh herb.' },
+  { id: 'snapdragon', name: 'Snapdragon', color: 0xc0d040, herblore: true, examine: 'A rare herb from the deep.' },
+  { id: 'torstol', name: 'Torstol', color: 0x6a9a30, herblore: true, examine: 'The rarest herb of all.' },
   { id: 'eye_of_newt', name: 'Eye of newt', color: 0xe0d0a0, stackable: true, herblore: true, examine: 'It seems to be looking at me.' },
   { id: 'limpwurt_root', name: 'Limpwurt root', color: 0xc08040, stackable: true, herblore: true, examine: 'The root of a limpwurt plant.' },
   { id: 'white_berries', name: 'White berries', color: 0xf0f0f0, stackable: true, herblore: true, examine: 'Poisonous berries.' },
@@ -223,6 +225,9 @@ const list: ItemDef[] = [
   { id: 'super_strength', name: 'Super strength', color: 0xe040e0, boost: { skills: ['strength'], base: 5, pct: 0.15 }, examine: 'Greatly boosts your Strength.' },
   { id: 'super_defence', name: 'Super defence', color: 0xe0c040, boost: { skills: ['defence'], base: 5, pct: 0.15 }, examine: 'Greatly boosts your Defence.' },
   { id: 'ranging_potion', name: 'Ranging potion', color: 0x60e0a0, boost: { skills: ['ranged'], base: 4, pct: 0.1 }, examine: 'Boosts your Ranged.' },
+  { id: 'super_ranging', name: 'Super ranging', color: 0x40c080, boost: { skills: ['ranged'], base: 6, pct: 0.15 }, examine: 'Greatly boosts your Ranged.' },
+  { id: 'super_magic', name: 'Super magic', color: 0xa03070, boost: { skills: ['magic'], base: 6, pct: 0.12 }, examine: 'Greatly boosts your Magic.' },
+  { id: 'super_combat', name: 'Super combat', color: 0x40a040, boost: { skills: ['attack', 'strength', 'defence'], base: 5, pct: 0.15 }, examine: 'Boosts Attack, Strength and Defence all at once.' },
   { id: 'magic_potion', name: 'Magic potion', color: 0xc04080, boost: { skills: ['magic'], base: 4, pct: 0 }, examine: 'Boosts your Magic.' },
 
   // Skilling resources

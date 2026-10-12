@@ -136,4 +136,4 @@ export function petBonus(floors: number, kennel: number): number {
 }
 
 export const GARDEN_POOL = ['attack_potion', 'strength_potion', 'defence_potion', 'prayer_potion', 'ranging_potion', 'magic_potion'];
-export const GARDEN_SUPER_POOL = ['super_attack', 'super_strength', 'super_defence', 'prayer_potion', 'ranging_potion', 'magic_potion'];
+export const GARDEN_SUPER_POOL = ['super_attack', 'super_strength', 'super_defence', 'prayer_potion', 'super_ranging', 'super_magic'];
