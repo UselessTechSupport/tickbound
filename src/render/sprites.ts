@@ -62,6 +62,10 @@ function rangedMagicSprite(id: string, layer: 'item' | 'pd'): SpriteRef | null {
   if (id === 'mystic_robe_top') return layer === 'item' ? { key: 'item_robe', tint: 0x9090ff } : { key: 'pd_mystic_robe' };
   if (id === 'leather_body') return { key: `${layer}_leather_body` };
   if (id === 'green_dhide_body') return { key: `${layer}_dhide_body` };
+  if (id === 'black_dhide_body') return layer === 'pd' ? { key: 'pd_dhide_body', tint: 0x505050 } : { key: 'item_dhide_body', tint: 0x404040 };
+  if (id === 'ancestral_top') return layer === 'pd' ? { key: 'pd_mystic_robe', tint: 0x8060c0 } : { key: 'item_robe', tint: 0x6040a0 };
+  if (id === 'staff_of_light') return { key: `${layer}_mystic_staff`, tint: 0xfff0a0 };
+  if (id === 'dark_bow') return { key: layer === 'item' ? 'item_shortbow' : 'pd_bow', tint: 0x404050 };
   if (id === 'wyrmhide_body') return layer === 'pd' ? { key: 'pd_blue_dhide_body' } : { key: 'item_dhide_body', tint: 0x6a6a9a };
   if (id === 'staff_of_the_dead') return { key: `${layer}_mystic_staff`, tint: 0x70c070 };
   // Newer armour: own paperdoll sprites; inventory icons reuse a tinted base icon.

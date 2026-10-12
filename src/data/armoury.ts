@@ -10,6 +10,8 @@ export interface ArmouryTier {
   /** Short label for the shop, e.g. "Mithril scimitar". */
   label: string;
   cost: number;
+  /** Only sold once you've defeated this boss. */
+  requiresKill?: string;
   /** What you start each run with. The first item is the wearable piece. */
   items: Array<{ id: string; qty: number }>;
 }
@@ -65,6 +67,19 @@ export const ARMOURY: Record<ArmouryLine, { name: string; tiers: ArmouryTier[] }
   },
   shield: { name: 'Shield', tiers: metalLine('kiteshield', [15, 40, 80, 160, 320, 640]) },
 };
+
+/** The late-game tier for every line, sold after your first Ancient Wyrm kill. */
+const WYRM = 'ancient_wyrm';
+const LATE: Record<ArmouryLine, ArmouryTier> = {
+  melee: { label: 'Dragon scimitar', cost: 2500, requiresKill: WYRM, items: [{ id: 'dragon_scimitar', qty: 1 }] },
+  ranged: { label: 'Dark bow + rune arrows', cost: 2500, requiresKill: WYRM, items: [{ id: 'dark_bow', qty: 1 }, { id: 'rune_arrow', qty: 200 }] },
+  magic: { label: 'Staff of light + death runes', cost: 2500, requiresKill: WYRM, items: [{ id: 'staff_of_light', qty: 1 }, { id: 'air_rune', qty: 400 }, { id: 'death_rune', qty: 150 }, { id: 'chaos_rune', qty: 150 }] },
+  body: { label: 'Dragon platebody', cost: 3000, requiresKill: WYRM, items: [{ id: 'dragon_platebody', qty: 1 }] },
+  ranged_body: { label: "Black d'hide body", cost: 2500, requiresKill: WYRM, items: [{ id: 'black_dhide_body', qty: 1 }] },
+  magic_body: { label: 'Ancestral robe top', cost: 3000, requiresKill: WYRM, items: [{ id: 'ancestral_top', qty: 1 }] },
+  shield: { label: 'Dragon kiteshield', cost: 2000, requiresKill: WYRM, items: [{ id: 'dragon_kiteshield', qty: 1 }] },
+};
+for (const line of Object.keys(LATE) as ArmouryLine[]) ARMOURY[line].tiers.push(LATE[line]);
 
 export const ARMOURY_LINES = Object.keys(ARMOURY) as ArmouryLine[];
 

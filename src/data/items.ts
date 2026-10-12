@@ -99,6 +99,13 @@ const list: ItemDef[] = [
   // Boss uniques (floor 25 Lich, floor 30 Ancient Wyrm).
   { id: 'staff_of_the_dead', name: 'Staff of the dead', color: 0x4a6a3a, equip: staff(28, 65), examine: 'A staff that hums with the Lich\'s stolen life.' },
   { id: 'wyrmhide_body', name: 'Wyrmhide body', color: 0x3a3a5a, equip: robe(-12, 32, 65, 'ranged', 65), examine: 'Scales from the oldest thing in the dungeon.' },
+  // Late-game Armourer tier (after the Ancient Wyrm).
+  { id: 'dragon_platebody', name: 'Dragon platebody', color: 0xd03020, equip: body(110, 60), examine: 'Forged from the scales of something enormous.' },
+  { id: 'dragon_kiteshield', name: 'Dragon kiteshield', color: 0xd03020, equip: shield(60, 60), examine: 'A shield of dragon metal.' },
+  { id: 'dark_bow', name: 'Dark bow', color: 0x303040, equip: bow(88, 60), examine: 'A bow of dark wood that drinks the light.' },
+  { id: 'staff_of_light', name: 'Staff of light', color: 0xfff0a0, equip: staff(24, 60), examine: 'A staff that glows faintly in the dark.' },
+  { id: 'black_dhide_body', name: "Black d'hide body", color: 0x303030, equip: robe(-15, 28, 55, 'ranged', 60), examine: 'Made from 100% real black dragonhide.' },
+  { id: 'ancestral_top', name: 'Ancestral robe top', color: 0x6040a0, equip: robe(34, -6, 52, 'magic', 70), examine: 'Robes worn by an ancient order of mages.' },
   { id: 'dragon_scimitar', name: 'Dragon scimitar', color: 0xd03020, equip: weapon(67, 66, 60), examine: 'A vicious, curved sword of dragon metal.' },
   { id: 'iron_scimitar', name: 'Iron scimitar', color: IRON, equip: weapon(10, 9, 1), examine: 'A vicious, curved sword.' },
   { id: 'steel_scimitar', name: 'Steel scimitar', color: STEEL, equip: weapon(15, 14, 5), examine: 'A vicious, curved sword.' },

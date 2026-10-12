@@ -573,6 +573,7 @@ export class DungeonScene extends Phaser.Scene {
   buyArmoury(line: ArmouryLine): boolean {
     const tier = nextArmouryTier(this.meta.armoury, line);
     if (!tier || this.meta.tokens < tier.cost) return false;
+    if (tier.requiresKill && !(this.meta.killCounts[tier.requiresKill] ?? 0)) return false;
     this.meta.tokens -= tier.cost;
     this.meta.armoury[line]++;
     saveMeta(this.meta);

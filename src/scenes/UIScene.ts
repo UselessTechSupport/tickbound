@@ -727,7 +727,10 @@ export class UIScene extends Phaser.Scene {
       const next = nextArmouryTier(meta.armoury, line);
       add(this.add.text(x0, y + 4, `${name.padEnd(14)} ${rank}/${tiers.length}`, { ...FONT, fontSize: '13px', color: '#ff981f' }));
       add(this.add.text(x0 + 170, y + 4, `Have: ${current}`, { ...FONT, fontSize: '12px', color: '#ffffff' }));
-      if (next) {
+      const lockedBy = next?.requiresKill && !(meta.killCounts[next.requiresKill] ?? 0) ? NPCS[next.requiresKill].name : null;
+      if (next && lockedBy) {
+        add(this.add.text(x0 + 660, y + 4, `${next.label}: defeat the ${lockedBy} first`, { ...FONT, fontSize: '11px', color: '#7a7a7a' }).setOrigin(1, 0));
+      } else if (next) {
         const affordable = meta.tokens >= next.cost;
         const b = add(this.add.text(x0 + 660, y, `Buy ${next.label} (${next.cost})`, {
           ...FONT, fontSize: '12px', color: affordable ? '#ffffff' : '#7a7a7a',
