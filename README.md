@@ -114,7 +114,7 @@ npm run dev        # then open http://localhost:5173
   potions. Potions boost your levels (shown in green) and fade by 1 a minute.
 - **Elite monsters** (floor 3+): Brutal, Armoured, Swift, Vampiric or Savage variants in a gold aura. Tougher, but
   they roll their loot twice, always drop a herb and give bonus tokens.
-- **Achievements**: 85 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
+- **Achievements**: 89 goals in Easy / Medium / Hard / Elite tiers (lifetime milestones, bosses, depth and in-run
   challenges like "beat a boss without taking damage"), each paying 10 / 25 / 60 / 150 tokens once.
 - **Collection log**: every notable drop from bosses, monsters and chests, with kill counts. Bosses have a 1/50
   pet drop; choose which pet follows you from the log.
