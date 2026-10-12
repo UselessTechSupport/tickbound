@@ -25,6 +25,12 @@ export const RELICS: RelicDef[] = [
   { id: 'lucky_charm', name: 'Lucky Charm', desc: '+25% Dungeoneering tokens from this run.', color: 0x40e080 },
   { id: 'graceful', name: 'Graceful Outfit', desc: 'Monsters notice you from 2 tiles closer.', color: 0x40c0a0 },
   { id: 'packed_supplies', name: 'Packed Supplies', desc: 'Find a cooked fish in your pack on every new floor.', color: 0xc08a50 },
+  { id: 'hunters_eye', name: "Hunter's Eye", desc: '+1 bow range and +10% ranged accuracy.', color: 0x60a040 },
+  { id: 'arcane_battery', name: 'Arcane Battery', desc: 'Spells cost no runes 25% of the time.', color: 0x8060e0 },
+  { id: 'executioners_axe', name: "Executioner's Axe", desc: '+20% max hit against monsters below half HP.', color: 0x903030 },
+  { id: 'scavengers_pouch', name: "Scavenger's Pouch", desc: '+50% coins from drops, and herbs drop twice as often.', color: 0xa08050 },
+  { id: 'warding_charm', name: 'Warding Charm', desc: 'A ward absorbs the first 10 damage you take on each floor.', color: 0x80c0e0 },
+  { id: 'phoenix_feather', name: 'Phoenix Feather', desc: 'The first time you drop below 20% HP on each floor, heal 30% of your HP.', color: 0xff8030 },
   // Quest rewards: join the pool once their quest is done.
   { id: 'fire_cape', name: 'Fire Cape', desc: '+10% max hit against bosses.', color: 0xff7020, quest: true },
   { id: 'thieves_gloves', name: "Thieves' Gloves", desc: '+15% chance to pick pockets and locks.', color: 0x6a5a8a, quest: true },

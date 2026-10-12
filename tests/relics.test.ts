@@ -103,3 +103,29 @@ describe('relics', () => {
     expect(g.player.skills.xp.prayer).toBeGreaterThan(0);
   });
 });
+
+describe('newer relics', () => {
+  it('Warding Charm soaks damage each floor; Phoenix Feather heals once per floor', () => {
+    const g = new GameState(95, () => {}, { campSetup: { startRelic: 'warding_charm' } });
+    expect(g.wardLeft).toBe(10);
+    g.loadFloor(2);
+    expect(g.wardLeft).toBe(10);
+    const p = new GameState(96);
+    p.relics.push('phoenix_feather');
+    p.player.skills.xp.hitpoints = 1e6;
+    p.player.hp = p.player.maxHp;
+    const npc = p.npcs.find((n) => !n.isBoss)!;
+    const hit = (dmg: number) => (p as unknown as { landHit(n: unknown, s: string, d: number): void }).landHit(npc, 'melee', dmg);
+    hit(p.player.maxHp - 2); // down to 2 HP: the feather heals 30%
+    expect(p.player.hp).toBeGreaterThan(p.player.maxHp * 0.25);
+    const after = p.player.hp;
+    hit(after - 1); // second time on the same floor: no heal
+    expect(p.player.hp).toBe(1);
+  });
+
+  it("Hunter's Eye adds bow range", () => {
+    const g = new GameState(97, () => {}, { campSetup: { startRelic: 'hunters_eye' } });
+    g.player.equipment.weapon = 'shortbow';
+    expect(g.player.attackRange).toBe(8);
+  });
+});
