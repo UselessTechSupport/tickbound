@@ -93,7 +93,7 @@ npm run dev        # then open http://localhost:5173
 - **Builder** (camp): spend tokens plus timber and metal (from the logs, ores and bars you carry when a run ends) on
   camp structures: Bank chest (keeps your best carried items for the next run), Herb garden (start with potions),
   Trophy room (+max hit per boss beaten), Workbench (+crafting XP), Relic altar (start with a relic you've found)
-  and Pet kennel (your pet gives a bonus that grows with the floors it comes along for).
+  Pet kennel (your pet gives a bonus that grows with the floors it comes along for) and Library (+10-30% mastery).
 - **Quest board** (camp): 20 quests from the camp folk (reach floors, bring home logs, ores and gems, beat bosses, Slayer
   tasks, building, thieving, agility, fletching). Lifetime progress counts. Rewards are tokens, materials and four
   quest-only relics (Fire Cape, Thieves' Gloves, Boots of Lightness, Fletcher's Kit) that join the relic pool.

@@ -5,7 +5,7 @@ import type { SkillName } from './skills';
  * Materials come from the logs, ores and bars you're carrying when a run ends.
  */
 
-export type StructureId = 'bank_chest' | 'herb_garden' | 'trophy_room' | 'workbench' | 'relic_altar' | 'pet_kennel';
+export type StructureId = 'bank_chest' | 'herb_garden' | 'trophy_room' | 'workbench' | 'relic_altar' | 'pet_kennel' | 'library';
 
 export interface Materials {
   timber: number;
@@ -73,6 +73,14 @@ export const STRUCTURES: StructureDef[] = [
       lvl(120, 40, 10, 'Your following pet gives a bonus that grows as it comes on runs.'),
       lvl(260, 70, 20, 'Pet bonuses x1.5.'),
       lvl(500, 120, 40, 'Pet bonuses x2.'),
+    ],
+  },
+  {
+    id: 'library', name: 'Library', pos: { x: 6, y: 14 },
+    levels: [
+      lvl(300, 60, 20, '+10% skill mastery points from every run.'),
+      lvl(800, 120, 60, '+20% skill mastery points.'),
+      lvl(2000, 200, 120, '+30% skill mastery points.'),
     ],
   },
 ];
