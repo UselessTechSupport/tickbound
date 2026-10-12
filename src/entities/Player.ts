@@ -53,6 +53,9 @@ export class Player extends Actor {
   activePrayers = new Set<string>();
   /** OSRS drain counter; a point drains each time it passes the drain resistance. */
   prayerDrain = 0;
+  /** Perks: extra max HP (Constitution) and bow range (Long Range). */
+  hpBonus = 0;
+  bowRangeBonus = 0;
   /** Special attack energy, 0-100. */
   specEnergy = 100;
   /** The next attack uses the weapon's special attack. */
@@ -69,7 +72,7 @@ export class Player extends Actor {
   }
 
   get maxHp(): number {
-    return this.skills.level('hitpoints');
+    return this.skills.level('hitpoints') + this.hpBonus;
   }
 
   /** Real level plus any potion boost; used in combat. */
@@ -112,7 +115,7 @@ export class Player extends Actor {
     const w = this.equipment.weapon;
     const e = w ? item(w).equip : undefined;
     if (!e?.combatStyle) return 1;
-    return (e.attackRange ?? 7) + (e.combatStyle === 'ranged' && this.style === 'defensive' ? 2 : 0);
+    return (e.attackRange ?? 7) + (e.combatStyle === 'ranged' ? this.bowRangeBonus + (this.style === 'defensive' ? 2 : 0) : 0);
   }
 
   bonuses(): { attack: number; strength: number; defence: number; speed: number; ranged: number; rangedStrength: number; magic: number } {

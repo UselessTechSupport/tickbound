@@ -55,7 +55,8 @@ export function gatherChance(level: number, def: ResourceDef, tier: number, perk
 export function gatherRoll(g: GameState, node: ResourceNode): boolean {
   const p = g.player;
   const def = node.def!;
-  if (RNG.getUniform() >= gatherChance(p.skills.level(def.skill), def, toolTier(p, def), g.mods.gatherBonus)) return true;
+  const sure = g.perkRank('master_gatherer') > 0;
+  if (!sure && RNG.getUniform() >= gatherChance(p.skills.level(def.skill), def, toolTier(p, def), g.mods.gatherBonus)) return true;
 
   p.inventory.add(def.product);
   g.sound(def.kind === 'rock' ? 'mine' : def.kind === 'tree' ? 'chop' : 'fish');
@@ -64,6 +65,14 @@ export function gatherRoll(g: GameState, node: ResourceNode): boolean {
   if (RNG.getUniform() < g.mods.doubleResourceChance && p.inventory.canAdd(def.product)) {
     p.inventory.add(def.product);
     g.message('Rich Veins: you gather an extra one!');
+  }
+  if (def.kind === 'herb' && RNG.getUniform() < 0.2 * g.perkRank('herb_lore') && p.inventory.canAdd(def.product)) {
+    p.inventory.add(def.product);
+    g.message('Herb Lore: you pick two!');
+  }
+  if (RNG.getUniform() < 0.03 * g.perkRank('prospector')) {
+    const coins = 5 + Math.floor(RNG.getUniform() * 21);
+    if (p.inventory.add('coins', coins)) g.message(`Prospector: you find ${coins} coins.`);
   }
   node.remaining--;
   g.message(def.kind === 'fishing' ? `You catch some ${lower(def.product).replace('raw ', '')}.`
@@ -128,8 +137,15 @@ export function processStep(g: GameState, recipe: Recipe): void {
     return;
   }
   // Fletcher's Kit relic: half as many arrows again.
-  const kit = recipe.station === 'fletch' && (recipe.outputQty ?? 1) > 1 && g.hasRelic('fletchers_kit') ? 1.5 : 1;
-  const qty = Math.floor((recipe.outputQty ?? 1) * kit);
+  const arrows = recipe.station === 'fletch' && (recipe.outputQty ?? 1) > 1;
+  const kit = arrows && g.hasRelic('fletchers_kit') ? 1.5 : 1;
+  // Fine Fletching adds arrows; Efficient Smelting and Herbalist sometimes make a second.
+  let qty = Math.floor((recipe.outputQty ?? 1) * kit) + (arrows ? 2 * g.perkRank('fine_fletching') : 0);
+  if (recipe.station === 'furnace' && RNG.getUniform() < 0.1 * g.perkRank('efficient_smelting')) qty++;
+  if (recipe.station === 'mix' && RNG.getUniform() < 0.1 * g.perkRank('herbalist')) qty++;
+  // Chef's Touch keeps the raw fish; Grandmaster Crafter can keep any craft's materials.
+  if (recipe.station === 'fire' && RNG.getUniform() < 0.1 * g.perkRank('chefs_touch')) p.inventory.add(recipe.inputs[0].item);
+  else if (RNG.getUniform() < 0.1 * g.perkRank('grandmaster_crafter')) for (const i of recipe.inputs) p.inventory.add(i.item, i.qty);
   if (!p.inventory.add(recipe.output, qty)) g.dropHere(recipe.output, qty);
   g.sound(recipe.station === 'fire' ? 'cook' : 'smith');
   if (recipe.station === 'fletch') g.stat('fletches');
