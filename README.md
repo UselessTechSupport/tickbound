@@ -38,6 +38,10 @@ npm run dev        # then open http://localhost:5173
 
 ## How a run works
 
+- **Daily contracts** (quest board): three new goals every day (kill a monster type, reach a floor, gather, cook,
+  thieve...), each paying tokens that scale with your best floor, plus a bonus for all three.
+- **The endless deep**: past floor 20, monsters keep getting 4% stronger per floor, so there's always further to go.
+- **Tokens from coins**: 20 coins = 1 token up to 2,000 coins; bigger piles taper off, so hoarding can't flood the economy.
 - **Floor events** (from floor 3, about 1 in 4 non-boss floors): Gilded Halls (double coins, tougher monsters),
   Infested (more monsters, +1 token per kill), Cursed (monsters hit harder, +2 tokens per kill), Darkness (short sight,
   +50% XP), Blessed Ground (slow prayer drain, slow healing) and the Treasure Goblin (catch it before it escapes).

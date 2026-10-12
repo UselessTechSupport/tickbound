@@ -17,6 +17,7 @@ import { SPEC_BY_WEAPON } from '../data/specials';
 import { FLOOR_EVENT_BY_ID } from '../data/floorEvents';
 import { MASTERY_BONUS, MASTERY_THRESHOLDS, MAX_MASTERY, masteryLevel, nextMasteryAt } from '../data/mastery';
 import { QUESTS, describeReward, isQuestPosted, questProgress } from '../data/quests';
+import { contractBonus, contractProgress, describeContract, ensureContracts } from '../data/contracts';
 import { PET_BUFFS, PET_MAX_LEVEL, STRUCTURES, TROPHY_BONUS, TROPHY_MOUNTS, nextStructureLevel, petBonus, petLevel } from '../data/construction';
 import { ARMOURY, ARMOURY_LINES, ArmouryLine, StartStyle, nextArmouryTier } from '../data/armoury';
 import { ENCHANTS, ENCHANT_COSTS, ENCHANT_SWITCH_FEE, ROMAN, describeEnchant, enchantCost, lineKind } from '../data/enchants';
@@ -155,6 +156,8 @@ export class UIScene extends Phaser.Scene {
   private logCategory = LOG_CATEGORIES[0].id;
   private dropsSubject: DropsSubject | null = null;
   private autoplayOverlay?: Phaser.GameObjects.Container;
+  /** Quest board: quests or daily contracts. */
+  private boardTab: 'quests' | 'contracts' = 'quests';
   /** Mentor window: which branch tab is open. */
   private treeBranch: Branch = 'melee';
   /** Enchanter window: which gear line is selected. */
@@ -812,6 +815,37 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
+  /** Daily contracts: three goals for today, a bonus for all three. */
+  private buildContracts(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T, x0: number): void {
+    const d = this.dungeon;
+    const m = d.meta;
+    ensureContracts(m);
+    const s = m.contracts!;
+    add(this.add.text(this.panelX / 2, 124, `Contracts for ${s.day}. New ones every day. Progress counts from when they were posted.`, {
+      ...FONT, fontSize: '11px', color: '#c8c8c8',
+    }).setOrigin(0.5, 0));
+    let y = 156;
+    for (const c of s.contracts) {
+      const [have, need] = contractProgress(c, m);
+      const claimed = s.claimed.includes(c.id);
+      add(this.add.text(x0, y, describeContract(c), { ...FONT, fontSize: '14px', color: claimed ? '#60ff60' : '#ff981f' }));
+      add(this.add.text(x0, y + 20, `Reward: ${c.tokens} tokens`, { ...FONT, fontSize: '11px', color: '#c8c8c8' }));
+      if (claimed) {
+        add(this.add.text(x0 + 680, y + 4, 'Done', { ...FONT, fontSize: '12px', color: '#60ff60' }).setOrigin(1, 0));
+      } else if (have >= need) {
+        const b = add(this.add.text(x0 + 680, y, 'Claim reward', {
+          ...FONT, fontSize: '12px', color: '#000000', backgroundColor: '#ffd040', padding: { x: 8, y: 4 },
+        }).setOrigin(1, 0).setInteractive({ useHandCursor: true }));
+        b.on('pointerdown', () => d.claimContractReward(c.id) && this.openModal('quests'));
+      } else {
+        add(this.add.text(x0 + 680, y + 4, `${have}/${need}`, { ...FONT, fontSize: '13px', color: '#ffff00' }).setOrigin(1, 0));
+      }
+      y += 52;
+    }
+    add(this.add.text(x0, y + 6, s.bonusClaimed ? 'All three done today: bonus claimed!'
+      : `Finish all three for a bonus of ${contractBonus(m.bestDepth)} tokens.`, { ...FONT, fontSize: '12px', color: s.bonusClaimed ? '#60ff60' : '#ffffff' }));
+  }
+
   /** Skill mastery: level, progress and bonus per skill, in two columns. */
   private buildMastery(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T): void {
     const m = this.dungeon.meta;
@@ -844,7 +878,23 @@ export class UIScene extends Phaser.Scene {
     const d = this.dungeon;
     const m = d.meta;
     const x0 = this.panelX / 2 - 340;
-    let y = 92;
+    // Tabs: quests | daily contracts.
+    (['quests', 'contracts'] as const).forEach((tab, i) => {
+      const on = this.boardTab === tab;
+      const b = add(this.add.text(this.panelX / 2 - 150 + i * 160, 86, tab === 'quests' ? 'Quests' : 'Daily contracts', {
+        ...FONT, fontSize: '13px', color: on ? '#ffffff' : '#a08a5a', backgroundColor: on ? '#5d5447' : '#2a241c',
+        padding: { x: 10, y: 4 }, fixedWidth: 150, align: 'center',
+      }).setInteractive({ useHandCursor: true }));
+      b.on('pointerdown', () => {
+        this.boardTab = tab;
+        this.openModal('quests');
+      });
+    });
+    if (this.boardTab === 'contracts') {
+      this.buildContracts(add, x0);
+      return;
+    }
+    let y = 122;
     const posted = QUESTS.filter((q) => isQuestPosted(q, m));
     for (const q of posted) {
       const done = m.questsDone.includes(q.id);

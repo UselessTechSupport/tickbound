@@ -151,6 +151,15 @@ const cardinalAdjacent = (a: Point, b: Point) => Math.abs(a.x - b.x) + Math.abs(
 const samePos = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
 const rand = () => RNG.getUniform();
 const GATHER_SKILLS: SkillName[] = ['mining', 'woodcutting', 'fishing'];
+
+/**
+ * Tokens for coins carried home: 20 coins per token up to 2,000 coins (100 tokens), then a
+ * tapering rate (square root), so hoarding huge piles of gold can't flood the economy.
+ */
+export function coinTokens(coins: number): number {
+  if (coins <= 2000) return Math.floor(coins / 20);
+  return Math.floor(100 * Math.sqrt(coins / 2000));
+}
 const COMBAT_SKILLS: SkillName[] = ['attack', 'strength', 'defence', 'ranged', 'magic', 'hitpoints'];
 
 /**
@@ -494,7 +503,7 @@ export class GameState {
   private rawTokens(): number {
     return 15 * (this.depth - 1) + this.kills + this.bonusTokens + this.mods.bossTokens * this.bossKills
       + (ELITE_TOKENS + 10 * this.perkRank('elite_hunter')) * this.eliteKills
-      + Math.floor(this.player.inventory.count('coins') / 20) * (this.perkRank('midas') ? 2 : 1);
+      + coinTokens(this.player.inventory.count('coins')) * (this.perkRank('midas') ? 2 : 1);
   }
 
   get depth(): number {

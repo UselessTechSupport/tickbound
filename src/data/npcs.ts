@@ -470,6 +470,17 @@ export function bossForDepth(depth: number): NpcDef {
 
 export const NPCS: Record<string, NpcDef> = Object.fromEntries(list.map((n) => [n.id, n]));
 
+/** Floor where the regular monster roster ends; deeper floors reuse its last band, scaled up. */
+export const DEEP_FLOOR = 20;
+/** Regular monsters past DEEP_FLOOR get 4% stronger per floor (bosses scale on their own). */
+export const DEEP_SCALE_PER_FLOOR = 0.04;
+
 export function npcsForDepth(depth: number): NpcDef[] {
-  return list.filter((n) => depth >= n.minDepth && depth <= n.maxDepth);
+  if (depth <= DEEP_FLOOR) return list.filter((n) => !n.boss && n.weight > 0 && depth >= n.minDepth && depth <= n.maxDepth);
+  // The endless deep: the last band's monsters, ever stronger.
+  const scale = 1 + DEEP_SCALE_PER_FLOOR * (depth - DEEP_FLOOR);
+  const s = (v: number) => Math.round(v * scale);
+  return npcsForDepth(DEEP_FLOOR).map((n) => ({
+    ...n, attack: s(n.attack), strength: s(n.strength), defence: s(n.defence), hitpoints: s(n.hitpoints),
+  }));
 }

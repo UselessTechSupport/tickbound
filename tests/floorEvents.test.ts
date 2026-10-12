@@ -68,3 +68,16 @@ describe('floor events', () => {
     expect(gilded.dropQuantity(coins)[0]).toBe(20);
   });
 });
+
+describe('the endless deep', () => {
+  it('every floor has monsters, and they keep getting stronger past floor 20', async () => {
+    const { npcsForDepth } = await import('../src/data/npcs');
+    for (const depth of [1, 5, 19, 20, 21, 40, 99, 100, 150]) expect(npcsForDepth(depth).length, `floor ${depth}`).toBeGreaterThan(0);
+    const hp = (d: number) => Math.max(...npcsForDepth(d).map((n) => n.hitpoints));
+    expect(hp(40)).toBeGreaterThan(hp(20));
+    expect(hp(100)).toBeGreaterThan(hp(40));
+    const g = new GameState(3);
+    g.loadFloor(120); // used to crash: no monsters were defined that deep
+    expect(g.npcs.length).toBeGreaterThan(0);
+  });
+});
