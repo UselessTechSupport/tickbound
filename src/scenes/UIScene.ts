@@ -162,6 +162,8 @@ export class UIScene extends Phaser.Scene {
   private dropsSubject: DropsSubject | null = null;
   private autoplayOverlay?: Phaser.GameObjects.Container;
   private pauseBanner?: Phaser.GameObjects.Text;
+  /** Quest board page. */
+  private questPage = 0;
   /** Quest board: quests or daily contracts. */
   private boardTab: 'quests' | 'contracts' = 'quests';
   /** Mentor window: which branch tab is open. */
@@ -944,8 +946,21 @@ export class UIScene extends Phaser.Scene {
       return;
     }
     let y = 122;
-    const posted = QUESTS.filter((q) => isQuestPosted(q, m));
-    for (const q of posted) {
+    // Unfinished quests first, ten to a page.
+    const posted = QUESTS.filter((q) => isQuestPosted(q, m))
+      .sort((a, b) => Number(m.questsDone.includes(a.id)) - Number(m.questsDone.includes(b.id)));
+    const PER_PAGE = 10;
+    const pages = Math.max(1, Math.ceil(posted.length / PER_PAGE));
+    this.questPage = Math.min(this.questPage, pages - 1);
+    if (pages > 1) {
+      const nav = add(this.add.text(x0 + 680, 90, `Page ${this.questPage + 1}/${pages}  [Next]`, { ...FONT, fontSize: '12px', color: '#ffff00' })
+        .setOrigin(1, 0).setInteractive({ useHandCursor: true }));
+      nav.on('pointerdown', () => {
+        this.questPage = (this.questPage + 1) % pages;
+        this.openModal('quests');
+      });
+    }
+    for (const q of posted.slice(this.questPage * PER_PAGE, (this.questPage + 1) * PER_PAGE)) {
       const done = m.questsDone.includes(q.id);
       const [have, need] = questProgress(q, m);
       const relicName = q.reward.relic ? RELIC_BY_ID[q.reward.relic].name : undefined;
