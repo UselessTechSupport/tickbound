@@ -91,7 +91,9 @@ export function addMastery(m: MetaSave, g: GameState): Array<{ skill: SkillName;
     const gained = g.player.skills.level(skill) - (g.levelsAtStart[skill] ?? g.player.skills.level(skill));
     if (gained <= 0) continue;
     const before = masteryLevel(m.masteryPoints[skill] ?? 0);
-    m.masteryPoints[skill] = (m.masteryPoints[skill] ?? 0) + gained;
+    // Library: more mastery points per level gained.
+    const library = 1 + 0.1 * (m.structures.library ?? 0);
+    m.masteryPoints[skill] = (m.masteryPoints[skill] ?? 0) + Math.round(gained * library);
     const after = masteryLevel(m.masteryPoints[skill]!);
     if (after > before) ups.push({ skill, level: after });
   }
