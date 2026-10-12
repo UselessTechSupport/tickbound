@@ -300,6 +300,7 @@ export class DungeonScene extends Phaser.Scene {
     this.npcViews.clear();
     state.setRunning(settings.run);
     state.autoPickup = settings.autoPickup;
+    state.autoRetaliate = settings.autoRetaliate;
     this.state = state;
     this.onFloorChanged();
     this.bus.emit('newrun');

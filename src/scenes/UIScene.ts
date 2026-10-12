@@ -1275,6 +1275,10 @@ export class UIScene extends Phaser.Scene {
     toggle('Sound effects', () => !settings.muted, () => sfx.toggleMute());
     heading('Gameplay');
     toggle('Run by default', () => settings.run, (v) => this.dungeon.setRunning(v));
+    toggle('Auto retaliate', () => settings.autoRetaliate, (v) => {
+      settings.autoRetaliate = v;
+      this.state.autoRetaliate = v;
+    });
     toggle('Low-HP warning', () => settings.lowHpWarning, (v) => (settings.lowHpWarning = v));
     toggle('Ground item labels', () => settings.groundLabels, (v) => (settings.groundLabels = v));
     toggle('Unlock toasts', () => settings.showToasts, (v) => (settings.showToasts = v));
