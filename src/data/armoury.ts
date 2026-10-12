@@ -3,7 +3,7 @@
  * Gear above your level starts in your pack until you can wield it.
  */
 
-export type ArmouryLine = 'melee' | 'ranged' | 'magic' | 'body' | 'ranged_body' | 'magic_body' | 'shield';
+export type ArmouryLine = 'melee' | 'ranged' | 'magic' | 'body' | 'ranged_body' | 'magic_body' | 'shield' | 'ranged_shield' | 'magic_shield';
 export type StartStyle = 'melee' | 'ranged' | 'magic';
 
 export interface ArmouryTier {
@@ -65,7 +65,23 @@ export const ARMOURY: Record<ArmouryLine, { name: string; tiers: ArmouryTier[] }
       { label: "Ahrim's robetop", cost: 700, items: [{ id: 'ahrims_robetop', qty: 1 }] },
     ],
   },
-  shield: { name: 'Shield', tiers: metalLine('kiteshield', [15, 40, 80, 160, 320, 640]) },
+  shield: { name: 'Melee shield', tiers: metalLine('kiteshield', [15, 40, 80, 160, 320, 640]) },
+  ranged_shield: {
+    name: 'Ranged off-hand',
+    tiers: [
+      { label: 'Leather buckler', cost: 20, items: [{ id: 'leather_buckler', qty: 1 }] },
+      { label: 'Studded buckler', cost: 120, items: [{ id: 'studded_buckler', qty: 1 }] },
+      { label: "D'hide buckler", cost: 350, items: [{ id: 'dhide_buckler', qty: 1 }] },
+    ],
+  },
+  magic_shield: {
+    name: 'Magic off-hand',
+    tiers: [
+      { label: "Apprentice's tome", cost: 20, items: [{ id: 'apprentice_tome', qty: 1 }] },
+      { label: "Mage's book", cost: 150, items: [{ id: 'mages_book', qty: 1 }] },
+      { label: 'Arcane tome', cost: 400, items: [{ id: 'arcane_tome', qty: 1 }] },
+    ],
+  },
 };
 
 /** The late-game tier for every line, sold after your first Ancient Wyrm kill. */
@@ -78,6 +94,8 @@ const LATE: Record<ArmouryLine, ArmouryTier> = {
   ranged_body: { label: "Black d'hide body", cost: 2500, requiresKill: WYRM, items: [{ id: 'black_dhide_body', qty: 1 }] },
   magic_body: { label: 'Ancestral robe top', cost: 3000, requiresKill: WYRM, items: [{ id: 'ancestral_top', qty: 1 }] },
   shield: { label: 'Dragon kiteshield', cost: 2000, requiresKill: WYRM, items: [{ id: 'dragon_kiteshield', qty: 1 }] },
+  ranged_shield: { label: "Black d'hide buckler", cost: 2000, requiresKill: WYRM, items: [{ id: 'black_dhide_buckler', qty: 1 }] },
+  magic_shield: { label: 'Ancestral tome', cost: 2000, requiresKill: WYRM, items: [{ id: 'ancestral_tome', qty: 1 }] },
 };
 for (const line of Object.keys(LATE) as ArmouryLine[]) ARMOURY[line].tiers.push(LATE[line]);
 
@@ -85,10 +103,14 @@ export const ARMOURY_LINES = Object.keys(ARMOURY) as ArmouryLine[];
 
 export type ArmouryRanks = Record<ArmouryLine, number>;
 
-export const NO_ARMOURY: ArmouryRanks = { melee: 0, ranged: 0, magic: 0, body: 0, ranged_body: 0, magic_body: 0, shield: 0 };
+export const NO_ARMOURY: ArmouryRanks = {
+  melee: 0, ranged: 0, magic: 0, body: 0, ranged_body: 0, magic_body: 0, shield: 0, ranged_shield: 0, magic_shield: 0,
+};
 
 /** The armour line that suits each starting style (worn first if you can). */
 export const STYLE_ARMOUR: Record<StartStyle, ArmouryLine> = { melee: 'body', ranged: 'ranged_body', magic: 'magic_body' };
+/** The off-hand line that suits each starting style. */
+export const STYLE_SHIELD: Record<StartStyle, ArmouryLine> = { melee: 'shield', ranged: 'ranged_shield', magic: 'magic_shield' };
 
 /** The next tier to buy in a line, or null when it's maxed. */
 export function nextArmouryTier(ranks: ArmouryRanks, line: ArmouryLine): ArmouryTier | null {

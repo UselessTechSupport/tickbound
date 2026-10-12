@@ -136,6 +136,8 @@ export function bodyLayer(id: string | undefined): SpriteRef {
 export function shieldLayer(id: string | undefined): SpriteRef | null {
   if (!id) return null;
   if (id === 'wooden_shield') return { key: 'pd_wooden_shield' };
+  if (id.endsWith('_buckler')) return { key: 'pd_wooden_shield', tint: item(id).color };
+  if (id.endsWith('tome') || id === 'mages_book') return null; // held at the side, not drawn
   return { key: 'pd_kiteshield', tint: metalOf(id) };
 }
 
@@ -169,6 +171,34 @@ const BAR = [
   '.oxxxxxxxxxxdo',
   '.odddddddddddo',
   '..ooooooooooo',
+];
+
+const BUCKLER = [
+  '', '', '', '',
+  '......oooooo',
+  '....ooXXXXxxoo',
+  '...oXXXxxxxxddo',
+  '...oXXxxkkxxddo',
+  '..oXxxxkddkxxddo',
+  '..oxxxxkddkxxddo',
+  '...oxxxxkkxxddo',
+  '...oxxxxxxxxddo',
+  '....ooxxxxddoo',
+  '......oooooo',
+];
+
+const BOOK = [
+  '', '', '', '',
+  '....ooooooooo',
+  '...oXXXXXXXxo',
+  '...oXxxxxxxxop',
+  '...oXxXXXXxxop',
+  '...oXxxxxxxxop',
+  '...oXxxxxxxxop',
+  '...oXxxxxxxxop',
+  '...oXxxxxxxxop',
+  '...odddddddddop',
+  '....oooooooooo',
 ];
 
 const GEM = [
@@ -409,6 +439,8 @@ export function generateSprites(scene: Phaser.Scene): void {
     else if (def.id.endsWith('_ore') || def.id === 'coal') paint(scene, `gen_${def.id}`, ORE, { ...ROCK, x: c, X: shade(c, 1.4) });
     else if (def.id.endsWith('_bar')) paint(scene, `gen_${def.id}`, BAR, tones);
     else if (['sapphire', 'emerald', 'ruby', 'diamond', 'dragonstone'].includes(def.id)) paint(scene, `gen_${def.id}`, GEM, { ...tones, w: 0xffffff });
+    else if (def.id.endsWith('_buckler')) paint(scene, `gen_${def.id}`, BUCKLER, tones);
+    else if (def.id.endsWith('tome') || def.id === 'mages_book') paint(scene, `gen_${def.id}`, BOOK, { ...tones, p: 0xf0e8d0 });
     else if (def.equip?.slot === 'amulet') paint(scene, `gen_${def.id}`, AMULET, { ...tones, g: 0xe0c040, G: 0xa08020, w: 0xffffff });
     else if (def.id.endsWith('logs')) paint(scene, `gen_${def.id}`, LOGS, tones);
     else if (def.id.includes('shrimps')) paint(scene, `gen_${def.id}`, SHRIMP, tones);

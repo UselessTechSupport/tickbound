@@ -46,7 +46,7 @@ export interface Enchantment {
 export type Enchantments = Partial<Record<ArmouryLine, Enchantment>>;
 
 export function lineKind(line: ArmouryLine): EnchantKind {
-  return line === 'body' || line === 'ranged_body' || line === 'magic_body' || line === 'shield' ? 'armour' : 'weapon';
+  return ['body', 'ranged_body', 'magic_body', 'shield', 'ranged_shield', 'magic_shield'].includes(line) ? 'armour' : 'weapon';
 }
 
 export function enchantValue(e: Enchantment): number {
