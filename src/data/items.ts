@@ -131,6 +131,9 @@ const list: ItemDef[] = [
   { id: 'adamant_arrow', name: 'Adamant arrow', color: ADAMANT, stackable: true, equip: arrows(31, 30), examine: 'Arrows with adamant heads.' },
   { id: 'rune_arrow', name: 'Rune arrow', color: RUNE, stackable: true, equip: arrows(49, 40), examine: 'Arrows with rune heads.' },
   { id: 'leather_body', name: 'Leather body', color: 0x8a5a2a, equip: robe(0, 2, 8, 'defence', 1), examine: 'Better than no armour!' },
+  { id: 'hardleather_body', name: 'Hardleather body', color: 0x6a4a2a, equip: robe(-4, 6, 14, 'ranged', 10), examine: 'Harder than normal leather.' },
+  { id: 'studded_body', name: 'Studded body', color: 0x7a6a5a, equip: robe(-6, 10, 20, 'ranged', 20), examine: 'Leather armour reinforced with metal studs.' },
+  { id: 'blue_dhide_body', name: "Blue d'hide body", color: 0x3a5ab0, equip: robe(-15, 22, 40, 'ranged', 50), examine: 'Made from 100% real blue dragonhide.' },
   { id: 'green_dhide_body', name: "Green d'hide body", color: 0x3a8a3a, equip: robe(-15, 15, 30, 'ranged', 40), examine: 'Made from 100% real dragonhide.' },
 
   // Magic
@@ -142,6 +145,9 @@ const list: ItemDef[] = [
   { id: 'mystic_air_staff', name: 'Mystic air staff', color: 0xe8e8ff, equip: staff(18, 40, 'air_rune'), examine: 'It is a slightly magical stick of air.' },
   { id: 'mystic_fire_staff', name: 'Mystic fire staff', color: 0xff7040, equip: staff(18, 40, 'fire_rune'), examine: 'It is a slightly magical stick of fire.' },
   { id: 'wizard_robe', name: 'Wizard robe', color: 0x3a4aa0, equip: robe(5, 0, 2, 'magic', 1), examine: 'I can do magic better in this.' },
+  { id: 'splitbark_body', name: 'Splitbark body', color: 0x7a5a3a, equip: robe(10, -4, 22, 'magic', 15), examine: 'Bark armour that does not hinder spellcasting.' },
+  { id: 'infinity_top', name: 'Infinity top', color: 0xd0d8ff, equip: robe(24, 0, 20, 'magic', 45), examine: 'Robes of the Magic Training Arena.' },
+  { id: 'ahrims_robetop', name: "Ahrim's robetop", color: 0x3a2a3a, equip: robe(30, -10, 45, 'magic', 60), examine: "Ahrim the Blighted's armoured robes." },
   { id: 'mystic_robe_top', name: 'Mystic robe top', color: 0x5a5ad0, equip: robe(20, 0, 14, 'magic', 30), examine: 'The upper half of a magical robe.' },
   { id: 'air_rune', name: 'Air rune', color: 0xe0e0f0, stackable: true, examine: 'One of the 4 basic elemental runes.' },
   { id: 'water_rune', name: 'Water rune', color: 0x4070ff, stackable: true, examine: 'One of the 4 basic elemental runes.' },

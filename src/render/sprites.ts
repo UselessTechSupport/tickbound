@@ -25,6 +25,7 @@ const TILE_KEYS = [
   'item_shortbow', 'item_arrow', 'item_staff', 'item_elemental_staff', 'item_mystic_staff', 'item_robe',
   'item_leather_body', 'item_dhide_body', 'pd_bow', 'pd_staff', 'pd_elemental_staff', 'pd_mystic_staff',
   'pd_wizard_robe', 'pd_mystic_robe', 'pd_leather_body', 'pd_dhide_body',
+  'pd_hardleather_body', 'pd_studded_body', 'pd_blue_dhide_body', 'pd_splitbark_body', 'pd_infinity_top', 'pd_ahrims_robetop',
 ];
 
 export function preloadSprites(scene: Phaser.Scene): void {
@@ -60,6 +61,12 @@ function rangedMagicSprite(id: string, layer: 'item' | 'pd'): SpriteRef | null {
   if (id === 'mystic_robe_top') return layer === 'item' ? { key: 'item_robe', tint: 0x9090ff } : { key: 'pd_mystic_robe' };
   if (id === 'leather_body') return { key: `${layer}_leather_body` };
   if (id === 'green_dhide_body') return { key: `${layer}_dhide_body` };
+  // Newer armour: own paperdoll sprites; inventory icons reuse a tinted base icon.
+  const pd: Record<string, [string, number]> = {
+    hardleather_body: ['leather_body', 0x9a7050], studded_body: ['leather_body', 0xb0a090], blue_dhide_body: ['dhide_body', 0x80a0ff],
+    splitbark_body: ['robe', 0xa07848], infinity_top: ['robe', 0xf0f0ff], ahrims_robetop: ['robe', 0x806070],
+  };
+  if (pd[id]) return layer === 'pd' ? { key: `pd_${id}` } : { key: `item_${pd[id][0]}`, tint: pd[id][1] };
   return null;
 }
 
