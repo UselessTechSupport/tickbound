@@ -223,6 +223,9 @@ export class GameState {
   activeMerchant: ResourceNode | null = null;
   /** Quest relics unlocked so far (they join the relic pool). */
   questRelics: string[] = [];
+  /** Warding Charm shield left on this floor; Phoenix Feather used on this floor. */
+  wardLeft = 0;
+  phoenixUsedFloor = false;
   /** Run modifiers in effect. */
   modifiers: string[] = [];
   /** Curses taken at dark shrines this run. */
@@ -272,6 +275,7 @@ export class GameState {
     const startRelic = setup.campSetup?.startRelic;
     if (startRelic && RELIC_BY_ID[startRelic]) {
       this.relics.push(startRelic);
+      this.applyRelicNow(startRelic);
       this.message(`The relic altar grants you the ${RELIC_BY_ID[startRelic].name}.`);
     }
     if (startDepth > 1) {
@@ -482,6 +486,8 @@ export class GameState {
       dmg *= f;
     };
     if (mode === 'melee' && p.hp < p.maxHp / 2) both(1 + 0.05 * r('rage'));
+    if (mode === 'ranged' && this.hasRelic('hunters_eye')) acc *= 1.1;
+    if (target && target.hp < target.maxHp / 2 && this.hasRelic('executioners_axe')) dmg *= 1.2;
     if (mode === 'magic' && p.hp > p.maxHp * 0.75) both(1 + 0.05 * r('overcharge'));
     if (target) {
       if (mode === 'melee' && target.hp < target.maxHp / 4) dmg *= 1 + 0.1 * r('executioner');
@@ -504,6 +510,12 @@ export class GameState {
     if (rand() >= 0.1 * this.perkRank('preservation')) return false;
     this.message('Preservation: the potion is not used up.');
     return true;
+  }
+
+  /** Relics with an immediate effect when gained (also used for the relic altar's starting relic). */
+  private applyRelicNow(id: string): void {
+    if (id === 'warding_charm') this.wardLeft = 10;
+    if (id === 'hunters_eye') this.player.bowRangeBonus += 1;
   }
 
   /** Undying (and Phoenix) charges left this run. */
@@ -596,6 +608,8 @@ export class GameState {
     }
     this.floorKills = 0;
     this.hitThisFloor = false;
+    this.wardLeft = this.hasRelic('warding_charm') ? 10 : 0;
+    this.phoenixUsedFloor = false;
     this.saintUsedFloor = false;
     this.groundItems = [];
     this.pendingHits = [];
@@ -969,7 +983,8 @@ export class GameState {
     const lo = d.min ?? 1;
     const hi = d.max ?? lo;
     if (d.item !== 'coins') return [lo, hi];
-    const mult = this.mods.coinMult * (this.hasRelic('ring_of_wealth') ? 2 : 1) * (this.floorEvent === 'gilded' ? 2 : 1);
+    const mult = this.mods.coinMult * (this.hasRelic('ring_of_wealth') ? 2 : 1) * (this.floorEvent === 'gilded' ? 2 : 1)
+      * (this.hasRelic('scavengers_pouch') ? 1.5 : 1);
     return [Math.floor(lo * mult), Math.floor(hi * mult)];
   }
 
@@ -993,6 +1008,7 @@ export class GameState {
     if (!this.pendingRelics?.includes(id)) return;
     this.relics.push(id);
     this.stat('relics');
+    this.applyRelicNow(id);
     this.pendingRelics = null;
     this.message(`You gain the ${RELIC_BY_ID[id].name}: ${RELIC_BY_ID[id].desc}`);
     this.sound('levelup');
@@ -1854,6 +1870,7 @@ export class GameState {
 
   private castSpell(spell: SpellDef): void {
     if (rand() < this.mods.runeSaveChance) return; // Arcane Thrift
+    if (this.hasRelic('arcane_battery') && rand() < 0.25) return;
     const tome = this.hasRelic('tome_of_fire');
     for (const [rune, n] of Object.entries(spell.runes)) {
       if (tome && ELEMENTAL_RUNES.includes(rune)) continue;
@@ -1915,7 +1932,7 @@ export class GameState {
       this.message(`You defeat the ${npc.name}! Elites drop double loot.`);
     }
     // Regular monsters sometimes drop a herb that grows at this depth; elites always do.
-    if (!npc.isBoss && npc.def.id !== 'mimic' && (npc.elite || rand() < HERB_DROP_CHANCE * (1 + 0.25 * this.perkRank('forager')))) {
+    if (!npc.isBoss && npc.def.id !== 'mimic' && (npc.elite || rand() < HERB_DROP_CHANCE * (1 + 0.25 * this.perkRank('forager')) * (this.hasRelic('scavengers_pouch') ? 2 : 1))) {
       this.groundItems.push(new GroundItem(herbForDepth(this.depth, rand), 1, { ...npc.pos }));
     }
     // Rarely, a special attack weapon.
@@ -2082,9 +2099,22 @@ export class GameState {
       dmg = p.hp - 1;
       this.message('You narrowly cheat death! (Undying)');
     }
+    // Warding Charm: a per-floor shield soaks damage first.
+    if (dmg > 0 && this.wardLeft > 0) {
+      const soaked = Math.min(this.wardLeft, dmg);
+      this.wardLeft -= soaked;
+      dmg -= soaked;
+      if (!this.wardLeft) this.message('Your ward shatters.');
+    }
     if (npc.isBoss && dmg > 0) this.bossDamage.set(npc, (this.bossDamage.get(npc) ?? 0) + dmg);
     if (npc.elite?.id === 'vampiric' && dmg > 0) npc.hp = Math.min(npc.maxHp, npc.hp + Math.ceil(dmg / 2));
     this.applyHit(p, dmg);
+    // Phoenix Feather: once per floor, a burst of healing when you're nearly down.
+    if (!p.dead && this.hasRelic('phoenix_feather') && !this.phoenixUsedFloor && p.hp < p.maxHp * 0.2) {
+      this.phoenixUsedFloor = true;
+      p.hp = Math.min(p.maxHp, p.hp + Math.ceil(p.maxHp * 0.3));
+      this.message('The Phoenix Feather flares, and your wounds close!');
+    }
     // Auto-retaliate when idle or skilling.
     const busy = p.intent?.kind;
     const canRetaliate = !npc.dead && this.npcs.includes(npc);
