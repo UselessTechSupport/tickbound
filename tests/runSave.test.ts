@@ -56,6 +56,20 @@ describe('resume after refresh', () => {
     expect(r.npcs).toContain(intent.npc);
   });
 
+  it('restores a run saved before a game update added new fields', () => {
+    const g = new GameState(42, () => {}, {});
+    for (let i = 0; i < 50; i++) g.tick();
+    // A save from before traps and auto retaliate existed.
+    const data = JSON.parse(serializeRun(g));
+    delete data.game.f.traps;
+    delete data.game.f.autoRetaliate;
+    const r = deserializeRun(JSON.stringify(data), () => {})!;
+    expect(r.traps).toEqual([]);
+    expect(r.autoRetaliate).toBe(true);
+    expect(r.player.pos).toEqual(g.player.pos);
+    for (let i = 0; i < 200; i++) r.tick();
+  });
+
   it('rejects garbage', () => {
     expect(deserializeRun('{"v":1,"rng":[1,2,3,4],"game":{"$d":"nope"}}', () => {})).toBeNull();
     expect(deserializeRun('not json', () => {})).toBeNull();
