@@ -48,6 +48,7 @@ npm run dev        # then open http://localhost:5173
   Slayer category). Past floor 20, monsters keep getting 4% stronger per floor, so there's always further to go.
   Bosses: the Lich (floor 25) and the Ancient Wyrm (floor 30), then ever-stronger Wyrms.
 - **Tokens from coins**: 20 coins = 1 token up to 2,000 coins; bigger piles taper off, so hoarding can't flood the economy.
+- **Dark shrines** (floor 4+): pick a relic, but take a random curse for the run (Frailty, Exposure, Famine or Unrest).
 - **Floor events** (from floor 3, about 1 in 4 non-boss floors): Gilded Halls (double coins, tougher monsters),
   Infested (more monsters, +1 token per kill), Cursed (monsters hit harder, +2 tokens per kill), Darkness (short sight,
   +50% XP), Blessed Ground (slow prayer drain, slow healing) and the Treasure Goblin (catch it before it escapes).

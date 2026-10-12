@@ -27,6 +27,7 @@ import { SLAYER_BONUS_PER_LEVEL, SLAYER_BY_ID, SlayerTask } from '../data/slayer
 import { themeForDepth } from '../data/themes';
 import { ArmouryRanks, NO_ARMOURY, STYLE_ARMOUR, StartStyle, armouryKit } from '../data/armoury';
 import { catchUpFor } from '../data/catchup';
+import { CURSES } from '../data/curses';
 import { DARKNESS_FOV, FLOOR_EVENT_BY_ID, FloorEventId, GOBLIN_ESCAPE_TICKS, rollFloorEvent, treasureGoblin } from '../data/floorEvents';
 import { MasteryLevels, masteryValue } from '../data/mastery';
 import { GARDEN_POOL, GARDEN_SUPER_POOL, STRUCTURE_BY_ID, StructureId, WORKBENCH_SKILLS } from '../data/construction';
@@ -218,6 +219,8 @@ export class GameState {
   activeMerchant: ResourceNode | null = null;
   /** Quest relics unlocked so far (they join the relic pool). */
   questRelics: string[] = [];
+  /** Curses taken at dark shrines this run. */
+  curses: string[] = [];
   /** This floor's event, if any; bonus tokens earned from events this run. */
   floorEvent: FloorEventId | null = null;
   bonusTokens = 0;
@@ -393,6 +396,17 @@ export class GameState {
       if (spot) this.npcs.push(new Npc(treasureGoblin(depth), spot));
       else this.floorEvent = null;
     }
+  }
+
+  hasCurse(id: string): boolean {
+    return this.curses.includes(id);
+  }
+
+  /** Frailty: lose a tenth of your max HP for the run. */
+  private applyFrailty(): void {
+    const p = this.player;
+    p.hpBonus -= Math.max(1, Math.round(p.maxHp * 0.1));
+    p.hp = Math.min(p.hp, p.maxHp);
   }
 
   /** Rank of a Mentor perk this run (0 if not bought). */
@@ -1028,7 +1042,7 @@ export class GameState {
     } else if (def.heal) {
       if (p.eatCooldown > 0) return;
       p.inventory.take(slot, 1);
-      const heal = (def.heal + this.mods.foodHealBonus) * (this.hasRelic('gourmet') ? 1.5 : 1);
+      const heal = (def.heal + this.mods.foodHealBonus) * (this.hasRelic('gourmet') ? 1.5 : 1) * (this.hasCurse('famine') ? 0.8 : 1);
       p.hp = Math.min(p.maxHp, p.hp + Math.floor(heal));
       p.eatCooldown = EAT_DELAY;
       p.attackCooldown += Math.max(0, EAT_DELAY - this.perkRank('quick_eater'));
@@ -1145,7 +1159,7 @@ export class GameState {
       p.specEnergy = Math.min(100, p.specEnergy + Math.round(SPEC_REGEN * (1 + 0.15 * this.perkRank('adrenaline'))));
     }
     const regen = Math.round(this.mods.hpRegenTicks / (this.hasRelic('regen_bracelet') ? 2 : 1));
-    if (this.tickCount % regen === 0 && p.hp < p.maxHp) p.hp++;
+    if (this.tickCount % regen === 0 && p.hp < p.maxHp && !this.hasCurse('unrest')) p.hp++;
     if (this.floorEvent === 'blessed' && this.tickCount % 10 === 0 && p.hp < p.maxHp) p.hp++;
     const renewal = this.enchantPower('renewal');
     if (renewal && this.tickCount % renewal === 0 && p.hp < p.maxHp) p.hp++;
@@ -1410,6 +1424,21 @@ export class GameState {
           this.emit({ type: 'campMenu', kind: 'merchant' });
         } else if (node.kind === 'chest') {
           this.openChest(node);
+        } else if (node.kind === 'dark_shrine') {
+          if (node.used) {
+            this.message('The dark shrine is silent.');
+          } else {
+            node.used = true;
+            const pool = CURSES.filter((c) => !this.curses.includes(c.id));
+            const curse = pool.length ? pool[Math.floor(rand() * pool.length)] : null;
+            if (curse) {
+              this.curses.push(curse.id);
+              if (curse.id === 'frailty') this.applyFrailty();
+              this.message(`The shrine takes its price. You are cursed with ${curse.name}: ${curse.desc}`);
+            }
+            this.sound('hurt');
+            this.offerRelics();
+          }
         } else if (node.kind === 'shrine') {
           if (node.used) {
             this.message('The shrine is dormant.');
@@ -1924,7 +1953,7 @@ export class GameState {
     const d = npc.def;
     const style = npc.attackStyle;
     const def = Math.floor(p.boostedLevel('defence') * (1 + p.prayerBoost('defence')));
-    const kiting = p.weaponType === 'ranged' ? 1 - 0.05 * this.perkRank('kiting') : 1;
+    const kiting = (p.weaponType === 'ranged' ? 1 - 0.05 * this.perkRank('kiting') : 1) * (this.hasCurse('exposure') ? 1.1 : 1);
     const attRoll = Math.floor(roll(d.attack + 9, d.attackBonus) * kiting);
     const petDefence = this.campBonus.pet?.kind === 'defence' ? this.campBonus.pet.amount : 0;
     const defRoll = Math.floor(roll(effectiveLevel(def, p.style === 'defensive' ? 3 : 0), p.bonuses().defence)

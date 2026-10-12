@@ -727,6 +727,7 @@ export class DungeonScene extends Phaser.Scene {
     if (node.kind === 'quest_board') return [{ label: 'Read Quest board', action: () => g.talkTo(node) }];
     if (node.kind in STRUCTURE_BY_ID) return [{ label: `Use ${node.name}`, action: () => g.talkTo(node) }];
     if (node.kind === 'shrine') return node.used ? [] : [{ label: 'Touch Relic shrine', action: () => g.talkTo(node) }];
+    if (node.kind === 'dark_shrine') return node.used ? [] : [{ label: 'Bargain-with Dark shrine', action: () => g.talkTo(node) }];
     if (node.kind === 'merchant') return [{ label: 'Trade Wandering merchant', action: () => g.talkTo(node) }];
     if (node.kind === 'chest') {
       if (node.used) return [];
@@ -981,6 +982,10 @@ export class DungeonScene extends Phaser.Scene {
         fx.lineStyle(1, 0xffd040, 0.45).strokeRect(n.pos.x * TILE + 1, n.pos.y * TILE + 1, TILE - 2, TILE - 2);
         break;
       }
+      case 'dark_shrine':
+        sprite('altar', n.used ? 0x404040 : 0xa02030);
+        if (!n.used) fx.lineStyle(2, 0xc02040, 0.8).strokeCircle(cx, cy, 14);
+        break;
       case 'shrine':
         sprite('shrine', n.used ? 0x606060 : undefined);
         if (!n.used) fx.lineStyle(2, 0xffd040, 0.7).strokeCircle(cx, cy, 14);
