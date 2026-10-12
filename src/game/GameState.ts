@@ -376,7 +376,7 @@ export class GameState {
     if (this.hasModifier('famished')) {
       p.inventory.slots.forEach((s, i) => s && item(s.id).heal && p.inventory.take(i));
     }
-    if (this.hasModifier('fragile')) p.hpBonus -= Math.round(p.maxHp * 0.25);
+    if (this.hasModifier('fragile')) p.hpMult *= 0.75;
     p.hp = p.maxHp;
     p.prayerPoints = p.maxPrayer;
   }
@@ -645,7 +645,7 @@ export class GameState {
   /** Frailty: lose a tenth of your max HP for the run. */
   private applyFrailty(): void {
     const p = this.player;
-    p.hpBonus -= Math.max(1, Math.round(p.maxHp * 0.1));
+    p.hpMult *= 0.9;
     p.hp = Math.min(p.hp, p.maxHp);
   }
 
@@ -735,6 +735,8 @@ export class GameState {
     this.assisted = true;
     this.autoplayed = true;
     this.tokenBaseline = this.rawTokens();
+    // Levels the bot gained don't count toward skill mastery.
+    this.levelsAtStart = Object.fromEntries(SKILLS.map((s) => [s, this.player.skills.level(s)]));
     this.message(`Autoplay hands over on floor ${this.depth}. Autoplayed floors pay half tokens. Good luck!`);
     this.message('Careful: if you die on an autoplayed run you get no tokens at all. Forfeit to bank them.');
   }
@@ -1777,7 +1779,9 @@ export class GameState {
         }
         p.prayerPoints = p.maxPrayer;
         this.message('You recharge your Prayer points.');
-        if (this.perkRank('sanctuary')) {
+        // Sanctuary heals once per altar (prayer can be recharged as often as you like).
+        if (this.perkRank('sanctuary') && !intent.node.sanctuaryUsed) {
+          intent.node.sanctuaryUsed = true;
           p.hp = Math.min(p.maxHp, p.hp + Math.ceil(p.maxHp * 0.5 * this.perkRank('sanctuary')));
           this.message('Sanctuary: the altar soothes your wounds.');
         }
@@ -2056,8 +2060,9 @@ export class GameState {
       if (dmg > 0) this.giveXp('ranged', (defensive ? 2 : 4) * dmg * XP_RATE);
       if (dmg > 0 && defensive) this.giveXp('defence', 2 * dmg * XP_RATE);
     } else {
-      // Spells give XP for the cast even on a splash, as in OSRS.
-      this.giveXp('magic', (spell!.baseXp + (defensive ? 1.33 : 2) * dmg) * XP_RATE);
+      // A landed spell pays half its base XP plus damage; a splash pays nothing
+      // (OSRS pays on every cast, which made magic level far faster than melee or ranged here).
+      if (dmg > 0) this.giveXp('magic', (0.5 * spell!.baseXp + (defensive ? 1.33 : 2) * dmg) * XP_RATE);
       if (dmg > 0 && defensive) this.giveXp('defence', dmg * XP_RATE);
     }
     if (dmg > 0) this.giveXp('hitpoints', (4 / 3) * dmg * XP_RATE);
@@ -2451,18 +2456,18 @@ export class GameState {
       this.applyHit(npc, recoil);
       if (npc.dead) this.killNpc(npc);
     }
-    if (dmg >= p.hp && this.undyingLeft() > 0) {
-      this.undyingUsed = true;
-      this.undyingTimes++;
-      dmg = p.hp - 1;
-      this.message('You narrowly cheat death! (Undying)');
-    }
-    // Warding Charm: a per-floor shield soaks damage first.
+    // Warding Charm: a per-floor shield soaks damage first (before Undying is spent).
     if (dmg > 0 && this.wardLeft > 0) {
       const soaked = Math.min(this.wardLeft, dmg);
       this.wardLeft -= soaked;
       dmg -= soaked;
       if (!this.wardLeft) this.message('Your ward shatters.');
+    }
+    if (dmg >= p.hp && this.undyingLeft() > 0) {
+      this.undyingUsed = true;
+      this.undyingTimes++;
+      dmg = p.hp - 1;
+      this.message('You narrowly cheat death! (Undying)');
     }
     if (npc.isBoss && dmg > 0) this.bossDamage.set(npc, (this.bossDamage.get(npc) ?? 0) + dmg);
     if (npc.elite?.id === 'vampiric' && dmg > 0) npc.hp = Math.min(npc.maxHp, npc.hp + Math.ceil(dmg / 2));
